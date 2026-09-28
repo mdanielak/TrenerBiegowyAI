@@ -1,0 +1,73 @@
+# Local data snapshots and Garmin databases
+data_latest.json
+data_snapshot*.json
+*snapshot*.json
+HealthData/
+GarminDb/
+.GarminDb/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.fit
+*.tcx
+*.gpx
+
+# Logs
+logs/
+*.log
+cache/
+.cache/
+
+# Copied from GarminDB (not original code)
+garmindb_cli.py
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Root-level Excel/CSV (old exports, not plans)
+/*.xlsx
+/*.csv
+
+# IDE / Editors
+.vscode/
+.idea/
+.~lock.*#
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local credentials and runtime profile
+*token*
+*cookie*
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+runner_profile.local.json
+
+# Local Garmin upload registry and agent memory
+training-plans/_garmin_workouts.jsonl
+training-plans/_garmin_workouts*.jsonl
+memory/
+
+# GarminDB internal
+GarminDB/.vscode/
+GarminDB/Jupyter/.ipynb_checkpoints/
+GarminDB/__pycache__/
+GarminDB/garmindb/__pycache__/

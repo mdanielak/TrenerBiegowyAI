@@ -1,0 +1,16 @@
+{
+  "name": "Example Runner",
+  "age": 30,
+  "weight_kg": "70",
+  "height_cm": 175,
+  "hr_max": 180,
+  "hr_rest": "50",
+  "lactate_threshold_hr": 165,
+  "hr_zones": "Configure personal heart-rate zones",
+  "current_hm_record": "Not set",
+  "target_hm": "Set a personal target",
+  "target_date": "Not set",
+  "training_frequency": "Configure locally",
+  "terrain": "Configure locally",
+  "device": "Configure locally"
+}

@@ -1,0 +1,6 @@
+garmindb>=3.9.0
+garminconnect>=0.3.11
+pydantic>=2.0
+openai>=1.0
+fastapi>=0.100
+uvicorn>=0.20
