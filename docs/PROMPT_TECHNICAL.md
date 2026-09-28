@@ -10,9 +10,10 @@ Jesteś asystentem technicznym projektu wspierającego lokalną analizę trening
 
 ## Dane i konfiguracja
 
-- Dane Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi, cache i `memory/` są lokalne oraz ignorowane przez Git.
+- Architektura single-user używa wyłącznie prywatnego, ignorowanego `local/`: `local/profile.json`, `local/data_latest.json`, `local/memory/` i `local/workout-registry.jsonl`.
+- Dane Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi i cache są lokalne oraz ignorowane przez Git. Starsze `memory/`, `data_latest.json` i `training-plans/_garmin_workouts.jsonl` pozostają ignorowane na czas migracji.
 - Nie odczytuj, nie wypisuj i nie publikuj tokenów, credentials ani prywatnych danych zdrowotnych.
-- `runner_profile.example.json` jest neutralnym, śledzonym wzorem. `runner_profile.local.json` jest lokalnym, ignorowanym profilem runtime.
+- `runner_profile.example.json` jest neutralnym, śledzonym wzorem. Profil runtime przechowuj w `local/profile.json`; `runner_profile.local.json` jest starszą, ignorowaną lokalizacją.
 - Lokalny `garmindb_cli.py` jest ignorowaną zależnością. Synchronizacja szuka go w katalogu projektu, w `GarminDB/` albo jako `garmindb_cli` w `PATH`.
 
 ## Struktura
@@ -22,9 +23,9 @@ config.py                         # Ścieżki i zmienne środowiskowe
 ai/context.py                     # Kontekst AI i ładowanie profilu runtime
 services/data_extract.py          # Synchronizacja oraz ekstrakcja danych
 analyze_and_readiness.py          # Analiza gotowości
-training-plans/long-term/mdanielak-half-marathon-2027.md
+training-plans/long-term/half-marathon-2027.md
                                   # Aktualna strategia długoterminowa
-training-plans/_garmin_workouts.jsonl
+local/workout-registry.jsonl
                                   # Lokalny, ignorowany rejestr uploadów
 ```
 

@@ -17,7 +17,7 @@ from config import DATA_LATEST
 from logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
-from services.data_extract import load_data_latest
+from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.readiness import compute_readiness_breakdown
 
 
@@ -82,22 +82,26 @@ def readiness():
 
     Requires data_latest.json to exist (run data_sync.py first).
     """
-    try:
-        logger.debug("Loading data from %s", DATA_LATEST)
-        data = load_data_latest()
-    except FileNotFoundError:
+    logger.debug("Loading data from %s", DATA_LATEST)
+    snapshot = read_snapshot_status()
+    if snapshot.status is SnapshotStatus.MISSING:
         logger.warning("data_latest.json not found")
         raise HTTPException(
             status_code=404,
             detail="data_latest.json not found. Run data_sync.py first."
         )
-    except Exception as e:
-        logger.exception("Error loading data")
+    if snapshot.status is SnapshotStatus.INVALID:
+        logger.error("Invalid snapshot: %s", snapshot.error)
         raise HTTPException(
             status_code=500,
-            detail=f"Error loading data: {e}"
+            detail=f"Invalid data snapshot: {snapshot.error}"
+        )
+    if snapshot.status is SnapshotStatus.STALE:
+        raise HTTPException(
+            status_code=409,
+            detail="Data snapshot is stale. Run data_sync.py before requesting readiness."
         )
 
-    breakdown = compute_readiness_breakdown(data)
+    breakdown = compute_readiness_breakdown(snapshot.data)
     logger.info("Readiness: score=%.1f, level=%s", breakdown['score'], breakdown['level'])
     return ReadinessResponse(**breakdown)

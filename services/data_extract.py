@@ -10,7 +10,9 @@ import logging
 import os
 import subprocess
 import time
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from enum import Enum
 import sqlite3
 import sys
 
@@ -19,11 +21,30 @@ from core import pace_str, parse_timedelta, check_hrv_alert
 logger = logging.getLogger(__name__)
 from config import (
     PROJECT_ROOT, ACT_DB, MAIN_DB, DATA_LATEST,
-    GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT,
+    GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, SNAPSHOT_TTL_SECONDS,
 )
 
 class GarminDBSyncError(RuntimeError):
     """GarminDB CLI did not complete, so its database snapshot is unsafe to export."""
+
+
+class SnapshotStatus(str, Enum):
+    MISSING = "missing"
+    INVALID = "invalid"
+    STALE = "stale"
+    FRESH = "fresh"
+
+
+@dataclass(frozen=True)
+class SnapshotReadResult:
+    status: SnapshotStatus
+    data: dict | None = None
+    error: Exception | None = None
+
+
+class SyncStatus(str, Enum):
+    FULL = "full"
+    PARTIAL = "partial"
 
 
 def _find_python():
@@ -99,7 +120,7 @@ def sync():
     """Run garmindb CLI incremental sync."""
     python = _find_python()
     script = _find_garmindb_cli()
-    download_today()
+    today_downloaded = download_today()
     cmd = [python, script, '--all', '--download', '--import', '--analyze', '--latest']
     logger.info("Starting incremental sync: %s", ' '.join(cmd[-3:]))
     print("  Syncing...", end=" ", flush=True)
@@ -124,6 +145,7 @@ def sync():
         raise GarminDBSyncError(message)
     else:
         logger.info("Sync completed successfully in %.0fs", elapsed)
+    return SyncStatus.FULL if today_downloaded else SyncStatus.PARTIAL
 
 
 def sync_full():
@@ -144,6 +166,7 @@ def sync_full():
         logger.error("%s: %s", message, (r.stderr or r.stdout or '').strip())
         raise GarminDBSyncError(message)
     logger.info("Full sync completed")
+    return SyncStatus.FULL
 
 
 def extract():
@@ -267,6 +290,7 @@ def extract():
 def save_json(data, path=None):
     """Save extracted data to JSON file."""
     path = path or DATA_LATEST
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"Data saved to {path}")
@@ -277,6 +301,30 @@ def load_data_latest(path=None):
     path = path or DATA_LATEST
     with open(path, encoding='utf-8') as f:
         return json.load(f)
+
+
+def read_snapshot_status(path=None, now=None, ttl_seconds=SNAPSHOT_TTL_SECONDS):
+    """Load a snapshot and classify it without changing ``load_data_latest`` API."""
+    path = path or DATA_LATEST
+    try:
+        data = load_data_latest(path)
+        timestamp = data.get("timestamp") if isinstance(data, dict) else None
+        if not timestamp:
+            raise ValueError("Snapshot is missing its timestamp")
+        created_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+    except FileNotFoundError as exc:
+        return SnapshotReadResult(SnapshotStatus.MISSING, error=exc)
+    except (json.JSONDecodeError, ValueError, TypeError) as exc:
+        return SnapshotReadResult(SnapshotStatus.INVALID, error=exc)
+
+    status = (SnapshotStatus.STALE if (current - created_at).total_seconds() > ttl_seconds
+              else SnapshotStatus.FRESH)
+    return SnapshotReadResult(status, data=data)
 
 
 def print_summary(d):

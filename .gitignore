@@ -1,4 +1,8 @@
-# Local data snapshots and Garmin databases
+# Single-user private runtime data
+# Everything below local/ may contain profile, health, training, or upload data.
+local/
+
+# Legacy private locations retained while installations migrate to local/
 data_latest.json
 data_snapshot*.json
 *snapshot*.json
@@ -64,6 +68,7 @@ runner_profile.local.json
 # Local Garmin upload registry and agent memory
 training-plans/_garmin_workouts.jsonl
 training-plans/_garmin_workouts*.jsonl
+workout-registry.jsonl
 memory/
 
 # GarminDB internal

@@ -131,10 +131,10 @@ Kolejność naprawy „złego" pasa piersiowego:
 
 ## 6. STRATEGIA I KONWENCJE PLIKÓW
 
-- `training-plans/long-term/mdanielak-half-marathon-2027.md` zawiera aktualną strategię i cele długoterminowe; jest źródłem kierunku dla planowania tygodniowego.
+- `training-plans/long-term/half-marathon-2027.md` zawiera aktualną strategię i cele długoterminowe; jest źródłem kierunku dla planowania tygodniowego.
 - Brak tygodniowego JSON-a jest prawidłowy: readiness i rekomendacje dzienne działają bez niego.
 - JSON-y tygodniowe, jeśli są potrzebne, są wyłącznie planami wykonawczymi. Nie zastępują strategii Markdown.
-- `training-plans/_garmin_workouts.jsonl` jest lokalnym, ignorowanym rejestrem uploadów/usunięć Garmin, a nie planem.
+- `local/workout-registry.jsonl` jest lokalnym, ignorowanym rejestrem uploadów/usunięć Garmin, a nie planem.
 
 - Plany: `training-plans/{YYYY-MM}/{start_day}-{end_day}.json`, w katalogu miesiąca,
   w którym blok się **zaczyna**. Blok może przechodzić przez granicę miesiąca — wtedy
@@ -142,6 +142,6 @@ Kolejność naprawy „złego" pasa piersiowego:
 - CSV jest **generowany z JSON-a** przez `services/training_plan.write_plan_csv()`.
   Nigdy nie pisać CSV ręcznie — tak się rozjeżdżają.
 - `distance_km` / `duration_min` w planie to wartości **planowane**; fakty idą do `notes`.
-- Rejestr treningów wgranych do Garmina: `training-plans/_garmin_workouts.jsonl`
+- Rejestr treningów wgranych do Garmina: `local/workout-registry.jsonl`
   (append-only, stan odtwarzany przez replay). Każdy upload i każde usunięcie zapisuje się
    automatycznie — dzięki temu usunięty trening da się odtworzyć.

@@ -1,6 +1,6 @@
 # Prompt treningowy — AI Coach
 
-> Przed rekomendacją przeczytaj `docs/TRAINING_RULES.md` i `training-plans/long-term/mdanielak-half-marathon-2027.md`. Drugi plik jest nadrzędną strategią; tygodniowy JSON może nie istnieć i nie jest wymagany.
+> Przed rekomendacją przeczytaj `docs/TRAINING_RULES.md` i `training-plans/long-term/half-marathon-2027.md`. Drugi plik jest nadrzędną strategią; tygodniowy JSON może nie istnieć i nie jest wymagany.
 
 ## System prompt
 

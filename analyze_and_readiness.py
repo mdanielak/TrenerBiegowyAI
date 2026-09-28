@@ -14,7 +14,7 @@ from core import check_hrv_alert
 from config import PROJECT_ROOT, DATA_LATEST, IMPORTANT_PROMPT, AI_DATA_EXPORT_ENABLED
 
 logger = logging.getLogger(__name__)
-from services.data_extract import load_data_latest
+from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.readiness import compute_readiness_breakdown, compare_plan_vs_actual
 from services.training_plan import find_current_plan, get_today_workout_from_plan
 
@@ -160,24 +160,30 @@ def main():
     setup_logging()
 
     # Load data
-    try:
-        logger.info("Loading data from %s", DATA_LATEST)
-        data = load_data_latest()
-        logger.info("Loaded: %d activities, %d health, %d sleep, %d HRV records",
-                     len(data.get('activities', [])),
-                     len(data.get('daily_health', [])),
-                     len(data.get('sleep', [])),
-                     len(data.get('hrv', [])))
-    except FileNotFoundError:
+    logger.info("Loading data from %s", DATA_LATEST)
+    snapshot = read_snapshot_status()
+    if snapshot.status is SnapshotStatus.MISSING:
         logger.error("Data file not found: %s", DATA_LATEST)
+        print(f"STATUS SNAPSHOTU: missing ({DATA_LATEST})")
         print(f"BLAD: Plik {DATA_LATEST} nie istnieje.")
         print(f"Uruchom najpierw: python data_sync.py")
         sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error("Corrupted data file: %s — %s", DATA_LATEST, e)
-        print(f"BLAD: Plik {DATA_LATEST} jest uszkodzony: {e}")
+    if snapshot.status is SnapshotStatus.INVALID:
+        logger.error("Corrupted data file: %s — %s", DATA_LATEST, snapshot.error)
+        print(f"STATUS SNAPSHOTU: invalid ({snapshot.error})")
+        print(f"BLAD: Plik {DATA_LATEST} jest uszkodzony: {snapshot.error}")
         print(f"Uruchom ponownie: python data_sync.py")
         sys.exit(1)
+    if snapshot.status is SnapshotStatus.STALE:
+        print("STATUS SNAPSHOTU: stale — analiza użyje nieaktualnych danych.")
+    else:
+        print("STATUS SNAPSHOTU: fresh")
+    data = snapshot.data
+    logger.info("Loaded: %d activities, %d health, %d sleep, %d HRV records",
+                len(data.get('activities', [])),
+                len(data.get('daily_health', [])),
+                len(data.get('sleep', [])),
+                len(data.get('hrv', [])))
 
     today = datetime.now()
     print("=" * 60)

@@ -3,7 +3,7 @@
 Append-only registry of workouts pushed to Garmin Connect.
 
 Every upload and every deletion appends exactly one JSON object to
-``training-plans/_garmin_workouts.jsonl``::
+``local/workout-registry.jsonl``::
 
     {"ts": "2026-09-16T17:20:00", "event": "added", "workout_id": 1700241385,
      "schedule_id": 1779674902, "date": "2026-09-17",
@@ -25,11 +25,11 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from config import TRAINING_PLANS_DIR
+from config import SETTINGS
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_PATH = TRAINING_PLANS_DIR / "_garmin_workouts.jsonl"
+REGISTRY_PATH = SETTINGS.workout_registry
 
 
 def _now():

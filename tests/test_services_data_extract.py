@@ -10,7 +10,12 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.data_extract import extract, save_json, load_data_latest, print_summary, GarminDBSyncError
+from datetime import datetime, timedelta, timezone
+
+from services.data_extract import (
+    GarminDBSyncError, SnapshotStatus, SyncStatus, extract, load_data_latest,
+    print_summary, read_snapshot_status, save_json,
+)
 import data_sync
 
 
@@ -114,6 +119,23 @@ class TestSaveLoadJson:
             load_data_latest(path)
 
 
+class TestSnapshotStatus:
+    def test_missing_snapshot(self, tmp_path):
+        assert read_snapshot_status(tmp_path / "missing.json").status is SnapshotStatus.MISSING
+
+    def test_invalid_snapshot(self, tmp_path):
+        path = tmp_path / "invalid.json"
+        path.write_text('{"timestamp": "not-a-date"}', encoding="utf-8")
+        assert read_snapshot_status(path).status is SnapshotStatus.INVALID
+
+    def test_fresh_and_stale_snapshot(self, tmp_path):
+        now = datetime(2026, 9, 28, tzinfo=timezone.utc)
+        path = tmp_path / "snapshot.json"
+        path.write_text(json.dumps({"timestamp": now.isoformat()}), encoding="utf-8")
+        assert read_snapshot_status(path, now=now).status is SnapshotStatus.FRESH
+        assert read_snapshot_status(path, now=now + timedelta(hours=25)).status is SnapshotStatus.STALE
+
+
 class TestSyncFailure:
     def test_sync_failure_blocks_snapshot_save(self, monkeypatch):
         monkeypatch.setattr(data_sync, 'setup_logging', lambda: None)
@@ -129,6 +151,19 @@ class TestSyncFailure:
 
         extract_mock.assert_not_called()
         save_mock.assert_not_called()
+
+    def test_partial_sync_status_is_saved_in_snapshot(self, monkeypatch):
+        monkeypatch.setattr(data_sync, 'setup_logging', lambda: None)
+        monkeypatch.setattr(data_sync, 'sync', lambda: SyncStatus.PARTIAL)
+        monkeypatch.setattr(data_sync, 'extract', lambda: {"timestamp": "2026-09-16T10:00:00"})
+        save_mock = MagicMock()
+        monkeypatch.setattr(data_sync, 'save_json', save_mock)
+        monkeypatch.setattr(data_sync, 'print_summary', lambda data: None)
+        monkeypatch.setattr(sys, 'argv', ['data_sync.py'])
+
+        data_sync.main()
+
+        assert save_mock.call_args.args[0]['sync_status'] == "partial"
 
 
 class TestPrintSummary:

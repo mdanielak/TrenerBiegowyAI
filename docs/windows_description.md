@@ -12,9 +12,9 @@ python -m pytest tests/ -v
 
 ## Dane i konfiguracja lokalna
 
-GarminDB przechowuje lokalnie bazy aktywności, dane zdrowotne i konfigurację. Nie publikuj tych danych ani tokenów. Projekt ignoruje katalogi danych Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi i cache.
+GarminDB przechowuje lokalnie bazy aktywności, dane zdrowotne i konfigurację. Nie publikuj tych danych ani tokenów. Architektura single-user trzyma prywatny stan w całym ignorowanym katalogu `local/`: `profile.json`, `data_latest.json`, `memory/` i `workout-registry.jsonl`. Projekt ignoruje też katalogi danych Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi i cache; starsze lokalizacje prywatne pozostają chronione na czas migracji.
 
-`runner_profile.example.json` jest publicznym wzorem. Utwórz lokalny `runner_profile.local.json` na jego podstawie; runtime używa go przed przykładem, a plik lokalny pozostaje ignorowany przez Git.
+`runner_profile.example.json` jest publicznym wzorem. Docelowy profil runtime przechowuj w `local/profile.json`; cały katalog pozostaje ignorowany przez Git. `runner_profile.local.json` jest starszą, nadal ignorowaną lokalizacją.
 
 ## GarminDB CLI
 
@@ -22,4 +22,4 @@ Synchronizacja używa bieżącego interpretera Pythona oraz lokalnego `garmindb_
 
 ## Plany
 
-Aktualna strategia znajduje się w `training-plans/long-term/mdanielak-half-marathon-2027.md`. Rejestr `training-plans/_garmin_workouts.jsonl` jest lokalny i ignorowany; nie jest planem treningowym.
+Aktualna strategia znajduje się w `training-plans/long-term/half-marathon-2027.md`. Rejestr `local/workout-registry.jsonl` jest lokalny i ignorowany; nie jest planem treningowym.

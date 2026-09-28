@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import (
-    PROJECT_ROOT, DATA_LATEST, TRAINING_PLANS_DIR, IMPORTANT_PROMPT,
+    SETTINGS, PROJECT_ROOT, DATA_LATEST, TRAINING_PLANS_DIR, IMPORTANT_PROMPT,
     HEALTH_DATA_DIR, ACT_DB, MAIN_DB,
     GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT,
 )
@@ -24,6 +24,11 @@ class TestPaths:
 
     def test_data_latest_filename(self):
         assert DATA_LATEST.name == "data_latest.json"
+
+    def test_private_runtime_paths_are_under_local(self):
+        assert DATA_LATEST == PROJECT_ROOT / "local" / "data_latest.json"
+        assert SETTINGS.runner_profile_local == PROJECT_ROOT / "local" / "profile.json"
+        assert SETTINGS.workout_registry == PROJECT_ROOT / "local" / "workout-registry.jsonl"
 
     def test_training_plans_dir(self):
         from pathlib import Path
@@ -77,3 +82,10 @@ class TestEnvVars:
     def test_ai_data_export_is_disabled_by_default(self):
         from config import AI_DATA_EXPORT_ENABLED
         assert AI_DATA_EXPORT_ENABLED is False
+
+    def test_settings_are_immutable_and_hide_secrets_in_repr(self):
+        from dataclasses import FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
+            setattr(SETTINGS, "ai_api_key", "changed")
+        assert "ai_api_key" not in repr(SETTINGS)
+        assert "garmin_password" not in repr(SETTINGS)
