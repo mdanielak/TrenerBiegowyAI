@@ -2,9 +2,7 @@
 """
 Odswiez daty "ostatnio uzywany" dla treningow z biblioteki Garmina.
 
-Usage:
-  python update_workout_usage.py             # pokaz raport
-  python update_workout_usage.py --delete    # + usun treningi nieuzywane > 3 miesiace
+Usage: ``python -m trainer workouts usage [--delete]``.
 
 Dopasowanie: aktywnosc o nazwie "<lokalizacja> - <nazwa treningu>" albo dokladnie
 nazwa treningu. Zwykly substring odpada — szablon "Bieg" pasowalby do prawie
@@ -13,12 +11,12 @@ wszystkiego.
 Uruchamiaj raz w miesiacu. Usuwanie jest bezpieczne: kazdy trening ma w rejestrze
 pelna definicje, wiec da sie go odtworzyc.
 """
-import sys
+import argparse
 import sqlite3
 import logging
 
-from logging_config import setup_logging
-from config import ACT_DB
+from ..logging_config import setup_logging
+from ..config import ACT_DB
 from services import workout_registry as reg
 
 logger = logging.getLogger(__name__)
@@ -113,9 +111,8 @@ def refresh(activities):
     return changed
 
 
-def main():
+def main(delete=False):
     setup_logging()
-    delete = '--delete' in sys.argv
 
     activities = load_activities()
     changed = refresh(activities)
@@ -158,4 +155,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Odświeża użycie treningów Garmin")
+    parser.add_argument('--delete', action='store_true', help='usuń treningi nieużywane ponad 90 dni')
+    args = parser.parse_args()
+    main(delete=args.delete)

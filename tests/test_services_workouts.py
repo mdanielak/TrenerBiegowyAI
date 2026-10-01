@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for services/workouts.py and garmin_workout.py — workout builder."""
+"""Tests for services/workouts.py and trainer.workouts — workout builder."""
 import sys
 import os
 import types
@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Mock garminconnect before importing garmin_workout
+# Mock garminconnect before importing trainer.workouts
 _mock_garminconnect = types.ModuleType('garminconnect')
 _mock_garminconnect.Garmin = MagicMock()
 _mock_workout = types.ModuleType('garminconnect.workout')
@@ -27,7 +27,7 @@ _mock_workout.TargetType.PACE_ZONE = 6
 sys.modules['garminconnect'] = _mock_garminconnect
 sys.modules['garminconnect.workout'] = _mock_workout
 
-from garmin_workout import GarminWorkout
+from trainer.workouts import GarminWorkout
 
 
 @pytest.fixture(autouse=True)
@@ -75,8 +75,8 @@ class TestGarminWorkoutInit:
         assert gw.email == "test@test.com"
         assert gw.password == "pass123"
 
-    @patch('garmin_workout.GARMIN_EMAIL', 'env@test.com')
-    @patch('garmin_workout.GARMIN_PASSWORD', 'envpass')
+    @patch('trainer.workouts.GARMIN_EMAIL', 'env@test.com')
+    @patch('trainer.workouts.GARMIN_PASSWORD', 'envpass')
     def test_init_from_env(self):
         gw = GarminWorkout()
         assert gw.email == "env@test.com"

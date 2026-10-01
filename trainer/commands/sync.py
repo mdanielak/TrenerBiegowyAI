@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 """
 Usage:
-  python data_sync.py         - sync latest + export all data to local/data_latest.json
-  python data_sync.py --fresh - full sync (first time / rebuild)
+  python -m trainer sync         - sync latest + export all data to local/data_latest.json
+  python -m trainer sync --fresh - full sync (first time / rebuild)
 """
-import sys
+import argparse
 import logging
-from logging_config import setup_logging
+from ..logging_config import setup_logging
 from services.data_extract import SyncStatus, sync, sync_full, extract, save_json, print_summary
 
 logger = logging.getLogger(__name__)
 
-def main():
+def main(fresh=False):
     """Synchronize first; write a snapshot only after GarminDB succeeds."""
     setup_logging()
-    fresh = '--fresh' in sys.argv
-
     if fresh:
         logger.info("Starting full sync")
         sync_status = sync_full()
@@ -35,4 +33,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Synchronizuje dane Garmin")
+    parser.add_argument('--fresh', action='store_true', help='wykonaj pełną synchronizację')
+    args = parser.parse_args()
+    main(fresh=args.fresh)

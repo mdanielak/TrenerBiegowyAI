@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Analiza gotowości treningowej + porównanie z planem.
-Uruchomienie: python analyze_and_readiness.py [--ai]
+Uruchomienie: python -m trainer analyze [--ai]
 """
 import json
 import sys
@@ -9,9 +9,9 @@ import io
 import logging
 from datetime import datetime, timedelta
 
-from logging_config import setup_logging
-from core import check_hrv_alert
-from config import PROJECT_ROOT, DATA_LATEST, IMPORTANT_PROMPT, AI_DATA_EXPORT_ENABLED
+from ..logging_config import setup_logging
+from ..core import check_hrv_alert
+from ..config import PROJECT_ROOT, DATA_LATEST, IMPORTANT_PROMPT, AI_DATA_EXPORT_ENABLED
 
 logger = logging.getLogger(__name__)
 from services.data_extract import SnapshotStatus, read_snapshot_status
@@ -155,7 +155,7 @@ def print_plan_comparison(plan, data, today):
         print("  Brak aktywnego planu tygodniowego; analiza gotowości działa nadal.")
 
 
-def main():
+def main(use_ai=False, strict_ai=False):
     """Main CLI entry point."""
     setup_logging()
 
@@ -166,14 +166,14 @@ def main():
         logger.error("Data file not found: %s", DATA_LATEST)
         print(f"STATUS SNAPSHOTU: missing ({DATA_LATEST})")
         print(f"BLAD: Plik {DATA_LATEST} nie istnieje.")
-        print(f"Uruchom najpierw: python data_sync.py")
-        sys.exit(1)
+        print("Uruchom najpierw: python -m trainer sync")
+        return 1
     if snapshot.status is SnapshotStatus.INVALID:
         logger.error("Corrupted data file: %s — %s", DATA_LATEST, snapshot.error)
         print(f"STATUS SNAPSHOTU: invalid ({snapshot.error})")
         print(f"BLAD: Plik {DATA_LATEST} jest uszkodzony: {snapshot.error}")
-        print(f"Uruchom ponownie: python data_sync.py")
-        sys.exit(1)
+        print("Uruchom ponownie: python -m trainer sync")
+        return 1
     if snapshot.status is SnapshotStatus.STALE:
         print("STATUS SNAPSHOTU: stale — analiza użyje nieaktualnych danych.")
     else:
@@ -212,24 +212,24 @@ def main():
         print("  Brak aktywnego planu tygodniowego; analiza gotowości działa nadal.")
 
     # 6. AI recommendation (optional)
-    if '--ai' in sys.argv:
+    if use_ai:
         print(f"\n{'=' * 60}")
         print("REKOMENDACJA AI")
         print('=' * 60)
         if not AI_DATA_EXPORT_ENABLED:
             print("  AI jest wyłączone: ustaw AI_DATA_EXPORT_ENABLED=true, aby zezwolić na eksport danych do providera.")
-            return
+            return 3 if strict_ai else 0
         try:
             from ai.context import build_training_context
             from ai.recommendation import get_daily_recommendation
             from ai.openai_compatible import OpenAICompatibleProvider
-            from config import AI_BASE_URL, AI_API_KEY, AI_MODEL
+            from ..config import AI_BASE_URL, AI_API_KEY, AI_MODEL
 
             if not AI_API_KEY:
                 logger.error("AI_API_KEY not set")
                 print("  BLAD: AI_API_KEY nie ustawione. Ustaw zmienne srodowiskowe.")
                 print("  Przyklad: set AI_API_KEY=your_key")
-                sys.exit(1)
+                return 3 if strict_ai else 0
 
             logger.info("Initializing AI provider: model=%s, base_url=%s", AI_MODEL, AI_BASE_URL)
             provider = OpenAICompatibleProvider(AI_BASE_URL, AI_API_KEY, AI_MODEL)
@@ -254,10 +254,17 @@ def main():
             logger.error("AI module not found: %s", e)
             print(f"  BLAD: Modul AI nie znaleziony: {e}")
             print("  Zainstaluj zaleznosci: pip install openai pydantic")
+            return 3 if strict_ai else 0
         except Exception as e:
             logger.exception("AI recommendation failed")
             print(f"  BLAD AI: {e}")
+            return 1
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Analizuje gotowość treningową")
+    parser.add_argument('--ai', action='store_true', help='dołącz rekomendację AI')
+    args = parser.parse_args()
+    raise SystemExit(main(use_ai=args.ai))

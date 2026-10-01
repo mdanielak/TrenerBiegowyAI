@@ -408,9 +408,11 @@ trener-biegowy/
 │   └── alembic/                     # DB migrations
 │
 ├── legacy/                          # Istniejące skrypty (zachowane)
-│   ├── data_sync.py
-│   ├── analyze_and_readiness.py
-│   └── garmin_workout.py
+│   ├── commands/
+│   │   ├── sync.py
+│   │   ├── analyze.py
+│   │   └── workout_usage.py
+│   └── workouts.py
 │
 └── docs/
     ├── ARCHITECTURE.md

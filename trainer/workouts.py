@@ -3,7 +3,7 @@
 Reużywalny builder treningów dla Garmin Connect API.
 
 Przykład:
-    from garmin_workout import GarminWorkout
+    from trainer.workouts import GarminWorkout
 
     gw = GarminWorkout()
     gw.login()
@@ -23,11 +23,13 @@ Przykład:
 import logging
 import os
 import sys
+import argparse
+from datetime import date
 from garminconnect import Garmin
 from garminconnect.workout import (
     RunningWorkout, WorkoutSegment, ExecutableStep, StepType, TargetType,
 )
-from config import GARMIN_EMAIL, GARMIN_PASSWORD
+from .config import GARMIN_EMAIL, GARMIN_PASSWORD
 from services.workout_registry import record_added, record_deleted, find_workout
 
 logger = logging.getLogger(__name__)
@@ -522,30 +524,61 @@ class GarminWorkout:
 # ------------------------------------------------------------------
 # CLI: szybkie tworzenie treningu z linii komend
 # ------------------------------------------------------------------
+def _positive_int(value):
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('wymagana dodatnia liczba całkowita') from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError('wymagana dodatnia liczba całkowita')
+    return parsed
+
+
+def _iso_date(value):
+    try:
+        date.fromisoformat(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('wymagana data ISO RRRR-MM-DD') from error
+    return value
+
+
+def create_workout(kind, name, **kwargs):
+    """Zaloguj się i utwórz trening opisany przez jawne argumenty."""
+    gw = GarminWorkout().login()
+    builders = {
+        'easy': lambda: gw.easy_run(name, kwargs['minutes'], kwargs['date']),
+        'tempo': lambda: gw.tempo_run(name, kwargs['minutes'], kwargs['pace_from'],
+                                      kwargs['pace_to'], date_str=kwargs['date']),
+        'intervals': lambda: gw.threshold_intervals(
+            name, kwargs['repeats'], kwargs['work_seconds'], kwargs['rest_seconds'],
+            kwargs['pace_from'], kwargs['pace_to'], date_str=kwargs['date']),
+        'long': lambda: gw.long_run(name, kwargs['minutes'], kwargs['date']),
+        'strides': lambda: gw.strides(name, kwargs['base_minutes'], kwargs['repeats'], kwargs['date']),
+    }
+    return builders[kind]()
+
+
+def legacy_main(argv=None):
+    """Samodzielny, zgodny wstecz CLI tworzenia treningów."""
+    parser = argparse.ArgumentParser(description='Tworzy trening Garmin')
+    sub = parser.add_subparsers(dest='kind', required=True)
+
+    def command(kind, fields):
+        item = sub.add_parser(kind)
+        item.add_argument('name')
+        for field, type_ in fields:
+            item.add_argument(field, type=type_)
+
+    command('easy', [('minutes', _positive_int), ('date', _iso_date)])
+    command('tempo', [('minutes', _positive_int), ('pace_from', str), ('pace_to', str), ('date', _iso_date)])
+    command('intervals', [('repeats', _positive_int), ('work_seconds', _positive_int), ('rest_seconds', _positive_int), ('pace_from', str), ('pace_to', str), ('date', _iso_date)])
+    command('long', [('minutes', _positive_int), ('date', _iso_date)])
+    command('strides', [('base_minutes', _positive_int), ('repeats', _positive_int), ('date', _iso_date)])
+    args = vars(parser.parse_args(argv))
+    kind, name = args.pop('kind'), args.pop('name')
+    create_workout(kind, name, **args)
+    return 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python garmin.py <type> <args>")
-        print("Types: easy <name> <min> <date>")
-        print("       tempo <name> <min> <from> <to> <date>")
-        print("       intervals <name> <n> <work_s> <rest_s> <from> <to> <date>")
-        print("       long <name> <min> <date>")
-        print("       strides <name> <base_min> <n> <date>")
-        sys.exit(1)
-
-    gw = GarminWorkout()
-    gw.login()
-    cmd = sys.argv[1]
-
-    if cmd == "easy":
-        gw.easy_run(sys.argv[2], int(sys.argv[3]), sys.argv[4])
-    elif cmd == "tempo":
-        gw.tempo_run(sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5], date_str=sys.argv[6])
-    elif cmd == "intervals":
-        gw.threshold_intervals(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]),
-                                int(sys.argv[5]), sys.argv[6], sys.argv[7], date_str=sys.argv[8])
-    elif cmd == "long":
-        gw.long_run(sys.argv[2], int(sys.argv[3]), sys.argv[4])
-    elif cmd == "strides":
-        gw.strides(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5])
-    else:
-        print(f"Unknown type: {cmd}")
+    raise SystemExit(legacy_main())

@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Tests for config.py centralized configuration."""
+"""Tests for trainer.config centralized configuration."""
 import sys
 import os
+from pathlib import Path
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import (
+from trainer.config import (
     SETTINGS, PROJECT_ROOT, DATA_LATEST, TRAINING_PLANS_DIR, IMPORTANT_PROMPT,
     HEALTH_DATA_DIR, ACT_DB, MAIN_DB,
-    GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT,
+    GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, resolve_database_dir,
 )
 
 
@@ -17,6 +18,13 @@ class TestPaths:
     def test_project_root_is_path(self):
         from pathlib import Path
         assert isinstance(PROJECT_ROOT, Path)
+
+    def test_key_runtime_paths_remain_in_repository_root(self):
+        assert PROJECT_ROOT == Path(__file__).resolve().parents[1]
+        assert SETTINGS.local_dir == PROJECT_ROOT / "local"
+        assert TRAINING_PLANS_DIR == PROJECT_ROOT / "training-plans"
+        assert IMPORTANT_PROMPT == PROJECT_ROOT / "IMPORTANT_PROMPT.txt"
+        assert SETTINGS.runner_profile_local == PROJECT_ROOT / "local" / "profile.json"
 
     def test_data_latest_is_path(self):
         from pathlib import Path
@@ -51,6 +59,27 @@ class TestPaths:
         assert str(MAIN_DB).endswith("garmin.db")
 
 
+class TestDatabaseDirectoryResolution:
+    def test_prefers_exact_case_dbs(self, tmp_path):
+        health_data = tmp_path / 'HealthData'
+        databases = health_data / 'DBs'
+        databases.mkdir(parents=True)
+
+        assert resolve_database_dir(health_data) == databases
+
+    def test_falls_back_to_exact_case_lowercase_dbs(self, tmp_path):
+        health_data = tmp_path / 'HealthData'
+        databases = health_data / 'dbs'
+        databases.mkdir(parents=True)
+
+        assert resolve_database_dir(health_data) == databases
+
+    def test_missing_directories_use_canonical_dbs_path(self, tmp_path):
+        health_data = tmp_path / 'HealthData'
+
+        assert resolve_database_dir(health_data) == health_data / 'DBs'
+
+
 class TestTimeouts:
     def test_sync_timeout_positive(self):
         assert GARMINDB_SYNC_TIMEOUT > 0
@@ -64,23 +93,23 @@ class TestTimeouts:
 
 class TestEnvVars:
     def test_garmin_email_is_string(self):
-        from config import GARMIN_EMAIL
+        from trainer.config import GARMIN_EMAIL
         assert isinstance(GARMIN_EMAIL, str)
 
     def test_garmin_password_is_string(self):
-        from config import GARMIN_PASSWORD
+        from trainer.config import GARMIN_PASSWORD
         assert isinstance(GARMIN_PASSWORD, str)
 
     def test_ai_base_url_is_string(self):
-        from config import AI_BASE_URL
+        from trainer.config import AI_BASE_URL
         assert isinstance(AI_BASE_URL, str)
 
     def test_ai_model_is_string(self):
-        from config import AI_MODEL
+        from trainer.config import AI_MODEL
         assert isinstance(AI_MODEL, str)
 
     def test_ai_data_export_is_disabled_by_default(self):
-        from config import AI_DATA_EXPORT_ENABLED
+        from trainer.config import AI_DATA_EXPORT_ENABLED
         assert AI_DATA_EXPORT_ENABLED is False
 
     def test_settings_are_immutable_and_hide_secrets_in_repr(self):

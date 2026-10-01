@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for update_workout_usage.py — matching workouts to activities."""
+"""Tests for trainer.commands.workout_usage — matching workouts to activities."""
 import sys
 import os
 
@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services import workout_registry as reg
-import update_workout_usage as uwu
+from trainer.commands import workout_usage as uwu
 
 
 @pytest.fixture(autouse=True)

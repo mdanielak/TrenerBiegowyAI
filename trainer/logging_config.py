@@ -3,11 +3,11 @@
 Centralized logging configuration for Trener Biegowy AI.
 
 Usage:
-    from logging_config import setup_logging
+    from trainer.logging_config import setup_logging
     setup_logging()
 
 Or for FastAPI:
-    from logging_config import setup_logging
+    from trainer.logging_config import setup_logging
     setup_logging(level=logging.DEBUG)
 """
 import logging
@@ -15,7 +15,7 @@ import logging.handlers
 import sys
 from pathlib import Path
 
-from config import PROJECT_ROOT
+from .config import PROJECT_ROOT
 
 
 LOG_DIR = PROJECT_ROOT / "logs"

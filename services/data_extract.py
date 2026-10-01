@@ -16,10 +16,10 @@ from enum import Enum
 import sqlite3
 import sys
 
-from core import pace_str, parse_timedelta, check_hrv_alert
+from trainer.core import pace_str, parse_timedelta, check_hrv_alert
 
 logger = logging.getLogger(__name__)
-from config import (
+from trainer.config import (
     PROJECT_ROOT, ACT_DB, MAIN_DB, DATA_LATEST,
     GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, SNAPSHOT_TTL_SECONDS,
 )
@@ -53,8 +53,8 @@ def _find_python():
 
 
 def _find_garmindb_cli():
-    """Find garmindb_cli.py — check project root, then GarminDB/, then PATH."""
-    local_script = os.path.join(PROJECT_ROOT, 'garmindb_cli.py')
+    """Find garmindb_cli.py in local tools, GarminDB, then PATH."""
+    local_script = os.path.join(PROJECT_ROOT, 'local', 'tools', 'garmindb_cli.py')
     if os.path.isfile(local_script):
         return local_script
     legacy_script = os.path.join(PROJECT_ROOT, 'GarminDB', 'scripts', 'garmindb_cli.py')
@@ -67,6 +67,13 @@ def _find_garmindb_cli():
     raise FileNotFoundError(
         "garmindb_cli.py not found. Ensure garmindb is installed: pip install garmindb"
     )
+
+
+def _garmindb_log_dir():
+    """Create the runtime log directory before GarminDB writes its relative log."""
+    log_dir = PROJECT_ROOT / 'logs'
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
 
 
 # GarminDB's --latest never fetches the current day. It computes
@@ -94,7 +101,7 @@ dl.get_monitoring(cfg.get_monitoring_dir, today, 1)
 '''
 
 
-def download_today(timeout=300):
+def download_today(timeout=300, cwd=None):
     """Download today's monitoring data (sleep, HRV, RHR, summary) from Garmin.
 
     Workaround for the GarminDB off-by-one described above. Failures are logged
@@ -104,7 +111,7 @@ def download_today(timeout=300):
     logger.info("Downloading today's data (GarminDB --latest workaround)")
     try:
         r = subprocess.run([python, '-c', _DOWNLOAD_TODAY_SNIPPET],
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, timeout=timeout, cwd=cwd)
     except subprocess.TimeoutExpired:
         logger.warning("Today's download timed out after %ds", timeout)
         return False
@@ -120,13 +127,15 @@ def sync():
     """Run garmindb CLI incremental sync."""
     python = _find_python()
     script = _find_garmindb_cli()
-    today_downloaded = download_today()
+    log_dir = _garmindb_log_dir()
+    today_downloaded = download_today(cwd=log_dir)
     cmd = [python, script, '--all', '--download', '--import', '--analyze', '--latest']
     logger.info("Starting incremental sync: %s", ' '.join(cmd[-3:]))
     print("  Syncing...", end=" ", flush=True)
     t0 = time.time()
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_SYNC_TIMEOUT)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_SYNC_TIMEOUT,
+                           cwd=log_dir)
     except subprocess.TimeoutExpired as e:
         elapsed = time.time() - t0
         message = f"GarminDB incremental sync timed out after {GARMINDB_SYNC_TIMEOUT}s ({elapsed:.0f}s elapsed)"
@@ -152,11 +161,13 @@ def sync_full():
     """Run garmindb CLI full sync (first time / rebuild)."""
     python = _find_python()
     script = _find_garmindb_cli()
+    log_dir = _garmindb_log_dir()
     cmd = [python, script, '--all', '--download', '--import', '--analyze']
     logger.info("Starting full sync (timeout: %ds)", GARMINDB_FRESH_TIMEOUT)
     print("Running full sync (this may take a while)...")
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_FRESH_TIMEOUT)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_FRESH_TIMEOUT,
+                           cwd=log_dir)
     except subprocess.TimeoutExpired as e:
         message = f"GarminDB full sync timed out after {GARMINDB_FRESH_TIMEOUT}s"
         logger.error("%s: %s", message, (e.stderr or e.output or '').strip())

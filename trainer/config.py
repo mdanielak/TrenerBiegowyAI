@@ -14,6 +14,19 @@ def _positive_int_env(name, default):
     return value if value > 0 else default
 
 
+def resolve_database_dir(health_data_dir: Path) -> Path:
+    """Resolve the GarminDB directory, preferring exact-case ``DBs``.
+
+    The directory may not exist yet; in that case return the canonical future
+    location so all consumers retain a deterministic target path.
+    """
+    canonical = health_data_dir / "DBs"
+    if not health_data_dir.is_dir():
+        return canonical
+    directories = {entry.name: entry for entry in health_data_dir.iterdir() if entry.is_dir()}
+    return directories.get("DBs") or directories.get("dbs") or canonical
+
+
 @dataclass(frozen=True)
 class AppSettings:
     """Immutable runtime configuration; secrets are deliberately hidden in repr."""
@@ -39,10 +52,11 @@ class AppSettings:
     ai_data_export_enabled: bool
 
 
-ROOT = Path(__file__).parent
-LOCAL_DIR = ROOT / "local"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = PROJECT_ROOT
+LOCAL_DIR = PROJECT_ROOT / "local"
 SETTINGS = AppSettings(
-    project_root=ROOT,
+    project_root=PROJECT_ROOT,
     local_dir=LOCAL_DIR,
     data_latest=LOCAL_DIR / "data_latest.json",
     runner_profile_local=LOCAL_DIR / "profile.json",
@@ -72,8 +86,9 @@ IMPORTANT_PROMPT = SETTINGS.important_prompt
 RUNNER_PROFILE_LOCAL = SETTINGS.runner_profile_local
 RUNNER_PROFILE_EXAMPLE = SETTINGS.runner_profile_example
 HEALTH_DATA_DIR = SETTINGS.health_data_dir
-ACT_DB = HEALTH_DATA_DIR / "DBs" / "garmin_activities.db"
-MAIN_DB = HEALTH_DATA_DIR / "DBs" / "garmin.db"
+DATABASE_DIR = resolve_database_dir(HEALTH_DATA_DIR)
+ACT_DB = DATABASE_DIR / "garmin_activities.db"
+MAIN_DB = DATABASE_DIR / "garmin.db"
 SNAPSHOT_TTL_SECONDS = SETTINGS.snapshot_ttl_seconds
 GARMINDB_SYNC_TIMEOUT = SETTINGS.garmindb_sync_timeout
 GARMINDB_FRESH_TIMEOUT = SETTINGS.garmindb_fresh_timeout

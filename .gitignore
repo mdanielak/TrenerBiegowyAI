@@ -23,9 +23,6 @@ logs/
 cache/
 .cache/
 
-# Copied from GarminDB (not original code)
-garmindb_cli.py
-
 # Python
 __pycache__/
 *.pyc

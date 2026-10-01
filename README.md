@@ -1,61 +1,90 @@
 # Trener Biegowy AI
 
-Lokalny system wspomagający analizę treningów biegowych, synchronizację GarminDB i rekomendacje AI.
+Lokalne narzędzie do synchronizacji danych przez GarminDB, analizy gotowości i zarządzania treningami Garmin. Główny interfejs to CLI `trainer` (wersja 0.2.0); API uruchamia się niezależnie przez Uvicorn.
 
-## Instalacja i dane lokalne
+## Szybki start
 
-```bash
+```powershell
 pip install -r requirements.txt
-python data_sync.py --fresh
+Copy-Item runner_profile.example.json local/profile.json
+# ustaw zmienne z .env.example w środowisku systemowym
+python -m trainer sync --fresh
+python -m trainer analyze
 ```
 
-Nie dodawaj danych dostępowych, tokenów ani danych zdrowotnych do plików projektu. Utrzymuj je wyłącznie w lokalnej konfiguracji środowiska zgodnej z GarminDB.
+`local/profile.json` jest prywatnym profilem runtime. Nie dodawaj go, danych Garmin, baz SQLite, plików FIT/TCX/GPX, tokenów ani danych zdrowotnych do repozytorium.
 
-### Architektura single-user i prywatność
-
-Cały katalog `local/` jest prywatnym stanem jednego użytkownika i jest ignorowany przez Git:
-
-- `local/profile.json` — profil runtime biegacza;
-- `local/data_latest.json` — aktualny snapshot danych;
-- `local/memory/` — pamięć lokalnego agenta;
-- `local/workout-registry.jsonl` — rejestr uploadów treningów.
-
-Publiczne i przeznaczone do śledzenia pozostają `runner_profile.example.json` (neutralny wzór) oraz `training-plans/` (plany). Dotychczasowe prywatne lokalizacje, w tym `HealthData/`, bazy SQLite, pliki FIT/TCX/GPX, snapshoty, `memory/` i `training-plans/_garmin_workouts.jsonl`, nadal są ignorowane na czas migracji. Nie przenoś danych prywatnych automatycznie.
-
-## Profil biegacza
-
-- `runner_profile.example.json` jest neutralnym, publicznym wzorem konfiguracji.
-- Docelowy profil single-user należy przechowywać w `local/profile.json`; cały katalog `local/` jest ignorowany przez Git.
-- `runner_profile.local.json` pozostaje ignorowaną, starszą lokalizacją na czas migracji.
-
-## Synchronizacja i analiza
+## Linux
 
 ```bash
-python data_sync.py
-python data_sync.py --fresh
-python analyze_and_readiness.py
-python analyze_and_readiness.py --ai
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+mkdir -p local
+cp runner_profile.example.json local/profile.json
+# opcjonalnie, gdy dane GarminDB są poza domyślnym ~/HealthData:
+export HEALTH_DATA_DIR="$HOME/HealthData"
+python -m trainer doctor
+python -m trainer sync --fresh
+python -m trainer analyze
 ```
 
-`local/data_latest.json` jest lokalnym, generowanym snapshotem. Zawiera ostatnie aktywności oraz dane zdrowotne, snu, HRV i wagi. Starszy `data_latest.json` przy katalogu projektu także pozostaje ignorowany na czas migracji.
+Na systemach rozróżniających wielkość liter GarminDB używa katalogu `DBs` w
+`HEALTH_DATA_DIR`. Doctor toleruje istniejący katalog `dbs`, ale zgłasza wtedy
+ostrzeżenie, aby można było poprawić nazwę katalogu.
 
-`services/data_extract.py` korzysta z interpretera, który uruchomił aplikację. Szuka lokalnego (ignorowanego) `garmindb_cli.py`, kopii w `GarminDB/` lub polecenia `garmindb_cli` dostępnego w `PATH`. Alternatywnie zainstaluj `garmindb` w aktywnym środowisku.
+## Codzienny workflow
 
-## Strategia i plany
+```powershell
+python -m trainer sync
+python -m trainer analyze
+python -m trainer analyze --ai
+```
 
-- `training-plans/long-term/half-marathon-2027.md` to aktualna długoterminowa strategia HM.
-- Tygodniowe JSON-y są opcjonalnymi planami wykonawczymi.
-- `local/workout-registry.jsonl` jest lokalnym, ignorowanym rejestrem uploadów Garmin, a nie planem. Starszy `training-plans/_garmin_workouts.jsonl` także pozostaje ignorowany na czas migracji.
+Przy pierwszym pobraniu lub przebudowie danych użyj `sync --fresh`. Wynik synchronizacji może być częściowy; przed wnioskiem treningowym sprawdź aktualność i kompletność snapshotu.
 
-## Testy
+## Komendy CLI
 
-```bash
+```powershell
+python -m trainer --help
+python -m trainer --version
+python -m trainer sync [--fresh]
+python -m trainer analyze [--ai]
+python -m trainer doctor
+python -m trainer privacy-check
+python -m trainer workouts usage [--delete]
+```
+
+### Tworzenie treningów
+
+```powershell
+python -m trainer workouts create easy "Łatwy 40 min" 40 2026-10-01
+python -m trainer workouts create tempo "Tempo" 45 5:40 5:55 2026-10-02
+python -m trainer workouts create intervals "Interwały" 6 180 120 4:45 5:00 2026-10-03
+python -m trainer workouts create long "Długie wybieganie" 90 2026-10-04
+python -m trainer workouts create strides "Przebieżki" 35 6 2026-10-05
+```
+
+Daty mają format `RRRR-MM-DD`. `create` tworzy trening na Garminie, a `workouts usage --delete` może usuwać nieużywane treningi na Garminie — przed uruchomieniem sprawdź argumenty i konto.
+
+## Konfiguracja, API i prywatność
+
+Nazwy zmiennych środowiskowych opisuje `.env.example`; wartości dostępowe przechowuj wyłącznie lokalnie. `HEALTH_DATA_DIR` wskazuje lokalny katalog danych GarminDB (z podkatalogiem `DBs`). Dane, bazy SQLite i tokeny nie trafiają do repozytorium. `python -m trainer doctor` sprawdza wyłącznie lokalną konfigurację i integralność baz w trybie tylko do odczytu — nie synchronizuje danych ani nie loguje się do Garmin. GarminDB jest backendem synchronizacji i lokalnych danych. Opcjonalne API uruchom osobno, np.:
+
+```powershell
+uvicorn api.main:app --reload
+```
+
+Przed publikacją uruchom:
+
+```powershell
+python -m trainer privacy-check
 python -m pytest tests/ -v
 ```
 
-## Bezpieczeństwo
+Prywatne ścieżki legacy (`HealthData/`, `memory/`, główny `data_latest.json`, bazy i pliki aktywności oraz `training-plans/_garmin_workouts.jsonl`) nadal są ochronnie ignorowane przez Git.
 
-- `.env` i `.env.*` są ignorowane, z wyjątkiem śledzonego `.env.example`.
-- Tokeny, cookies, klucze i certyfikaty są ignorowane.
-- Lokalna konfiguracja GarminDB oraz tokeny pozostają poza publicznym repozytorium.
-- Przed publikacją uruchom `python scripts/check_privacy.py`; sprawdza on śledzone i staged ścieżki bez wypisywania ich zawartości.
+## Wspierany entry point
+
+Jedynym wspieranym entry pointem aplikacji jest `python -m trainer`. Używaj go
+w dokumentacji, automatyzacji i codziennej pracy zamiast rootowych skryptów.

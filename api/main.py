@@ -13,8 +13,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
-from config import DATA_LATEST
-from logging_config import setup_logging
+from trainer.config import DATA_LATEST
+from trainer.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 from services.data_extract import SnapshotStatus, read_snapshot_status
@@ -80,7 +80,7 @@ def health():
 def readiness():
     """Get current readiness score and breakdown.
 
-    Requires data_latest.json to exist (run data_sync.py first).
+    Requires data_latest.json to exist (run ``python -m trainer sync`` first).
     """
     logger.debug("Loading data from %s", DATA_LATEST)
     snapshot = read_snapshot_status()
@@ -88,7 +88,7 @@ def readiness():
         logger.warning("data_latest.json not found")
         raise HTTPException(
             status_code=404,
-            detail="data_latest.json not found. Run data_sync.py first."
+            detail="data_latest.json not found. Run python -m trainer sync first."
         )
     if snapshot.status is SnapshotStatus.INVALID:
         logger.error("Invalid snapshot: %s", snapshot.error)
@@ -99,7 +99,7 @@ def readiness():
     if snapshot.status is SnapshotStatus.STALE:
         raise HTTPException(
             status_code=409,
-            detail="Data snapshot is stale. Run data_sync.py before requesting readiness."
+            detail="Data snapshot is stale. Run python -m trainer sync before requesting readiness."
         )
 
     breakdown = compute_readiness_breakdown(snapshot.data)

@@ -25,7 +25,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from config import SETTINGS
+from trainer.config import SETTINGS
 
 logger = logging.getLogger(__name__)
 

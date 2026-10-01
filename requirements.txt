@@ -1,4 +1,4 @@
-garmindb>=3.9.0
+garmindb>=3.9,<4
 garminconnect>=0.3.11
 pydantic>=2.0
 openai>=1.0

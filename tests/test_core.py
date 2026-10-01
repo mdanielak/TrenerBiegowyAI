@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for core.py shared functions."""
+"""Unit tests for trainer.core shared functions."""
 import sys
 import os
 import json
@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import (
+from trainer.core import (
     parse_timedelta, pace_str, check_hrv_alert, compute_readiness_score,
     find_current_plan, week_bounds, plan_filename,
 )

@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 
 from services.data_extract import (
     GarminDBSyncError, SnapshotStatus, SyncStatus, extract, load_data_latest,
-    print_summary, read_snapshot_status, save_json,
+    print_summary, read_snapshot_status, save_json, sync, sync_full,
 )
-import data_sync
+from trainer.commands import sync as data_sync
 
 
 class TestExtract:
@@ -164,6 +164,34 @@ class TestSyncFailure:
         data_sync.main()
 
         assert save_mock.call_args.args[0]['sync_status'] == "partial"
+
+
+class TestGarminDBSubprocess:
+    def test_sync_uses_logs_directory_as_cwd(self, monkeypatch, tmp_path):
+        from services import data_extract
+
+        calls = []
+        monkeypatch.setattr(data_extract, 'PROJECT_ROOT', tmp_path)
+        monkeypatch.setattr(data_extract, '_find_python', lambda: 'python')
+        monkeypatch.setattr(data_extract, '_find_garmindb_cli', lambda: 'C:/tools/garmindb_cli.py')
+        monkeypatch.setattr(data_extract, 'download_today', lambda cwd=None: True)
+        monkeypatch.setattr(data_extract.subprocess, 'run', lambda *args, **kwargs: calls.append(kwargs) or MagicMock(returncode=0))
+
+        assert sync() is SyncStatus.FULL
+        assert calls[0]['cwd'] == tmp_path / 'logs'
+        assert (tmp_path / 'logs').is_dir()
+
+    def test_full_sync_uses_logs_directory_as_cwd(self, monkeypatch, tmp_path):
+        from services import data_extract
+
+        calls = []
+        monkeypatch.setattr(data_extract, 'PROJECT_ROOT', tmp_path)
+        monkeypatch.setattr(data_extract, '_find_python', lambda: 'python')
+        monkeypatch.setattr(data_extract, '_find_garmindb_cli', lambda: 'C:/tools/garmindb_cli.py')
+        monkeypatch.setattr(data_extract.subprocess, 'run', lambda *args, **kwargs: calls.append(kwargs) or MagicMock(returncode=0))
+
+        assert sync_full() is SyncStatus.FULL
+        assert calls[0]['cwd'] == tmp_path / 'logs'
 
 
 class TestPrintSummary:

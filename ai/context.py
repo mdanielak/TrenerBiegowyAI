@@ -8,8 +8,8 @@ instead of sending the entire data_latest.json to the AI.
 import json
 from datetime import datetime, timedelta
 
-from config import IMPORTANT_PROMPT, RUNNER_PROFILE_EXAMPLE, RUNNER_PROFILE_LOCAL
-from core import check_hrv_alert
+from trainer.config import IMPORTANT_PROMPT, RUNNER_PROFILE_EXAMPLE, RUNNER_PROFILE_LOCAL
+from trainer.core import check_hrv_alert
 from services.training_plan import find_current_plan, get_today_workout_from_plan
 
 

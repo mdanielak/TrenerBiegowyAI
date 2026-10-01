@@ -1,27 +1,25 @@
 # Security Audit — Trener Biegowy AI
 
 **Data:** 2026-09-28
-**Zakres:** bieżący kod, konfiguracja i zasady publikacji.
+**Zakres:** konfiguracja lokalna, CLI i zasady publikacji.
 
-## Stan po przygotowaniu
+## Stan ochrony danych
 
-- Architektura single-user przechowuje prywatny stan wyłącznie w ignorowanym `local/`: `profile.json`, `data_latest.json`, `memory/` i `workout-registry.jsonl`. Katalog `local/` jest wykluczony w całości.
-- Dane Garmin, snapshoty danych, bazy SQLite, FIT/TCX/GPX, logi i cache są wykluczone przez projektowy `.gitignore`.
-- `.env` i jego warianty są ignorowane, z zachowaniem śledzonego `.env.example`.
-- Tokeny, cookies, klucze i certyfikaty są ignorowane.
-- `GarminDb/` i `.GarminDb/` są ignorowane, ponieważ mogą zawierać lokalną konfigurację i tokeny.
-- `runner_profile.example.json` jest neutralnym wzorem publicznym. `runner_profile.local.json` pozostaje ignorowaną starszą lokalizacją na czas migracji.
-- Starsze lokalizacje prywatne (`data_latest.json`, `memory/`, `HealthData/` i `training-plans/_garmin_workouts.jsonl`) pozostają ignorowane na czas migracji.
-- Runtime nie zawiera hardcoded ścieżki do interpretera użytkownika; używa `sys.executable`.
-- `python scripts/check_privacy.py` sprawdza nazwy plików śledzonych i staged; wynik nie zawiera treści plików.
+- Prywatny stan single-user jest przechowywany w ignorowanym `local/`: `profile.json`, `data_latest.json`, `memory/` i `workout-registry.jsonl`.
+- Dane Garmin, bazy SQLite, FIT/TCX/GPX, snapshoty, logi i cache są wykluczane przez `.gitignore`.
+- `.env` i warianty są ignorowane; śledzony pozostaje wyłącznie niesekretny `.env.example`.
+- Tokeny, cookies, klucze i certyfikaty są ignorowane. Zmienne AI (`AI_API_KEY` w szczególności) ustawiaj wyłącznie lokalnie.
+- `GarminDb/` i `.GarminDb/` są ignorowane, ponieważ mogą zawierać konfigurację i tokeny.
+- Legacy prywatne ścieżki (`HealthData/`, `memory/`, główny `data_latest.json`, `runner_profile.local.json` i `training-plans/_garmin_workouts.jsonl`) nadal są ochronnie ignorowane.
+- `python -m trainer privacy-check` sprawdza śledzone i staged ścieżki bez wypisywania ich zawartości.
 
 ## Zasady operacyjne
 
 1. Nie umieszczaj credentials, tokenów ani danych zdrowotnych w kodzie, dokumentacji lub planach publicznych.
-2. Utrzymuj dane dostępowe w lokalnym, bezpiecznym mechanizmie środowiska.
-3. Przed publikacją uruchom `python scripts/check_privacy.py` oraz sprawdź zawartość zmian pod kątem danych osobowych.
-4. Nie modyfikuj bezpośrednio baz zarządzanych przez GarminDB.
+2. Przed publikacją uruchom `python -m trainer privacy-check` i sprawdź zmiany pod kątem danych osobowych.
+3. Nie modyfikuj bezpośrednio baz zarządzanych przez GarminDB.
+4. `python -m trainer workouts create ...` i `python -m trainer workouts usage --delete` mogą wykonywać operacje na Garminie; używaj ich świadomie.
 
 ## Ograniczenia
 
-GarminDB może wymagać lokalnej konfiguracji i tokenów. Są to dane wrażliwe, które muszą pozostać poza repozytorium.
+Audyt opisuje konfigurację i mechanizmy repozytorium. Nie stanowi potwierdzenia testów z rzeczywistym API Garmin ani zewnętrzną usługą AI.

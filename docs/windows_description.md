@@ -2,24 +2,35 @@
 
 ## Uruchamianie
 
-Uruchamiaj skrypty w aktywnym środowisku Pythona:
+W aktywnym środowisku Pythona używaj głównego CLI:
 
 ```powershell
-python data_sync.py
-python analyze_and_readiness.py
+python -m trainer --help
+python -m trainer sync --fresh
+python -m trainer analyze --ai
+python -m trainer privacy-check
 python -m pytest tests/ -v
 ```
 
-## Dane i konfiguracja lokalna
+API jest niezależne od CLI i uruchamia się osobno:
 
-GarminDB przechowuje lokalnie bazy aktywności, dane zdrowotne i konfigurację. Nie publikuj tych danych ani tokenów. Architektura single-user trzyma prywatny stan w całym ignorowanym katalogu `local/`: `profile.json`, `data_latest.json`, `memory/` i `workout-registry.jsonl`. Projekt ignoruje też katalogi danych Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi i cache; starsze lokalizacje prywatne pozostają chronione na czas migracji.
+```powershell
+uvicorn api.main:app --reload
+```
 
-`runner_profile.example.json` jest publicznym wzorem. Docelowy profil runtime przechowuj w `local/profile.json`; cały katalog pozostaje ignorowany przez Git. `runner_profile.local.json` jest starszą, nadal ignorowaną lokalizacją.
+## Konfiguracja i dane lokalne
 
-## GarminDB CLI
+Skopiuj `runner_profile.example.json` do `local/profile.json` i uzupełnij go lokalnie. Zmienne środowiskowe (`HEALTH_DATA_DIR`, `SNAPSHOT_TTL_SECONDS`, ustawienia AI) opisuje `.env.example`; nie zapisuj w repozytorium sekretów ani danych zdrowotnych.
 
-Synchronizacja używa bieżącego interpretera Pythona oraz lokalnego `garmindb_cli.py`, kopii w `GarminDB/` albo polecenia `garmindb_cli` w `PATH`. Lokalny skrypt CLI jest ignorowaną zależnością. Można też zainstalować `garmindb` w aktywnym środowisku.
+GarminDB jest backendem danych lokalnych. Nie publikuj jego baz, tokenów, danych aktywności ani snapshotów. Katalog `local/` zawiera prywatny stan: `profile.json`, `data_latest.json`, `memory/` oraz `workout-registry.jsonl`.
 
-## Plany
+## Treningi Garmin
 
-Aktualna strategia znajduje się w `training-plans/long-term/half-marathon-2027.md`. Rejestr `local/workout-registry.jsonl` jest lokalny i ignorowany; nie jest planem treningowym.
+```powershell
+python -m trainer workouts usage
+python -m trainer workouts create easy "Łatwy 40 min" 40 2026-10-01
+```
+
+`workouts create` tworzy trening na Garminie, a `workouts usage --delete` może usuwać nieużywane treningi. Rzeczywiste połączenie z Garminem lub AI wymaga lokalnej konfiguracji i nie jest potwierdzane przez tę dokumentację.
+
+Prywatne ścieżki legacy, w tym `HealthData/`, `memory/`, główny `data_latest.json` i `training-plans/_garmin_workouts.jsonl`, nadal są ochronnie ignorowane przez Git.

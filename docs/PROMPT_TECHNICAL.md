@@ -1,37 +1,26 @@
 # Prompt techniczny — Trener Biegowy AI
 
-Jesteś asystentem technicznym projektu wspierającego lokalną analizę treningów, GarminDB i rekomendacje AI.
+Jesteś asystentem technicznym lokalnego projektu analizy treningów. Głównym interfejsem jest CLI `python -m trainer` (wersja 0.2.0); GarminDB jest backendem danych, a API uruchamia się niezależnie przez `uvicorn api.main:app --reload`.
 
-## Środowisko
+## Uruchamianie
 
-- Uruchamiaj skrypty przez `python <script>.py` w środowisku zgodnym z `requirements.txt`.
-- Testy uruchamiaj przez `python -m pytest tests/ -v`.
-- `services/data_extract.py` korzysta z `sys.executable`; zależność `garmindb` musi być dostępna w aktywnym środowisku.
+- Pomoc i wersja: `python -m trainer --help`, `python -m trainer --version`.
+- Dane i analiza: `python -m trainer sync [--fresh]`, `python -m trainer analyze [--ai]`.
+- Treningi Garmin: `python -m trainer workouts usage [--delete]` oraz `python -m trainer workouts create <easy|tempo|intervals|long|strides> ...`.
+- Prywatność i testy: `python -m trainer privacy-check`, `python -m pytest tests/ -v`.
+- Nie zakładaj, że przetestowano rzeczywiste API Garmin lub usługę AI; ich użycie wymaga lokalnej konfiguracji i danych dostępowych.
 
-## Dane i konfiguracja
+## Dane i odpowiedzialności
 
-- Architektura single-user używa wyłącznie prywatnego, ignorowanego `local/`: `local/profile.json`, `local/data_latest.json`, `local/memory/` i `local/workout-registry.jsonl`.
-- Dane Garmin, bazy SQLite, pliki aktywności, snapshoty JSON, logi i cache są lokalne oraz ignorowane przez Git. Starsze `memory/`, `data_latest.json` i `training-plans/_garmin_workouts.jsonl` pozostają ignorowane na czas migracji.
-- Nie odczytuj, nie wypisuj i nie publikuj tokenów, credentials ani prywatnych danych zdrowotnych.
-- `runner_profile.example.json` jest neutralnym, śledzonym wzorem. Profil runtime przechowuj w `local/profile.json`; `runner_profile.local.json` jest starszą, ignorowaną lokalizacją.
-- Lokalny `garmindb_cli.py` jest ignorowaną zależnością. Synchronizacja szuka go w katalogu projektu, w `GarminDB/` albo jako `garmindb_cli` w `PATH`.
+- `trainer/config.py` definiuje ścieżki runtime i obsługiwane zmienne środowiskowe: `HEALTH_DATA_DIR`, `SNAPSHOT_TTL_SECONDS`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`, `AI_DATA_EXPORT_ENABLED`.
+- Prywatny stan single-user znajduje się w ignorowanym `local/`: `profile.json`, `data_latest.json`, `memory/` i `workout-registry.jsonl`.
+- `runner_profile.example.json` jest neutralnym wzorem; przed uruchomieniem skopiuj go do `local/profile.json` i uzupełnij lokalnie.
+- GarminDB zarządza lokalnymi danymi Garmin. Nie modyfikuj jego baz bezpośrednio. `create` i `usage --delete` mogą zmieniać treningi na Garminie.
+- Nie odczytuj, nie wypisuj ani nie publikuj tokenów, credentials i prywatnych danych zdrowotnych.
+- Legacy prywatne ścieżki (`HealthData/`, `memory/`, główny `data_latest.json` oraz `training-plans/_garmin_workouts.jsonl`) pozostają ochronnie ignorowane.
 
-## Struktura
+## Zasady zmian
 
-```text
-config.py                         # Ścieżki i zmienne środowiskowe
-ai/context.py                     # Kontekst AI i ładowanie profilu runtime
-services/data_extract.py          # Synchronizacja oraz ekstrakcja danych
-analyze_and_readiness.py          # Analiza gotowości
-training-plans/long-term/half-marathon-2027.md
-                                  # Aktualna strategia długoterminowa
-local/workout-registry.jsonl
-                                  # Lokalny, ignorowany rejestr uploadów
-```
-
-## Zasady modyfikacji
-
-1. Nie modyfikuj bezpośrednio baz zarządzanych przez GarminDB.
-2. Nie dodawaj credentials, tokenów ani danych osobowych do kodu i dokumentacji.
-3. Zachowaj separację: czysty kod w `core.py`, logika w `services/`, konfiguracja w `config.py`.
-4. Strategię i zasady treningowe czytaj z odpowiednich plików Markdown; dane konkretnego biegacza nie należą do promptów technicznych.
+1. Preferuj CLI zamiast wywoływania starszych skryptów; stare skrypty są wyłącznie kompatybilnością wsteczną.
+2. Zachowaj separację odpowiedzialności: konfiguracja w `trainer/config.py`, ekstrakcja danych w `services/`, logika CLI w `trainer/`, API w `api/`.
+3. Dane konkretnego biegacza nie należą do kodu, dokumentacji ani promptów publicznych.

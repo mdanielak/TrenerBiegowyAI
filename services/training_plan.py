@@ -20,7 +20,7 @@ import csv
 import json
 from datetime import datetime, timedelta
 
-from config import TRAINING_PLANS_DIR
+from trainer.config import TRAINING_PLANS_DIR
 
 
 def week_bounds(day):
