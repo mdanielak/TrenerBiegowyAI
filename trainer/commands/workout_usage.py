@@ -105,9 +105,15 @@ def refresh(activities):
             continue
         last = activity['date']
         if last != w.get('last_used') or activity.get('activity_id') != w.get('activity_id'):
-            reg.record_usage(w['workout_id'], last, activity_id=activity.get('activity_id'),
-                             match_method=match_method)
-            changed += 1
+            result = reg.record_usage(w['workout_id'], last,
+                                      activity_id=activity.get('activity_id'),
+                                      match_method=match_method, return_status=True)
+            # An unconfirmed write must not be reported to the user as an update.
+            if result.persisted:
+                changed += 1
+            else:
+                logger.warning("Could not persist usage for workout %s (%s)",
+                               w['workout_id'], result.error_code)
     return changed
 
 

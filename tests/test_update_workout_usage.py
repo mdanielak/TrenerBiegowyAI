@@ -2,6 +2,7 @@
 """Tests for trainer.commands.workout_usage — matching workouts to activities."""
 import sys
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -69,3 +70,19 @@ class TestRefresh:
         reg.record_added('3x8 min tempo', '2026-09-22', 111)
         uwu.refresh([('Wieliczka - 3x8 min tempo', '2026-09-22')])
         assert reg.find_workout(111)['last_used'] == '2026-09-22'
+
+    @pytest.mark.parametrize(('persisted', 'expected_changed'), [(False, 0), (True, 1)])
+    def test_counts_only_confirmed_usage_writes(self, monkeypatch, persisted, expected_changed):
+        reg.record_added('Regeneracja 45 min', '2026-09-22', 111)
+        calls = []
+
+        def record_usage(*args, **kwargs):
+            calls.append((args, kwargs))
+            return SimpleNamespace(persisted=persisted,
+                                   error_code=None if persisted else 'io_error')
+
+        monkeypatch.setattr(uwu.reg, 'record_usage', record_usage)
+        changed = uwu.refresh([('Wieliczka - Regeneracja 45 min', '2026-09-22')])
+
+        assert changed == expected_changed
+        assert len(calls) == 1

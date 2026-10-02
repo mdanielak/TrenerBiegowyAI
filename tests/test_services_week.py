@@ -139,3 +139,18 @@ def test_empty_week_summary_uses_none_for_activity_totals():
     assert (report.summary.total_distance_km, report.summary.total_duration_min,
             report.summary.average_hr, report.summary.completed_workouts,
             report.summary.planned_workouts) == (None, None, None, 0, 0)
+
+
+@pytest.mark.parametrize('schedule_status', ['pending', 'unknown'])
+def test_unconfirmed_schedule_is_not_a_planned_week_workout(schedule_status):
+    report = _report([_entry(date=None, intended_date='2026-12-28',
+                             schedule_status=schedule_status)])
+
+    assert _day(report, '2026-12-28').workouts == []
+
+
+def test_confirmed_schedule_remains_a_planned_week_workout():
+    report = _report([_entry(date='2026-12-28', intended_date='2026-12-28',
+                             schedule_status='confirmed')])
+
+    assert [workout.workout_id for workout in _day(report, '2026-12-28').workouts] == [1]

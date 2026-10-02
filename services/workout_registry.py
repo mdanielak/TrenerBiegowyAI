@@ -2,7 +2,8 @@
 """
 Append-only registry of workouts pushed to Garmin Connect.
 
-Every upload and every deletion appends exactly one JSON object to
+Every deletion and update appends an event, while an upload may append multiple
+events, to
 ``local/workout-registry.jsonl``::
 
     {"ts": "2026-09-16T17:20:00", "event": "added", "workout_id": 1700241385,
@@ -19,10 +20,15 @@ replaying the log, and because each ``added`` entry keeps the builder arguments 
 Append-only was chosen over a mutable JSON/SQLite store on purpose: a crash or a
 partial write can at worst lose the last line, never corrupt earlier history.
 
+``schedule_status`` describes whether a requested schedule is pending,
+confirmed, or unknown.
+
 Importable from CLI, tests, and future API.
 """
 import json
 import logging
+import os
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from trainer.config import SETTINGS
@@ -32,30 +38,69 @@ logger = logging.getLogger(__name__)
 REGISTRY_PATH = SETTINGS.workout_registry
 
 
+@dataclass
+class RegistryWriteResult:
+    """Outcome of an attempted registry write.
+
+    ``persisted=False`` means the write was not confirmed; it does not mean
+    that no bytes reached the file.
+    """
+    entry: dict
+    persisted: bool
+    error_code: str | None = None
+
+
 def _now():
     return datetime.now().replace(microsecond=0).isoformat()
 
 
-def _append(entry):
+def _write_entry(entry) -> RegistryWriteResult:
+    """Write one entry and report whether the write was confirmed."""
+    try:
+        entry.setdefault('ts', _now())
+    except Exception as e:
+        logger.warning("Could not write workout registry: %s", e)
+        return RegistryWriteResult(entry, persisted=False,
+                                   error_code='timestamp_error')
+
+    try:
+        line = json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
+    except Exception as e:
+        logger.warning("Could not write workout registry: %s", e)
+        return RegistryWriteResult(entry, persisted=False,
+                                   error_code='serialization_error')
+
+    try:
+        REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(REGISTRY_PATH, 'a', encoding='utf-8') as f:
+            f.write(line + '\n')
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception as e:
+        logger.warning("Could not write workout registry: %s", e)
+        return RegistryWriteResult(entry, persisted=False, error_code='io_error')
+
+    result = RegistryWriteResult(entry, persisted=True)
+    try:
+        logger.info("Registry: %s %s", entry.get('event'), entry.get('workout_id'))
+    except Exception:
+        pass
+    return result
+
+
+def _append(entry, *, return_status=False):
     """Append one event to the log. Never rewrites existing lines.
 
     Swallows every error on purpose: bookkeeping must never break an upload that
     has already reached Garmin, so a failure here is logged, not raised.
     """
-    entry.setdefault('ts', _now())
-    try:
-        REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
-        with open(REGISTRY_PATH, 'a', encoding='utf-8') as f:
-            f.write(line + '\n')
-        logger.info("Registry: %s %s", entry.get('event'), entry.get('workout_id'))
-    except Exception as e:
-        logger.warning("Could not write workout registry: %s", e)
-    return entry
+    result = _write_entry(entry)
+    return result if return_status else entry
 
 
 def record_added(name, date, workout_id, schedule_id=None, spec=None,
-                 definition=None, source='live'):
+                 definition=None, source='live', *, intended_date=None,
+                 schedule_status=None, return_status=False):
     """Log a workout that was uploaded (and optionally scheduled) to Garmin.
 
     Args:
@@ -64,8 +109,10 @@ def record_added(name, date, workout_id, schedule_id=None, spec=None,
             Either one makes the entry restorable; `definition` wins on restore.
         source: 'live' for uploads made through this project, 'backfill' for
             pre-existing library entries discovered later.
+        intended_date: requested schedule date when it differs from ``date``.
+        schedule_status: one of 'pending', 'confirmed', or 'unknown'.
     """
-    return _append({
+    entry = {
         'event': 'added',
         'workout_id': workout_id,
         'schedule_id': schedule_id,
@@ -74,10 +121,16 @@ def record_added(name, date, workout_id, schedule_id=None, spec=None,
         'source': source,
         'spec': spec or {},
         'definition': definition,
-    })
+    }
+    if intended_date is not None:
+        entry['intended_date'] = intended_date
+    if schedule_status is not None:
+        entry['schedule_status'] = schedule_status
+    return _append(entry, return_status=return_status)
 
 
-def record_deleted(workout_id, schedule_id=None, reason=None, source='live'):
+def record_deleted(workout_id, schedule_id=None, reason=None, source='live', *,
+                   return_status=False):
     """Log the removal of a workout from the Garmin library and calendar."""
     return _append({
         'event': 'deleted',
@@ -85,10 +138,11 @@ def record_deleted(workout_id, schedule_id=None, reason=None, source='live'):
         'schedule_id': schedule_id,
         'reason': reason,
         'source': source,
-    })
+    }, return_status=return_status)
 
 
-def record_usage(workout_id, last_used, source='sync', activity_id=None, match_method=None):
+def record_usage(workout_id, last_used, source='sync', activity_id=None, match_method=None,
+                 *, return_status=False):
     """Log the most recent date this workout's session was actually run.
 
     Refreshed periodically from the activity history, so cleanup decisions are
@@ -101,11 +155,12 @@ def record_usage(workout_id, last_used, source='sync', activity_id=None, match_m
         'source': source,
         'activity_id': activity_id,
         'match_method': match_method,
-    })
+    }, return_status=return_status)
 
 
 def record_updated(workout_id, name=None, definition=None, schedule_id=None,
-                   date=None, note=None, source='update'):
+                   date=None, note=None, source='update', *, schedule_status=None,
+                   return_status=False):
     """Log that a registered workout was edited in Garmin Connect.
 
     Workouts get reshaped on the watch or in the app, and the entry on file
@@ -117,7 +172,7 @@ def record_updated(workout_id, name=None, definition=None, schedule_id=None,
     Only the fields passed in are changed; the builder ``spec`` stays as it was,
     since that describes the original upload rather than the current shape.
     """
-    return _append({
+    entry = {
         'event': 'updated',
         'workout_id': workout_id,
         'name': name,
@@ -126,7 +181,10 @@ def record_updated(workout_id, name=None, definition=None, schedule_id=None,
         'date': date,
         'note': note,
         'source': source,
-    })
+    }
+    if schedule_status is not None:
+        entry['schedule_status'] = schedule_status
+    return _append(entry, return_status=return_status)
 
 
 # Garmin truncates activity names at about this many BYTES (UTF-8), not
@@ -209,6 +267,10 @@ def list_workouts(status='all'):
                 'added_at': e.get('ts'),
                 'status': 'active',
             })
+            if e.get('intended_date') is not None:
+                entry['intended_date'] = e['intended_date']
+            if e.get('schedule_status') is not None:
+                entry['schedule_status'] = e['schedule_status']
             entry.pop('deleted_at', None)
             entry.pop('reason', None)
             continue
@@ -229,7 +291,7 @@ def list_workouts(status='all'):
         elif e.get('event') == 'updated':
             # Only the fields actually passed in change; the builder spec
             # describes the original upload and survives an in-Garmin edit.
-            for key in ('name', 'definition', 'schedule_id', 'date'):
+            for key in ('name', 'definition', 'schedule_id', 'date', 'schedule_status'):
                 if e.get(key) is not None:
                     entry[key] = e[key]
         elif e.get('event') == 'usage':
@@ -331,7 +393,11 @@ def summary(workout_id):
         return f"{workout_id}: nieznany (brak w rejestrze)"
     line = f"{workout_id} | {w.get('name')} | {w.get('status')}"
     if w.get('status') == 'active':
-        line += f" | dodany {w.get('added_at')} | zaplanowany {w.get('date')}"
+        if w.get('schedule_status') in ('pending', 'unknown'):
+            line += (f" | dodany {w.get('added_at')} | planowanie "
+                     f"niepotwierdzone, żądany termin {w.get('intended_date')}")
+        else:
+            line += f" | dodany {w.get('added_at')} | zaplanowany {w.get('date')}"
     else:
         line += f" | usunięty {w.get('deleted_at')}"
         if w.get('reason'):

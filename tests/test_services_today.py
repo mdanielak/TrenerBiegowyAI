@@ -3,6 +3,7 @@
 import pytest
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus
+from services import today
 from services.today import build_today_report
 
 
@@ -171,3 +172,24 @@ def test_execution_uses_first_of_multiple_planned_workouts(tmp_path):
     assert report.planned == planned[0]
     assert report.execution["review_key"] == "2026-10-02:7"
     assert report.execution["planned_count"] == 2
+
+
+@pytest.mark.parametrize("schedule_status", ["pending", "unknown"])
+def test_unconfirmed_schedule_is_not_a_planned_today_workout(monkeypatch, schedule_status):
+    entry = {
+        "workout_id": 7, "name": "Bieg", "status": "active", "date": None,
+        "intended_date": "2026-10-02", "schedule_status": schedule_status,
+    }
+    monkeypatch.setattr(today, "list_workouts", lambda status: [entry])
+
+    assert today._today_registry_entries("2026-10-02") == []
+
+
+def test_confirmed_schedule_remains_a_planned_today_workout(monkeypatch):
+    entry = {
+        "workout_id": 7, "name": "Bieg", "status": "active", "date": "2026-10-02",
+        "intended_date": "2026-10-02", "schedule_status": "confirmed",
+    }
+    monkeypatch.setattr(today, "list_workouts", lambda status: [entry])
+
+    assert today._today_registry_entries("2026-10-02") == [entry]

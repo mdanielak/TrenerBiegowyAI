@@ -47,6 +47,79 @@ class TestAppendOnly:
         assert reg.load_events()  # written thanks to default=str
 
 
+class TestWriteStatus:
+    @pytest.mark.parametrize('record, args', [
+        (reg.record_added, ('A', '2026-09-17', 111)),
+        (reg.record_deleted, (111,)),
+        (reg.record_usage, (111, '2026-09-17')),
+        (reg.record_updated, (111,)),
+    ])
+    def test_record_functions_return_entry_by_default_and_status_on_request(self, record, args):
+        assert isinstance(record(*args), dict)
+        result = record(*args, return_status=True)
+        assert isinstance(result, reg.RegistryWriteResult)
+        assert result.persisted is True
+
+    def test_timestamp_error_is_reported_without_raising(self, monkeypatch):
+        def broken_now():
+            raise RuntimeError('clock unavailable')
+
+        monkeypatch.setattr(reg, '_now', broken_now)
+        result = reg._append({'event': 'added', 'workout_id': 111}, return_status=True)
+        assert result.persisted is False
+        assert result.error_code == 'timestamp_error'
+
+    def test_serialization_error_is_reported_without_raising(self, monkeypatch):
+        def broken_dumps(*args, **kwargs):
+            raise TypeError('cannot serialize')
+
+        monkeypatch.setattr(reg.json, 'dumps', broken_dumps)
+        result = reg._append({'event': 'added', 'workout_id': 111}, return_status=True)
+        assert result.persisted is False
+        assert result.error_code == 'serialization_error'
+
+    def test_io_error_is_reported_without_raising(self, monkeypatch):
+        def broken_open(*args, **kwargs):
+            raise OSError('disk unavailable')
+
+        monkeypatch.setattr(reg, 'open', broken_open, raising=False)
+        result = reg._append({'event': 'added', 'workout_id': 111}, return_status=True)
+        assert result.persisted is False
+        assert result.error_code == 'io_error'
+
+    def test_write_metadata_is_not_stored_in_event(self):
+        result = reg.record_added('A', '2026-09-17', 111, return_status=True)
+        assert result.persisted is True
+        event = reg.load_events()[0]
+        assert 'persisted' not in event
+        assert 'error_code' not in event
+
+    def test_later_appends_preserve_earlier_file_bytes(self):
+        reg.record_added('A', '2026-09-17', 111)
+        first = reg.REGISTRY_PATH.read_bytes()
+        reg.record_deleted(111)
+        second = reg.REGISTRY_PATH.read_bytes()
+        reg.record_usage(111, '2026-09-18')
+        assert second.startswith(first)
+        assert reg.REGISTRY_PATH.read_bytes().startswith(second)
+
+    def test_schedule_fields_are_projected_without_changing_spec(self):
+        reg.record_added('A', None, 111, spec={'kind': 'easy_run'},
+                         intended_date='2026-10-05', schedule_status='pending')
+        reg.record_updated(111, date='2026-10-05', schedule_status='confirmed')
+        workout = reg.find_workout(111)
+        assert workout['schedule_status'] == 'confirmed'
+        assert workout['intended_date'] == '2026-10-05'
+        assert workout['spec'] == {'kind': 'easy_run'}
+
+    def test_historical_entry_without_schedule_fields_remains_active(self):
+        reg._append({'event': 'added', 'workout_id': 111, 'name': 'A',
+                     'ts': '2026-09-17T00:00:00'})
+        workout = reg.find_workout(111)
+        assert workout['status'] == 'active'
+        assert 'schedule_status' not in workout
+
+
 class TestState:
     def test_active_after_add(self):
         reg.record_added("A", "2026-09-17", 111, schedule_id=222)

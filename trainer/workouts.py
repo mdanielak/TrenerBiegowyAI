@@ -30,7 +30,7 @@ from garminconnect.workout import (
 )
 from .config import GARMIN_EMAIL, GARMIN_PASSWORD
 from .garmin_auth import ensure_token
-from services.workout_registry import record_added, record_deleted, find_workout
+from services.workout_registry import record_added, record_deleted, record_updated, find_workout
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,18 @@ _BUILDERS = {
     'threshold_intervals': 'threshold_intervals',
     'strides': 'strides',
 }
+
+
+class WorkoutSchedulingError(Exception):
+    """Upload potwierdzony, ale wynik planowania nie został potwierdzony."""
+
+    def __init__(self, workout_id, intended_date, registry_persisted):
+        self.workout_id = workout_id
+        self.intended_date = intended_date
+        self.registry_persisted = registry_persisted
+        super().__init__(
+            f"Planowanie treningu {workout_id} na {intended_date} jest niepotwierdzone"
+        )
 
 
 class GarminWorkout:
@@ -123,13 +135,74 @@ class GarminWorkout:
         try:
             year, month = int(date_str[:4]), int(date_str[5:7])
             cal = self.api.get_scheduled_workouts(year, month)
+            for item in (cal or {}).get('calendarItems') or []:
+                if item.get('workoutId') == workout_id and item.get('itemType') == 'workout':
+                    return item.get('id')
         except Exception as e:
             logger.warning("Could not read calendar to resolve schedule id: %s", e)
             return None
-        for item in (cal or {}).get('calendarItems') or []:
-            if item.get('workoutId') == workout_id and item.get('itemType') == 'workout':
-                return item.get('id')
         return None
+
+    def _upload_then_schedule(self, workout, name, date_str, *, spec=None,
+                              definition=None, source='live'):
+        """Wgraj, zaksięguj i zaplanuj trening etapami odpornymi na częściowy sukces."""
+        try:
+            r = self.api.upload_running_workout(workout)
+            wid = r['workoutId']
+        except Exception as e:
+            logger.error("Failed to upload workout '%s': %s", name, e)
+            print(f"  BŁĄD: Nie ustalono ID treningu '{name}'; wynik uploadu może być "
+                  "nieznany. Nie ponawiaj tworzenia w ciemno.")
+            raise
+
+        entry_data = {
+            'name': name,
+            'workout_id': wid,
+            'schedule_id': None,
+            'spec': spec,
+            'definition': definition,
+            'source': source,
+        }
+        initial = record_added(date=None, intended_date=date_str,
+                               schedule_status='pending', return_status=True,
+                               **entry_data)
+
+        try:
+            sched = self.api.schedule_workout(wid, date_str)
+        except Exception as e:
+            if initial.persisted:
+                final = record_updated(wid, schedule_status='unknown', return_status=True)
+            else:
+                final = record_added(date=None, intended_date=date_str,
+                                     schedule_status='unknown', return_status=True,
+                                     **entry_data)
+            print(f"  UWAGA: Trening utworzono w Garminie (ID={wid}), ale planowanie "
+                  f"na {date_str} jest niepotwierdzone. Nie ponawiaj tworzenia treningu.")
+            if not final.persisted:
+                print("  UWAGA: Nie potwierdzono zapisu lokalnego rejestru treningów.")
+            raise WorkoutSchedulingError(wid, date_str, final.persisted) from e
+
+        schedule_id = sched.get('id') if isinstance(sched, dict) else None
+        if schedule_id is None:
+            # Odpowiedź Garmina często nie zawiera id, ale brak odczytu kalendarza
+            # nie podważa potwierdzonego wcześniej planowania.
+            try:
+                schedule_id = self._lookup_schedule_id(wid, date_str)
+            except Exception as e:
+                logger.warning("Could not resolve schedule id after scheduling: %s", e)
+        logger.info("Workout scheduled successfully (schedule id %s)", schedule_id)
+
+        if initial.persisted:
+            final = record_updated(wid, date=date_str, schedule_id=schedule_id,
+                                   schedule_status='confirmed', return_status=True)
+        else:
+            final = record_added(date=date_str, intended_date=date_str,
+                                 schedule_status='confirmed', return_status=True,
+                                 **entry_data)
+        if not final.persisted:
+            print(f"  UWAGA: Garmin przyjął trening ID={wid} i planowanie na {date_str}, "
+                  "ale nie potwierdzono zapisu lokalnego rejestru. Nie powtarzaj uploadu.")
+        return wid
 
     def _upload_and_schedule(self, name, total_sec, steps, date_str, spec=None):
         """Upload workout, schedule it, and log both to the workout registry."""
@@ -143,27 +216,12 @@ class GarminWorkout:
             estimatedDurationInSecs=total_sec,
             workoutSegments=[seg],
         )
-        try:
-            logger.info("Uploading workout '%s' (%ds, %d steps)", name, total_sec, len(steps))
-            r = self.api.upload_running_workout(w)
-            wid = r["workoutId"]
-            logger.info("Workout uploaded: ID=%d, scheduling for %s", wid, date_str)
-            sched = self.api.schedule_workout(wid, date_str)
-            schedule_id = sched.get('id') if isinstance(sched, dict) else None
-            if schedule_id is None:
-                # Garmin's schedule response does not always carry the id; without
-                # it the workout cannot be removed from the calendar later.
-                schedule_id = self._lookup_schedule_id(wid, date_str)
-            logger.info("Workout scheduled successfully (schedule id %s)", schedule_id)
-
-            record_added(name=name, date=date_str, workout_id=wid,
-                         schedule_id=schedule_id,
-                         spec={'name': name, 'date': date_str, **(spec or {})})
-            return wid
-        except Exception as e:
-            logger.error("Failed to upload/schedule workout '%s': %s", name, e)
-            print(f"  BLAD: Nie udalo sie wgrac/planowac treningu '{name}': {e}")
-            raise
+        logger.info("Uploading workout '%s' (%ds, %d steps)", name, total_sec, len(steps))
+        wid = self._upload_then_schedule(
+            w, name, date_str, spec={'name': name, 'date': date_str, **(spec or {})},
+        )
+        logger.info("Workout created and scheduled: ID=%d for %s", wid, date_str)
+        return wid
 
     # ------------------------------------------------------------------
     # Public workout builders
@@ -499,12 +557,10 @@ class GarminWorkout:
     def _upload_definition(self, definition, date_str):
         """Wgraj trening z surowej definicji Garmina (verbatim)."""
         w = RunningWorkout(**definition)
-        r = self.api.upload_running_workout(w)
-        wid = r["workoutId"]
-        sched = self.api.schedule_workout(wid, date_str)
-        schedule_id = sched.get('id') if isinstance(sched, dict) else None
-        record_added(name=definition.get('workoutName'), date=date_str, workout_id=wid,
-                     schedule_id=schedule_id, definition=definition, source='restore')
+        wid = self._upload_then_schedule(
+            w, definition.get('workoutName'), date_str, definition=definition,
+            source='restore',
+        )
         print(f"  {date_str} {definition.get('workoutName')}: ID={wid} (odtworzony)")
         return wid
 

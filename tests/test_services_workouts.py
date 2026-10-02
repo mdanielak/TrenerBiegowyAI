@@ -28,7 +28,8 @@ sys.modules['garminconnect'] = _mock_garminconnect
 sys.modules['garminconnect.workout'] = _mock_workout
 
 from trainer import garmin_auth
-from trainer.workouts import GarminWorkout
+from trainer.workouts import GarminWorkout, WorkoutSchedulingError
+from services import workout_registry as registry
 
 
 @pytest.fixture(autouse=True)
@@ -180,6 +181,105 @@ class TestWorkoutBuilders:
         mock_gw.api.upload_running_workout.side_effect = Exception("API Error")
         with pytest.raises(Exception, match="API Error"):
             mock_gw.easy_run("Fail", 30, "2026-09-20")
+
+
+class TestUploadSchedulingConsistency:
+    @pytest.fixture
+    def mock_gw(self):
+        gw = GarminWorkout(email='test@test.com', password='pass')
+        gw.api = MagicMock()
+        gw.api.upload_running_workout.return_value = {'workoutId': 12345}
+        gw.api.schedule_workout.return_value = {'id': 67890}
+        gw.api.delete_workout.side_effect = AssertionError('no compensation')
+        gw.api.unschedule_workout.side_effect = AssertionError('no compensation')
+        return gw
+
+    def test_added_entry_exists_before_scheduling(self, mock_gw):
+        def check_registry(*args):
+            workout = registry.find_workout(12345)
+            assert workout['date'] is None
+            assert workout['schedule_status'] == 'pending'
+            return {'id': 67890}
+
+        mock_gw.api.schedule_workout.side_effect = check_registry
+        assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
+
+    def test_upload_without_id_does_not_schedule_or_register(self, mock_gw, capsys):
+        mock_gw.api.upload_running_workout.return_value = {}
+        with pytest.raises(KeyError):
+            mock_gw.easy_run('Test', 30, '2026-09-20')
+        mock_gw.api.schedule_workout.assert_not_called()
+        assert registry.load_events() == []
+        assert 'wynik uploadu może być nieznany' in capsys.readouterr().out
+
+    def test_upload_failure_does_not_schedule_or_register(self, mock_gw):
+        mock_gw.api.upload_running_workout.side_effect = RuntimeError('upload failed')
+        with pytest.raises(RuntimeError, match='upload failed'):
+            mock_gw.easy_run('Test', 30, '2026-09-20')
+        mock_gw.api.schedule_workout.assert_not_called()
+        assert registry.load_events() == []
+
+    def test_scheduling_error_records_unknown_status_and_cause(self, mock_gw):
+        failure = TimeoutError('timeout')
+        mock_gw.api.schedule_workout.side_effect = failure
+        with pytest.raises(WorkoutSchedulingError) as caught:
+            mock_gw.easy_run('Test', 30, '2026-09-20')
+        error = caught.value
+        workout = registry.find_workout(12345)
+        assert workout['date'] is None
+        assert workout['schedule_status'] == 'unknown'
+        assert error.workout_id == 12345
+        assert error.intended_date == '2026-09-20'
+        assert error.registry_persisted is True
+        assert error.__cause__ is failure
+
+    def test_lookup_failure_does_not_undo_confirmed_schedule(self, mock_gw, monkeypatch):
+        mock_gw.api.schedule_workout.return_value = MagicMock()
+        monkeypatch.setattr(mock_gw, '_lookup_schedule_id',
+                            lambda *args: (_ for _ in ()).throw(RuntimeError('calendar')))
+        assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
+        workout = registry.find_workout(12345)
+        assert workout['schedule_status'] == 'confirmed'
+        assert workout['date'] == '2026-09-20'
+
+    def test_failed_initial_registry_write_is_recovered_by_full_added(self, mock_gw, monkeypatch):
+        real_added = registry.record_added
+        calls = 0
+
+        def fail_once(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return registry.RegistryWriteResult(kwargs, False, 'io_error')
+            return real_added(*args, **kwargs)
+
+        monkeypatch.setattr('trainer.workouts.record_added', fail_once)
+        assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
+        workout = registry.find_workout(12345)
+        assert workout['status'] == 'active'
+        assert workout['date'] == '2026-09-20'
+        assert workout['schedule_status'] == 'confirmed'
+
+    def test_failed_final_registry_write_still_returns_id(self, mock_gw, monkeypatch):
+        monkeypatch.setattr(
+            'trainer.workouts.record_updated',
+            lambda *args, **kwargs: registry.RegistryWriteResult({}, False, 'io_error'),
+        )
+        assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
+
+    def test_restore_scheduling_failure_keeps_definition_and_source(self, mock_gw):
+        definition = {'workoutName': 'Odtworzony', 'estimatedDurationInSecs': 1800}
+        mock_gw.api.schedule_workout.side_effect = TimeoutError('timeout')
+        with pytest.raises(WorkoutSchedulingError):
+            mock_gw._upload_definition(definition, '2026-09-20')
+        workout = registry.find_workout(12345)
+        assert workout['definition'] == definition
+        assert workout['source'] == 'restore'
+        assert workout['schedule_status'] == 'unknown'
+
+    def test_success_keeps_id_and_existing_output(self, mock_gw, capsys):
+        assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
+        assert '2026-09-20 Test: ID=12345' in capsys.readouterr().out
 
 
 class TestZoneRunWarmup:
