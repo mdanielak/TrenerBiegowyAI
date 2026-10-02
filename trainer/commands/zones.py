@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 from .. import profile_store
+from ..garmin_profile import parse_hr_zones
 
 
 def _print_zones(profile: dict, heading: str = "Strefy tętna") -> None:
@@ -32,14 +33,11 @@ def main(sync: bool = False) -> int:
         workout = GarminWorkout().login()
         if workout.api is None:
             raise ValueError("brak połączenia z Garmin Connect")
-        response = workout.api.get_heart_rate_zones()
-        if not response or not isinstance(response, dict):
+        parsed = parse_hr_zones(workout.api.get_heart_rate_zones())
+        if not parsed:
             print("BŁĄD: Garmin Connect nie zwrócił stref tętna.")
             return 1
-        floors = {f"z{number}": response[f"zone{number}Floor"] for number in range(1, 6)}
-        hr_max = response["maxHeartRateUsed"]
-        if any(value is None for value in floors.values()) or hr_max is None:
-            raise ValueError("niepełne dane stref tętna")
+        floors, hr_max = parsed
         source = f"Garmin Connect — synchronizacja {date.today().isoformat()}"
         after = profile_store.set_hr_zones(floors, hr_max, source)
     except (KeyError, TypeError, ValueError) as exc:

@@ -27,6 +27,7 @@ _mock_workout.TargetType.PACE_ZONE = 6
 sys.modules['garminconnect'] = _mock_garminconnect
 sys.modules['garminconnect.workout'] = _mock_workout
 
+from trainer import garmin_auth
 from trainer.workouts import GarminWorkout
 
 
@@ -82,44 +83,66 @@ class TestGarminWorkoutInit:
         assert gw.email == "env@test.com"
         assert gw.password == "envpass"
 
+    # Czyszczenie os.environ nic tu nie daje: GARMIN_EMAIL i GARMIN_PASSWORD są
+    # stałymi modułu związanymi przy imporcie, więc podmieniamy je wprost.
+    @patch('trainer.workouts.GARMIN_EMAIL', '')
+    @patch('trainer.workouts.GARMIN_PASSWORD', '')
     def test_init_no_credentials(self):
-        with patch.dict(os.environ, {}, clear=True):
-            gw = GarminWorkout()
-            assert gw.email == ""
-            assert gw.password == ""
+        gw = GarminWorkout()
+        assert gw.email == ""
+        assert gw.password == ""
 
 
 class TestLogin:
-    def test_login_without_credentials_falls_back_to_token_store(self):
-        """No env credentials -> use the cached GarminDB OAuth token store."""
-        adapter = MagicMock()
-        adapter.client = MagicMock()
-        fake_module = types.ModuleType('garmindb.garmin_connect_auth_adapter')
-        fake_module.GarminConnectAuthAdapter = MagicMock(return_value=adapter)
-        fake_config = types.ModuleType('garmindb.garmin_connect_config_manager')
-        fake_config.GarminConnectConfigManager = MagicMock(return_value=MagicMock())
+    """Logowanie idzie przez trainer.garmin_auth.ensure_token.
 
-        with patch.dict(sys.modules, {
-            'garmindb.garmin_connect_auth_adapter': fake_module,
-            'garmindb.garmin_connect_config_manager': fake_config,
-        }):
-            gw = GarminWorkout(email=None, password=None)
-            result = gw.login()
+    Magazyn tokenów jest przekierowany na katalog tymczasowy przez autouse
+    fixture w tests/conftest.py, więc testy nigdy nie czytają prawdziwego
+    ~/.GarminDb z katalogu domowego.
+    """
 
-        adapter.login.assert_called_once()
-        assert gw.api is adapter.client
+    @pytest.fixture
+    def client(self, monkeypatch):
+        """Podmień klienta tam, gdzie go naprawdę używamy.
+
+        Atrapa z sys.modules nie wystarcza: trainer.garmin_auth wiąże nazwę
+        Garmin przy imporcie, więc przy innej kolejności zbierania testów
+        trzymałby prawdziwą klasę.
+        """
+        factory = MagicMock(return_value=MagicMock())
+        monkeypatch.setattr(garmin_auth, "Garmin", factory)
+        return factory
+
+    def test_login_without_credentials_uses_saved_token(self, client):
+        """Zapisany token wystarcza, hasło nie jest potrzebne."""
+        path = garmin_auth.token_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"di_token": "x"}', encoding="utf-8")
+
+        gw = GarminWorkout(email=None, password=None)
+        result = gw.login()
+
+        client.assert_called_once_with()
+        client.return_value.login.assert_called_once_with(str(path))
+        assert gw.api is client.return_value
         assert result is gw
 
-    def test_login_success(self):
-        mock_api = MagicMock()
-        _mock_garminconnect.Garmin.return_value = mock_api
-
+    def test_login_success_saves_token_for_next_run(self, client):
+        """Logowanie hasłem MUSI przekazać ścieżkę tokenstore, inaczej token nie powstanie."""
         gw = GarminWorkout(email="test@test.com", password="pass")
         result = gw.login()
 
-        _mock_garminconnect.Garmin.assert_called_with("test@test.com", "pass")
-        mock_api.login.assert_called_once()
+        client.assert_called_with("test@test.com", "pass")
+        client.return_value.login.assert_called_once_with(str(garmin_auth.token_path()))
         assert result is gw
+
+    def test_login_without_token_and_without_password_raises(self):
+        """Brak tokena i brak hasła to jasny błąd, nie cicha degradacja."""
+        monkeypatched = patch.multiple(garmin_auth, GARMIN_EMAIL="", GARMIN_PASSWORD="")
+        with monkeypatched:
+            gw = GarminWorkout(email=None, password=None)
+            with pytest.raises(garmin_auth.GarminAuthError, match="GARMIN_PASSWORD"):
+                gw.login()
 
 
 class TestWorkoutBuilders:

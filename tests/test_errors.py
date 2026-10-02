@@ -22,6 +22,16 @@ def test_json_error_and_secret_are_safe():
     assert "very-secret" not in generic.hint
 
 
+def test_garmin_auth_error_is_not_reported_as_unexpected():
+    from trainer.garmin_auth import GarminAuthError
+
+    advice = describe_error(GarminAuthError("Brakuje hasła Garmin (GARMIN_PASSWORD)."))
+    assert advice.exit_code == 8
+    assert "nieoczekiwany" not in advice.message.lower()
+    assert "Garmin Connect" in advice.message
+    assert "GARMIN_PASSWORD" in advice.hint
+
+
 def test_env_hint_matches_current_platform():
     hint = env_hint("MY_VALUE", "abc")
     assert ("$env:MY_VALUE" if __import__("sys").platform == "win32" else "export MY_VALUE") in hint

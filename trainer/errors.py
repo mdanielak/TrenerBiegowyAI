@@ -53,4 +53,12 @@ def describe_error(exc: BaseException) -> ErrorAdvice:
         return ErrorAdvice("Brak uprawnień do pliku lub katalogu.", "Sprawdź uprawnienia do lokalnych danych.", 6)
     if isinstance(exc, sqlite3.DatabaseError):
         return ErrorAdvice("Wystąpił problem z lokalną bazą danych.", "Uruchom: python -m trainer doctor, a następnie python -m trainer sync", 7)
+    # Dopasowujemy po nazwie klasy, aby nie importować trainer.garmin_auth
+    # (a przez niego garminconnect) do modułu obsługi błędów.
+    if type(exc).__name__ == "GarminAuthError":
+        return ErrorAdvice(
+            "Nie udało się zalogować do Garmin Connect.",
+            text or "Ustaw GARMIN_PASSWORD w pliku .env, a potem uruchom: python -m trainer setup",
+            8,
+        )
     return ErrorAdvice("Wystąpił nieoczekiwany błąd.", f"Szczegóły: {text or type(exc).__name__}", 1)

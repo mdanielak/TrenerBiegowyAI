@@ -108,9 +108,23 @@ class TestEnvVars:
         from trainer.config import AI_MODEL
         assert isinstance(AI_MODEL, str)
 
-    def test_ai_data_export_is_disabled_by_default(self):
-        from trainer.config import AI_DATA_EXPORT_ENABLED
-        assert AI_DATA_EXPORT_ENABLED is False
+    def test_ai_data_export_is_disabled_by_default(self, monkeypatch):
+        """Brak zmiennej musi oznaczać wyłączony eksport danych.
+
+        Stała jest budowana przy imporcie, a trainer/config.py wczytuje wtedy
+        projektowy .env. Dlatego default sprawdzamy przeładowując moduł
+        z neutralnym środowiskiem, a na końcu przywracamy stan rzeczywisty.
+        """
+        import importlib
+        import trainer.config as config_module
+        import trainer.env_file as env_file_module
+
+        with monkeypatch.context() as patched:
+            patched.delenv("AI_DATA_EXPORT_ENABLED", raising=False)
+            patched.setattr(env_file_module, "load_env_file", lambda *a, **k: {})
+            reloaded = importlib.reload(config_module)
+            assert reloaded.AI_DATA_EXPORT_ENABLED is False
+        importlib.reload(config_module)
 
     def test_settings_are_immutable_and_hide_secrets_in_repr(self):
         from dataclasses import FrozenInstanceError

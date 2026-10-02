@@ -167,6 +167,19 @@ class TestSyncFailure:
 
 
 class TestGarminDBSubprocess:
+    @pytest.fixture(autouse=True)
+    def _stub_auth(self, monkeypatch):
+        """Nie wchodź w prawdziwe uwierzytelnianie ani w pakiet garmindb.
+
+        sync() dba teraz o token przed uruchomieniem GarminDB, a realny
+        garmindb importuje garminconnect, który inne testy podmieniają
+        na atrapę w sys.modules.
+        """
+        from services import data_extract
+
+        monkeypatch.setattr(data_extract, 'ensure_garmindb_config', lambda email: False)
+        monkeypatch.setattr(data_extract, 'ensure_token', lambda: object())
+
     def test_sync_uses_logs_directory_as_cwd(self, monkeypatch, tmp_path):
         from services import data_extract
 

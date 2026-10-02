@@ -59,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser('today', help='pokazuje plan i gotowość na dziś')
     zones = commands.add_parser('zones', help='pokazuje strefy tętna')
     zones.add_argument('--sync', action='store_true', help='pobierz strefy z Garmin Connect')
+    profile = commands.add_parser('profile', help='pokazuje lokalny profil biegacza')
+    profile.add_argument('--sync', action='store_true', help='pobierz profil z Garmin Connect')
     workout_commands.add_parser('new', help='interaktywnie tworzy trening')
     return parser
 
@@ -85,6 +87,9 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.command == 'zones':
         from .commands.zones import main as zones
         return zones(sync=args.sync)
+    if args.command == 'profile':
+        from .commands.profile import main as profile
+        return profile(sync=args.sync)
     if args.command == 'workouts' and args.workout_command == 'new':
         from .commands.workout_new import main as workout_new
         return workout_new()

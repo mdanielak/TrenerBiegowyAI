@@ -24,7 +24,7 @@ New-Item -ItemType Directory -Force local
 Copy-Item runner_profile.example.json local/profile.json
 ```
 
-Uzupełnij lokalnie `local/profile.json`. Pełne instrukcje: [Linux](docs/linux_setup.md) oraz [Windows](docs/windows_description.md).
+Następnie uruchom `python -m trainer setup`. Kreator pobiera dane fizjologiczne i strefy tętna wprost z Garmin Connect, więc wystarczy je zatwierdzić — ręczne wpisywanie jest tylko wariantem awaryjnym, gdy połączenie zawiedzie. Plik `local/profile.json` można też uzupełnić samodzielnie. Pełne instrukcje: [Linux](docs/linux_setup.md) oraz [Windows](docs/windows_description.md).
 
 ## Codzienna praca
 
@@ -35,10 +35,14 @@ python -m trainer today
 python -m trainer analyze
 python -m trainer analyze --ai
 python -m trainer zones --sync
+python -m trainer profile
+python -m trainer profile --sync
 python -m trainer workouts new
 python -m trainer doctor
 python -m trainer privacy-check
 ```
+
+`python -m trainer profile` pokazuje zapisany profil biegacza, a `profile --sync` odświeża z Garmin Connect wiek, wagę, wzrost, tętno maksymalne i spoczynkowe, próg mleczanowy, VO2max oraz strefy tętna — dzięki temu nie trzeba wpisywać ich ręcznie. Dni treningowe pozostają w preferencjach lokalnych i mają pierwszeństwo nad ustawieniami z Garmina. Jeśli profil zawiera wartości zapisane jako zakres (np. `75-76`), komenda to zgłosi i zaproponuje synchronizację.
 
 Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --fresh`. Dostępne są też podkomendy `sync`, `analyze`, `workouts`, `privacy-check` i `doctor`; sprawdź `python -m trainer --help` oraz pomoc wybranej podkomendy. Wynik synchronizacji może być częściowy — przed decyzją treningową sprawdź aktualność i kompletność snapshotu.
 
@@ -51,13 +55,21 @@ Plik `.env` w katalogu głównym projektu jest wczytywany automatycznie i jest i
 | `HEALTH_DATA_DIR` | Katalog danych GarminDB, domyślnie `~/HealthData`; zawiera `DBs` lub `dbs`. |
 | `SNAPSHOT_TTL_SECONDS` | Maksymalny wiek lokalnego snapshotu danych. |
 | `GARMIN_EMAIL` | Adres konta Garmin używany przy uwierzytelnianiu. |
-| `GARMIN_PASSWORD` | Hasło konta Garmin używane przy uwierzytelnianiu. |
+| `GARMIN_PASSWORD` | Hasło konta Garmin; potrzebne przy pierwszym logowaniu i do odtworzenia wygasłego tokenu. |
 | `AI_BASE_URL` | Adres bazowy opcjonalnego dostawcy AI. |
 | `AI_API_KEY` | Klucz API opcjonalnego dostawcy AI. |
 | `AI_MODEL` | Nazwa modelu AI do analizy. |
 | `AI_DATA_EXPORT_ENABLED` | Zezwolenie na eksport danych do integracji AI. |
 
-GarminDB może użyć tokenów `~/.GarminDb/garmin_tokens.json` i konfiguracji `~/.GarminDb/GarminConnectConfig.json` albo poświadczeń Garmin z powyższych zmiennych. Nie umieszczaj sekretów w plikach śledzonych przez Git.
+### Logowanie do Garmina
+
+Logowanie przechodzi przez jedno miejsce (`trainer/garmin_auth.py`) i działa tak:
+
+1. Jeśli istnieje token `~/.GarminDb/garmin_tokens.json`, używany jest token — hasło nie jest potrzebne.
+2. Jeśli tokenu nie ma albo stracił ważność, program loguje się hasłem z `GARMIN_PASSWORD` i **zapisuje nowy token**.
+3. Jeśli nie ma ani tokenu, ani hasła, polecenie kończy się czytelnym błędem z instrukcją — nie przechodzi po cichu w tryb bez danych.
+
+Dlatego hasło warto trzymać w pliku `.env`: token wygasa co jakiś czas, a hasło pozwala odtworzyć go automatycznie. Konfiguracja `~/.GarminDb/GarminConnectConfig.json` jest tworzona automatycznie przy pierwszym logowaniu i **nie zawiera hasła**. Nie umieszczaj sekretów w plikach śledzonych przez Git.
 
 ## Prywatność
 

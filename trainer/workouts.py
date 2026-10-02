@@ -25,11 +25,11 @@ import os
 import sys
 import argparse
 from datetime import date
-from garminconnect import Garmin
 from garminconnect.workout import (
     RunningWorkout, WorkoutSegment, ExecutableStep, StepType, TargetType,
 )
 from .config import GARMIN_EMAIL, GARMIN_PASSWORD
+from .garmin_auth import ensure_token
 from services.workout_registry import record_added, record_deleted, find_workout
 
 logger = logging.getLogger(__name__)
@@ -58,25 +58,13 @@ class GarminWorkout:
     def login(self):
         """Log in to Garmin Connect.
 
-        Uses GARMIN_EMAIL/GARMIN_PASSWORD when both are set. Otherwise falls back
-        to the cached GarminDB OAuth token store (~/.GarminDb/garmin_tokens.json),
-        which the daily sync already keeps fresh — so no password is needed.
+        Tries the saved OAuth token store (~/.GarminDb/garmin_tokens.json) first.
+        If it is missing or no longer valid, falls back to GARMIN_EMAIL/
+        GARMIN_PASSWORD and writes a fresh token for later runs. Raises
+        GarminAuthError when neither a token nor a password is available.
         """
-        if self.email and self.password:
-            logger.info("Logging in to Garmin Connect as %s", self.email)
-            self.api = Garmin(self.email, self.password)
-            self.api.login()
-            logger.info("Garmin Connect login successful")
-            return self
-
-        logger.info("No GARMIN_EMAIL/GARMIN_PASSWORD set — using cached GarminDB tokens")
-        from garmindb.garmin_connect_auth_adapter import GarminConnectAuthAdapter
-        from garmindb.garmin_connect_config_manager import GarminConnectConfigManager
-
-        adapter = GarminConnectAuthAdapter(GarminConnectConfigManager())
-        adapter.login()
-        self.api = adapter.client
-        logger.info("Garmin Connect login successful (cached token)")
+        self.api = ensure_token(self.email, self.password)
+        logger.info("Garmin Connect login successful")
         return self
 
     # ------------------------------------------------------------------

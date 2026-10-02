@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import builtins
 import types
@@ -61,25 +62,78 @@ class _Tty:
     def isatty(self): return True
 
 
+class _OfflineGarmin:
+    """Atrapa klienta: logowanie zawodzi, więc kreator idzie ścieżką ręczną."""
+    def __init__(self, **kwargs): pass
+    def login(self): raise RuntimeError('brak sieci w testach')
+
+
+def _answers(mapping, default=''):
+    """Odpowiadaj na podstawie treści pytania, nie jego pozycji.
+
+    Pozycyjne listy odpowiedzi rozjeżdżały się przy każdej zmianie
+    kolejności pytań w kreatorze; dopasowanie po treści jest odporne.
+    """
+    compiled = [(re.compile(pattern, re.IGNORECASE), value) for pattern, value in mapping]
+    def answer(prompt):
+        for pattern, value in compiled:
+            if pattern.search(prompt):
+                return value
+        return default
+    return answer
+
+
+@pytest.fixture(autouse=True)
+def _disable_terminal_getpass(monkeypatch):
+    """Testy bez sekretu nie mogą próbować czytać prawdziwego terminala."""
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', lambda prompt: '')
+
+
 def _redirect_stores(monkeypatch, tmp_path):
     settings = types.SimpleNamespace(runner_profile_local=tmp_path / 'profile.json', local_dir=tmp_path)
     monkeypatch.setattr(profile_store, 'SETTINGS', settings)
     monkeypatch.setattr(preferences, 'SETTINGS', settings)
     monkeypatch.setattr(setup_wizard, 'PROJECT_ROOT', tmp_path)
+    monkeypatch.setattr(setup_wizard, 'ensure_token', lambda email, password: object())
+    monkeypatch.setattr(setup_wizard, 'ensure_garmindb_config', lambda email: False)
 
 
 def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp_path, capsys):
     _redirect_stores(monkeypatch, tmp_path)
-    answers = iter(['runner@example.com', 'sekret#haslo', str(tmp_path / 'health'),
-                    '35', '70', '180', '190', '50', '170', 'n',
-                    'półmaraton', '2027-05-01', '1:45:00',
-                    'n', 'n', 'n', 'n', 'n', 'n', 'n', '2',
-                    't', 'https://api.example/v1', 'model', 'tajny-klucz', 't', 't'])
-    monkeypatch.setattr(builtins, 'input', lambda _: next(answers))
+    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    answers = _answers([
+        (r'E-mail', 'runner@example.com'),
+        (r'Hasło Garmin', 'sekret#haslo'),
+        (r'Katalog danych', str(tmp_path / 'health')),
+        (r'Użyć tych danych', 'n'),
+        (r'Wiek', '35'),
+        (r'Waga', '70'),
+        (r'Wzrost', '180'),
+        (r'Tętno maksymalne', '190'),
+        (r'Tętno spoczynkowe', '50'),
+        (r'mleczanowy', '170'),
+        (r'Wybierz numer', '3'),
+        (r'Zakładany czas', '1:49:00'),
+        (r'Data celu', '2027-05-01'),
+        (r'Aktualny rekord', '1:45:00'),
+        (r'trenujesz', 'n'),
+        (r'Zatwierdzasz ten plan', 'n'),
+        (r'minuty \(', '0'),
+        (r'intensywnych sesji', '2'),
+        (r'AI_BASE_URL', 'https://api.example/v1'),
+        (r'AI_MODEL', 'model'),
+        (r'AI_API_KEY', 'tajny-klucz'),
+        (r'Włączyć opcjonalne', 't'),
+        (r'zgodę na eksport', 't'),
+        (r'Zapisać ustawienia', 't'),
+    ])
+    monkeypatch.setattr(builtins, 'input', answers)
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', answers)
     monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
     assert setup_wizard.main() == 0
     profile = profile_store.load_profile()
-    assert profile['age'] == 35 and profile['target_hm'] == 'półmaraton'
+    assert profile['age'] == 35 and profile['target_hm'] == 'półmaraton 1:49:00'
+    assert profile['hr_max'] == 190 and profile['lactate_threshold_hr'] == 170
     assert preferences.load_preferences()['max_quality_sessions_per_week'] == 2
     env = (tmp_path / '.env').read_text(encoding='utf8')
     assert 'sekret#haslo' in env and 'tajny-klucz' in env
@@ -90,17 +144,141 @@ def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp
 def test_wizard_zone_sync_survives_final_profile_write(monkeypatch, tmp_path):
     _redirect_stores(monkeypatch, tmp_path)
     profile_store.save_profile({'age': 30, 'weight_kg': 60, 'height_cm': 170, 'hr_max': 180, 'hr_rest': 50, 'lactate_threshold_hr': 160})
-    def zones(sync=False):
-        assert sync
-        profile_store.set_hr_zones({'z1': 100, 'z2': 120, 'z3': 140, 'z4': 160, 'z5': 175}, 190, 'test Garmin')
-        return 0
-    module = types.ModuleType('trainer.commands.zones'); module.main = zones
-    monkeypatch.setitem(__import__('sys').modules, 'trainer.commands.zones', module)
-    answers = iter(['', '', str(tmp_path / 'health'), '31', '61', '171', '190', '51', '170', 't',
-                    '', '', '', 'n', 'n', 'n', 'n', 'n', 'n', 'n', '0', 'n', 'n'])
-    monkeypatch.setattr(builtins, 'input', lambda _: next(answers))
+    class Workout:
+        api = object()
+        def __init__(self, **kwargs): pass
+        def login(self): return self
+    monkeypatch.setattr('trainer.workouts.GarminWorkout', Workout)
+    monkeypatch.setattr(setup_wizard, 'fetch_snapshot', lambda api: {
+        'age': 31, 'weight': 61, 'height': 171, 'hr_max': 190, 'hr_rest': 51,
+        'lactate_threshold_hr': 170, 'hr_zone_floors': {'z1': 100, 'z2': 120, 'z3': 140, 'z4': 160, 'z5': 175}})
+    answers = _answers([
+        (r'Katalog', str(tmp_path / 'health')), (r'Użyć tych danych', 't'),
+        (r'Wybierz numer', '3'), (r'Zakładany czas', ''), (r'Data celu', ''), (r'Aktualny rekord', ''),
+        (r'Zatwierdzasz', 't'), (r'intensywnych', '0'), (r'Włączyć', 'n'), (r'Zapisać', 'n'),
+    ])
+    monkeypatch.setattr(builtins, 'input', answers)
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', answers)
     monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
     assert setup_wizard.main() == 0
     result = profile_store.load_profile()
     assert result['age'] == 31 and result['hr_zone_floors'] == {'z1': 100, 'z2': 120, 'z3': 140, 'z4': 160, 'z5': 175}
-    assert result['hr_zones_source'] == 'test Garmin' and result['hr_zones'] == 'Z1 100-119, Z2 120-139, Z3 140-159, Z4 160-174, Z5 175-190'
+    assert 'Garmin Connect' in result['hr_zones_source']
+    assert result['hr_zones'] == 'Z1 100-119, Z2 120-139, Z3 140-159, Z4 160-174, Z5 175-190'
+
+
+def test_weekly_proposal_approval_avoids_daily_questions(monkeypatch, tmp_path):
+    _redirect_stores(monkeypatch, tmp_path)
+    existing = preferences.load_preferences()
+    existing['days']['tue'] = {'available': True, 'min_minutes': 40, 'max_minutes': 50}
+    preferences.save_preferences(existing)
+    prompts = []
+    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    answers = _answers([(r'E-mail', 'x@example.com'), (r'Hasło', ''), (r'Katalog', str(tmp_path)),
+                        (r'Wiek', '35'), (r'Waga', '70'), (r'Wzrost', '180'), (r'maksymalne', '190'),
+                         (r'spoczynkowe', '50'), (r'mleczanowy', '170'), (r'Wybierz numer', '3'), (r'Zakładany czas', ''),
+                        (r'Data celu', '2027-01-01'), (r'Aktualny rekord', 'x'),
+                        (r'Zatwierdzasz', 't'), (r'intensywnych', '2'), (r'Włączyć', 'n'), (r'Zapisać', 'n')])
+    monkeypatch.setattr(builtins, 'input', lambda prompt: prompts.append(prompt) or answers(prompt))
+    monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
+    assert setup_wizard.main() == 0
+    assert not any('trenujesz' in prompt or 'minimum minut' in prompt for prompt in prompts)
+    assert preferences.get_weekly_availability('tue') == {'available': True, 'min_minutes': 40, 'max_minutes': 50}
+
+
+def test_weekly_proposal_rejection_asks_daily_questions(monkeypatch, tmp_path):
+    _redirect_stores(monkeypatch, tmp_path)
+    prefs = preferences.load_preferences(); prefs['days']['mon']['available'] = True; preferences.save_preferences(prefs)
+    prompts = []
+    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    answers = _answers([(r'E-mail', 'x'), (r'Katalog', str(tmp_path)), (r'Wiek', '35'), (r'Waga', '70'),
+                        (r'Wzrost', '180'), (r'maksymalne', '190'), (r'spoczynkowe', '50'), (r'mleczanowy', '170'),
+                        (r'Wybierz numer', '3'), (r'Zakładany czas', ''), (r'Data celu', '2027-01-01'), (r'Aktualny rekord', 'x'),
+                        (r'Zatwierdzasz', 'n'), (r'trenujesz', 'n'), (r'intensywnych', '0'), (r'Włączyć', 'n'), (r'Zapisać', 'n')])
+    monkeypatch.setattr(builtins, 'input', lambda prompt: prompts.append(prompt) or answers(prompt))
+    monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
+    assert setup_wizard.main() == 0
+    assert any('trenujesz' in prompt for prompt in prompts)
+
+
+def test_weekly_proposal_uses_garmin_days_and_long_range():
+    proposal = setup_wizard._weekly_proposal({}, {'available_training_days': ['tue'], 'long_training_days': ['sun']})
+    assert proposal['tue'] == {'available': True, 'min_minutes': 35, 'max_minutes': 45}
+    assert proposal['sun'] == {'available': True, 'min_minutes': 60, 'max_minutes': 90}
+
+
+def test_target_goal_half_marathon_time(monkeypatch):
+    monkeypatch.setattr(builtins, 'input', _answers([(r'Wybierz numer', '3'), (r'Zakładany czas', '1:49:00')]))
+    assert setup_wizard._target_goal({}) == {'target_race': 'półmaraton', 'target_time': '1:49:00', 'target_hm': 'półmaraton 1:49:00'}
+
+
+def test_target_goal_no_race_skips_time(monkeypatch):
+    prompts = []
+    answers = _answers([(r'Wybierz numer', '6')])
+    monkeypatch.setattr(builtins, 'input', lambda prompt: prompts.append(prompt) or answers(prompt))
+    assert setup_wizard._target_goal({}) == {'target_race': 'brak', 'target_time': '', 'target_hm': 'brak'}
+    assert not any('Zakładany czas' in prompt for prompt in prompts)
+
+
+def test_target_goal_other_and_invalid_choice_reprompts(monkeypatch):
+    answers = iter(['9', '5', 'Bieg górski', '2:00:00'])
+    monkeypatch.setattr(builtins, 'input', lambda prompt: next(answers))
+    assert setup_wizard._target_goal({})['target_race'] == 'Bieg górski'
+
+
+@pytest.mark.parametrize(('answers', 'expected'), [(['30-45'], (30, 45)), (['30'], (30, 30)), ([''], (20, 40)), (['45-30', '30-45'], (30, 45)), (['abc', '30'], (30, 30))])
+def test_minutes_range(monkeypatch, answers, expected):
+    inputs = iter(answers)
+    monkeypatch.setattr(builtins, 'input', lambda prompt: next(inputs))
+    assert setup_wizard._minutes_range('Minuty', 20, 40) == expected
+
+
+def test_weekly_rejection_asks_minutes_once_per_available_day(monkeypatch, tmp_path):
+    _redirect_stores(monkeypatch, tmp_path)
+    prefs = preferences.load_preferences(); prefs['days']['mon'] = {'available': True, 'min_minutes': 30, 'max_minutes': 45}; preferences.save_preferences(prefs)
+    prompts = []
+    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    answers = _answers([(r'E-mail', 'x'), (r'Katalog', str(tmp_path)), (r'Wiek', '35'), (r'Waga', '70'), (r'Wzrost', '180'),
+                        (r'maksymalne', '190'), (r'spoczynkowe', '50'), (r'mleczanowy', '170'), (r'Wybierz numer', '6'),
+                        (r'Data celu', ''), (r'Aktualny rekord', ''), (r'Zatwierdzasz', 'n'), (r'Pon: trenujesz', 't'), (r'trenujesz', 'n'),
+                        (r'minuty \(', '30-45'), (r'intensywnych', '0'), (r'Włączyć', 'n'), (r'Zapisać', 'n')])
+    monkeypatch.setattr(builtins, 'input', lambda prompt: prompts.append(prompt) or answers(prompt))
+    monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
+    assert setup_wizard.main() == 0
+    assert sum('minuty (np.' in prompt for prompt in prompts) == 1
+
+
+def test_wizard_retries_password_then_allows_manual_mode(monkeypatch, tmp_path):
+    _redirect_stores(monkeypatch, tmp_path)
+    attempts = []
+    def rejected(email, password):
+        attempts.append(password)
+        raise setup_wizard.GarminAuthError('błędne hasło')
+    monkeypatch.setattr(setup_wizard, 'ensure_token', rejected)
+    answers = _answers([
+        (r'E-mail', 'runner@example.com'),
+        # Treść promptu zależy od tego, czy token już istnieje, więc
+        # dopasowujemy wspólny fragment zamiast pełnej etykiety. Lookahead
+        # chroni przed złapaniem promptu ponowienia, który też się tak zaczyna.
+        (r'^Hasło Garmin(?!.*ponownie)', 'pierwsze'),
+        (r'spróbuj ponownie', 'drugie'), (r'Kontynuować z ręcznym', 't'),
+        (r'Katalog', str(tmp_path)), (r'Wiek', '35'), (r'Waga', '70'), (r'Wzrost', '180'),
+        (r'maksymalne', '190'), (r'spoczynkowe', '50'), (r'mleczanowy', '170'),
+        (r'Wybierz numer', '6'), (r'Data celu', ''), (r'Aktualny rekord', ''),
+        (r'trenujesz', 'n'), (r'intensywnych', '0'), (r'Włączyć', 'n'), (r'Zapisać', 'n'),
+    ])
+    monkeypatch.setattr(builtins, 'input', answers)
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', answers)
+    monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
+    assert setup_wizard.main() == 0
+    assert attempts == ['pierwsze', 'drugie', 'drugie']
+
+
+def test_ask_secret_uses_getpass_not_input(monkeypatch):
+    def forbidden_input(prompt):
+        if 'Hasło' in prompt:
+            raise AssertionError('sekretny prompt nie może używać input')
+        return ''
+    monkeypatch.setattr(builtins, 'input', forbidden_input)
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', lambda prompt: 'tajne-hasło')
+    assert setup_wizard._ask('Hasło Garmin', secret=True) == 'tajne-hasło'

@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 from trainer.config import (
     PROJECT_ROOT, ACT_DB, MAIN_DB, DATA_LATEST,
     GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, SNAPSHOT_TTL_SECONDS,
+    GARMIN_EMAIL,
 )
+from trainer.garmin_auth import ensure_garmindb_config, ensure_token
 
 class GarminDBSyncError(RuntimeError):
     """GarminDB CLI did not complete, so its database snapshot is unsafe to export."""
@@ -107,6 +109,8 @@ def download_today(timeout=300, cwd=None):
     Workaround for the GarminDB off-by-one described above. Failures are logged
     and swallowed — a network hiccup here must not abort the whole sync.
     """
+    ensure_garmindb_config(GARMIN_EMAIL)
+    ensure_token()
     python = _find_python()
     logger.info("Downloading today's data (GarminDB --latest workaround)")
     try:
@@ -125,6 +129,8 @@ def download_today(timeout=300, cwd=None):
 
 def sync():
     """Run garmindb CLI incremental sync."""
+    ensure_garmindb_config(GARMIN_EMAIL)
+    ensure_token()
     python = _find_python()
     script = _find_garmindb_cli()
     log_dir = _garmindb_log_dir()
