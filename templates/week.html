@@ -1,37 +1,201 @@
-<!doctype html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Trener Biegowy — tydzień</title>
-  <style>
-    :root { font-family: system-ui, sans-serif; color: #1d2939; background: #f5f7fa; }
-    body { margin: 0; padding: 28px 16px; } main { max-width: 700px; margin: auto; }
-    h1 { margin-bottom: 4px; } h2 { font-size: 1.1rem; margin: 0 0 8px; }
-    .muted { color: #52606d; } .day, .error, .notice { background: #fff; border-radius: 10px; padding: 16px; margin: 14px 0; box-shadow: 0 1px 3px #1018281a; }
-    .today { border: 3px solid #25855a; } .warning { background: #fff4cc; border-left: 5px solid #b7791f; padding: 12px; margin: 12px 0; }
-    .status { font-weight: 700; } .status.uncertain { color: #8a4b08; } .status.no_record { color: #52606d; } .status.matched { color: #17663e; }
-    ul { padding-left: 20px; margin: 8px 0; } li { margin: 6px 0; } .section { margin-top: 14px; }
-    code { background: #eef2f6; padding: 2px 5px; border-radius: 3px; } footer { margin: 28px 0 8px; color: #52606d; font-size: .9rem; }
-  </style>
-</head>
-<body><main>
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — tydzień{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
 {% if error_message %}
-  <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }} Uruchom w terminalu: <code>{{ error_command }}</code></p></section>
+
+  <div class="page-head">
+    <h1>Nie można pokazać danych</h1>
+  </div>
+  <div class="banner bad">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p>{{ error_message }}</p>
+      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+    </div>
+  </div>
+
 {% else %}
-  <header><h1>Tydzień</h1><p class="muted">{{ format_date(report.week_start) }} — {{ format_date(report.week_end) }}</p><p><a href="/">Wróć do widoku dnia</a></p></header>
-  <section class="notice">Zaplanowane treningi pochodzą z lokalnego rejestru. Ten widok nie sprawdza kalendarza Garmin Connect.</section>
-  {% if report.registry_status|default('ok') == 'missing' %}<section class="warning">Nie znaleziono lokalnego rejestru treningów, więc nie ma czego pokazać w planie.</section>{% elif report.registry_status|default('ok') == 'invalid' %}<section class="warning">Lokalny rejestr treningów jest nieczytelny. Plan może być niepełny.</section>{% endif %}
-  {% for warning in report.warnings %}{% if warning in warning_labels %}<section class="warning">{{ warning_labels[warning] }}</section>{% endif %}{% endfor %}
-  {% for day in report.days %}
-  <section class="day {% if day.temporal_state == 'today' %}today{% endif %}">
-    <h2>{{ weekdays[day.weekday_index]|capitalize }}, {{ format_date(day.date) }}{% if day.temporal_state == 'today' %} — dzisiaj{% endif %}</h2>
-    <p class="status {{ day.status }}">{{ day_status_labels.get(day.status, '—') }}</p>
-    <p class="muted">Dostępność: {% if day.availability is none or not day.availability.configured %}Brak zadeklarowanej dostępności{% elif day.availability.available %}{{ day.availability.min_minutes }}–{{ day.availability.max_minutes }} min{% else %}Dzień odpoczynku{% endif %}</p>
-    <div class="section"><strong>Zapisane treningi</strong>{% if day.workouts %}<ul>{% for workout in day.workouts %}<li>{{ workout.name or '—' }} — {% if workout.status == 'matched' %}Znaleziono wykonanie{% elif workout.status == 'planned' %}Zaplanowane{% elif workout.status == 'no_record' %}Brak wykonania w lokalnych danych{% else %}Nie można jednoznacznie porównać{% endif %}{% if workout.match_method == 'ambiguous' %}. Nie można jednoznacznie przypisać wykonania.{% endif %}</li>{% endfor %}</ul>{% else %}<p>—</p>{% endif %}</div>
-    <div class="section"><strong>Aktywności</strong>{% if day.activities %}<ul>{% for activity in day.activities %}<li>{{ activity.started_at[11:16] or '—' }} — {{ activity.name or '—' }}{% if activity.distance_km is not none %}, {{ activity.distance_km }} km{% endif %}{% if activity.duration_min is not none %}, {{ activity.duration_min }} min{% endif %}{% if activity.sport.startswith('running') and activity.matched_workout_id is none %} — Bieg bez dopasowania do zapisanego planu{% endif %}</li>{% endfor %}</ul>{% else %}<p>—</p>{% endif %}</div>
-  </section>
-  {% endfor %}
-  <footer>To nie jest porada medyczna.</footer>
+
+  <div class="page-head">
+    <h1>Tydzień</h1>
+    <p class="page-sub">{{ format_date(report.week_start) }} – {{ format_date(report.week_end) }}</p>
+  </div>
+
+  <div class="stack">
+
+    {% if report.registry_status|default('ok') == 'missing' %}
+      <div class="banner warn">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Nie znaleziono lokalnego rejestru treningów, więc nie ma czego pokazać w planie.</p>
+        </div>
+      </div>
+    {% elif report.registry_status|default('ok') == 'invalid' %}
+      <div class="banner warn">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Lokalny rejestr treningów jest nieczytelny. Plan może być niepełny.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {% for warning in report.warnings %}
+      {% if warning in warning_labels %}
+        <div class="banner warn">
+          {{ ico.info() }}
+          <div class="banner-body">
+            <p class="banner-title">{{ warning_labels[warning] }}</p>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {% if report.summary %}
+      <div class="grid grid-4">
+        <div class="tile">
+          <span class="tile-label">{{ ico.runner(15) }}<span>Przebiegnięty dystans</span></span>
+          <span class="tile-value">
+            {% if report.summary.total_distance_km is not none %}{{ report.summary.total_distance_km|round(1) }}<span class="tile-unit">km</span>
+            {%- else %}—{% endif %}
+          </span>
+          <span class="tile-foot">Suma z zapisanych aktywności</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-label">{{ ico.clock(15) }}<span>Czas w ruchu</span></span>
+          <span class="tile-value">
+            {% if report.summary.total_duration_min is not none %}{{ format_minutes(report.summary.total_duration_min) }}
+            {%- else %}—{% endif %}
+          </span>
+          <span class="tile-foot">Suma z zapisanych aktywności</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-label">{{ ico.heart(15) }}<span>Średnie tętno</span></span>
+          <span class="tile-value">
+            {% if report.summary.average_hr is not none %}{{ report.summary.average_hr }}<span class="tile-unit">bpm</span>
+            {%- else %}—{% endif %}
+          </span>
+          <span class="tile-foot">Średnia z aktywności, które je zmierzyły</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-label">{{ ico.clipboard(15) }}<span>Wykonane treningi</span></span>
+          <span class="tile-value">{{ report.summary.completed_workouts }}<span class="tile-unit">z {{ report.summary.planned_workouts }}</span></span>
+          <span class="tile-foot">Zapisane treningi z odnalezionym wykonaniem</span>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if chart %}
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ ico.line_chart(17) }}<span>Gotowość w tym tygodniu</span></h2>
+        </div>
+        <svg class="chart" width="{{ chart.width }}" height="{{ chart.height }}"
+             viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+             aria-label="Wykres gotowości dzień po dniu w tym tygodniu.">
+          {% for line in chart.gridlines %}
+            <line class="chart-grid" x1="{{ chart.grid_start }}" y1="{{ line.y }}" x2="{{ chart.grid_end }}" y2="{{ line.y }}"/>
+            <text class="chart-axis" x="{{ chart.axis_x }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
+          {% endfor %}
+          {% if chart.area %}<path class="chart-area" d="{{ chart.area }}"/>{% endif %}
+          {% if chart.polyline %}<polyline class="chart-line" points="{{ chart.polyline }}"/>{% endif %}
+          {% for point in chart.points %}
+            {% if point.y is not none %}
+              <circle class="chart-dot{% if point.is_today %} today{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="4.5"/>
+            {% endif %}
+            <text class="chart-axis" x="{{ point.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ point.label }}</text>
+          {% endfor %}
+        </svg>
+        <p class="tile-foot">Punkty są tylko dla dni, w których zegarek zmierzył nocne dane. Zmierzone dni: {{ chart.measured_days }} z 7.</p>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.calendar(17) }}<span>Dzień po dniu</span></h2>
+      </div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background: var(--ok-icon)"></span><span>gotowy do treningu</span></span>
+        <span class="legend-item"><span class="legend-swatch" style="background: var(--warn-icon)"></span><span>gotowy, z rezerwą</span></span>
+        <span class="legend-item"><span class="legend-swatch" style="background: var(--danger-icon)"></span><span>nie jesteś gotowy</span></span>
+      </div>
+
+      <div class="week" style="margin-top: 14px">
+        {% for day in report.days %}
+          {% set pill = readiness_pill(day.readiness) %}
+          <div class="day {% if day.temporal_state == 'today' %}today{% elif day.temporal_state == 'past' %}past{% endif %}"
+               role="group" aria-label="{{ weekdays[day.weekday_index]|capitalize }}, {{ format_date(day.date) }}">
+            <div class="day-head">
+              <span class="day-name">{{ weekdays_short[day.weekday_index] }}</span>
+              <span class="day-num">{{ day.date[8:10]|int }}</span>
+              {% if day.temporal_state == 'today' %}<span class="day-today-tag">dzisiaj</span>{% endif %}
+            </div>
+
+            {% if pill %}
+              <span class="pill {{ pill.variant }}">{{ pill.score }} z {{ pill.max_score }}</span>
+            {% endif %}
+
+            <span class="day-block-meta">{{ day_status_labels.get(day.status, '—') }}</span>
+
+            {% for workout in day.workouts %}
+              <div class="day-block">
+                <span class="day-block-label">Plan</span>
+                <span class="day-block-title">{{ workout.name or '—' }}</span>
+                <span class="day-block-meta">
+                  {% if workout.planned_distance_km is not none %}{{ workout.planned_distance_km }} km{% endif %}
+                  {% if workout.planned_duration_min is not none %}{{ workout.planned_duration_min|round|int }} min{% endif %}
+                  {% if workout.hr_zone %}{{ workout.hr_zone }}{% elif workout.hr_target %}{{ workout.hr_target }}{% endif %}
+                </span>
+                {% if workout.match_method == 'ambiguous' %}
+                  <span class="day-block-meta">Nie można jednoznacznie przypisać wykonania.</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            {% for activity in day.activities %}
+              <div class="day-block">
+                <span class="day-block-label">Wykonanie</span>
+                <span class="day-block-title">{{ activity.name or '—' }}</span>
+                <span class="day-block-meta">
+                  {{ activity.started_at[11:16] or '—' }}
+                  {% if activity.distance_km is not none %}· {{ activity.distance_km }} km{% endif %}
+                  {% if activity.duration_min is not none %}· {{ activity.duration_min|round|int }} min{% endif %}
+                  {% if activity.avg_hr is not none %}· {{ activity.avg_hr }} bpm{% endif %}
+                </span>
+                {% if activity.sport.startswith('running') and activity.matched_workout_id is none %}
+                  <span class="day-block-meta">Bieg bez dopasowania do zapisanego planu</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            {% if not day.workouts and not day.activities %}
+              <span class="day-block-meta">
+                {% if day.availability is none or not day.availability.configured %}Brak zadeklarowanej dostępności
+                {%- elif day.availability.available %}Wolne {{ day.availability.min_minutes }}–{{ day.availability.max_minutes }} min
+                {%- else %}Dzień odpoczynku{% endif %}
+              </span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p>Zaplanowane treningi pochodzą z lokalnego rejestru. Ten widok nie sprawdza kalendarza Garmin Connect.</p>
+      </div>
+    </div>
+
+    <footer>To nie jest porada medyczna.</footer>
+
+  </div>
+
 {% endif %}
-</main></body></html>
+{% endblock %}

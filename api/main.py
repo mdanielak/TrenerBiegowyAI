@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Lokalne API i dashboard Trenera Biegowego AI."""
 from __future__ import annotations
 
@@ -79,6 +79,14 @@ _TREND_LABELS = {
 _RING_RADIUS = 52
 _RING_STROKE = 11
 _RING_SIZE = 128
+_WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
+_READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}
+_CHART_WIDTH = 640
+_CHART_HEIGHT = 170
+_CHART_PAD_LEFT = 30
+_CHART_PAD_RIGHT = 14
+_CHART_PAD_TOP = 14
+_CHART_PAD_BOTTOM = 28
 SYNC_COOLDOWN = timedelta(seconds=60)
 _CSRF_COOKIE = "trainer_csrf"
 
@@ -143,6 +151,101 @@ def _signal_cards(report) -> list:
             "trend": _trend_view(trends.get(trend_key)) if trend_key else None,
         })
     return cards
+
+
+def _format_minutes(value) -> str | None:
+    """Zamień minuty na czas czytelny dla człowieka."""
+    if value is None:
+        return None
+    total = int(round(float(value)))
+    hours, minutes = divmod(total, 60)
+    if hours and minutes:
+        return f"{hours} h {minutes} min"
+    if hours:
+        return f"{hours} h"
+    return f"{minutes} min"
+
+
+def _readiness_pill(day_readiness) -> dict | None:
+    """Opisz gotowość danego dnia tekstem i wariantem koloru."""
+    if not day_readiness:
+        return None
+    level = day_readiness.get("level")
+    return {
+        "level": level,
+        "label": _READINESS_LABELS.get(level, level),
+        "variant": _READINESS_PILL_CLASSES.get(level, "neutral"),
+        "score": day_readiness.get("score"),
+        "max_score": day_readiness.get("max_score"),
+    }
+
+
+def _readiness_chart(days) -> dict | None:
+    """Policz geometrię wykresu gotowości tygodniowej. Całość powstaje na serwerze."""
+    inner_width = _CHART_WIDTH - _CHART_PAD_LEFT - _CHART_PAD_RIGHT
+    inner_height = _CHART_HEIGHT - _CHART_PAD_TOP - _CHART_PAD_BOTTOM
+    baseline = _CHART_PAD_TOP + inner_height
+
+    max_score = 10.0
+    for day in days:
+        data = day.readiness
+        if data and data.get("max_score"):
+            max_score = float(data["max_score"])
+            break
+
+    steps = max(len(days) - 1, 1)
+    points = []
+    for index, day in enumerate(days):
+        data = day.readiness or {}
+        score = data.get("score")
+        point = {
+            "x": round(_CHART_PAD_LEFT + inner_width * index / steps, 2),
+            "label": _WEEKDAYS_SHORT[day.weekday_index],
+            "score": score,
+            "level": data.get("level"),
+            "is_today": day.temporal_state == "today",
+            "y": None,
+        }
+        if score is not None:
+            fraction = max(0.0, min(1.0, float(score) / max_score)) if max_score else 0.0
+            point["y"] = round(_CHART_PAD_TOP + (1.0 - fraction) * inner_height, 2)
+        points.append(point)
+
+    plotted = [point for point in points if point["y"] is not None]
+    if not plotted:
+        return None
+
+    gridlines = [
+        {
+            "y": round(_CHART_PAD_TOP + (1.0 - value / max_score) * inner_height, 2) if max_score else baseline,
+            "label": round(value) if float(value).is_integer() else round(value, 1),
+        }
+        for value in (0.0, max_score / 2, max_score)
+    ]
+
+    polyline = area = None
+    if len(plotted) > 1:
+        polyline = " ".join(f"{point['x']},{point['y']}" for point in plotted)
+        area = (
+            f"M {plotted[0]['x']},{baseline} "
+            + " ".join(f"L {point['x']},{point['y']}" for point in plotted)
+            + f" L {plotted[-1]['x']},{baseline} Z"
+        )
+
+    return {
+        "width": _CHART_WIDTH,
+        "height": _CHART_HEIGHT,
+        "baseline": round(baseline, 2),
+        "label_y": round(baseline + 18, 2),
+        "axis_x": _CHART_PAD_LEFT - 8,
+        "grid_start": _CHART_PAD_LEFT,
+        "grid_end": _CHART_WIDTH - _CHART_PAD_RIGHT,
+        "points": points,
+        "polyline": polyline,
+        "area": area,
+        "gridlines": gridlines,
+        "measured_days": len(plotted),
+    }
 
 
 class HealthResponse(BaseModel):
@@ -380,7 +483,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
             return _TEMPLATES.TemplateResponse(
                 request=request, name="week.html",
                 context={"error_message": "Brakuje lokalnych danych raportu.",
-                         "error_command": "python -m trainer sync"},
+                         "error_command": "python -m trainer sync", "active_nav": "week"},
                 status_code=404, headers={"Cache-Control": "no-store"},
             )
         except Exception:
@@ -388,7 +491,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
             return _TEMPLATES.TemplateResponse(
                 request=request, name="week.html",
                 context={"error_message": "Nie można odczytać lokalnych danych raportu.",
-                         "error_command": "python -m trainer sync"},
+                         "error_command": "python -m trainer sync", "active_nav": "week"},
                 status_code=503, headers={"Cache-Control": "no-store"},
             )
         return _TEMPLATES.TemplateResponse(
@@ -399,6 +502,10 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 "day_status_labels": _WEEK_STATUS_LABELS,
                 "warning_labels": _WEEK_WARNING_LABELS,
                 "format_date": _format_date,
+                "format_minutes": _format_minutes,
+                "readiness_pill": _readiness_pill,
+                "weekdays_short": _WEEKDAYS_SHORT,
+                "chart": _readiness_chart(report.days),
                 "active_nav": "week",
             },
             headers={"Cache-Control": "no-store"},
@@ -454,7 +561,8 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
             "unknown": "Nie wiemy, czy operacja się dokończyła. Sprawdź dane, zanim spróbujesz ponownie.",
         }
         return _TEMPLATES.TemplateResponse(request=request, name="job.html",
-                                           context={"job": job, "message": labels[job.status]},
+                                           context={"job": job, "message": labels[job.status],
+                                                    "active_nav": "today"},
                                            headers={"Cache-Control": "no-store"})
 
     return app

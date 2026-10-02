@@ -220,8 +220,13 @@ def test_week_renders_seven_days_and_no_store():
         response = client.get("/week")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
+    # Pełna polska nazwa dnia jest dostępna dla czytników ekranu.
     for weekday in ("Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"):
         assert weekday in response.text
+    # Widocznie, w wąskiej kolumnie, pokazujemy skrót.
+    for short in ("pon", "wt", "śr", "czw", "pt", "sob", "ndz"):
+        assert f">{short}</span>" in response.text
+    assert response.text.count('role="group"') == 7
 
 
 def test_week_renders_all_day_status_labels():

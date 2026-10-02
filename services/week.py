@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from services.activity_matching import assign_activities
 from services.data_extract import SnapshotStatus, read_snapshot_status
+from services.readiness import readiness_for_day
 from services.training_plan import week_bounds
 from services.workout_registry import list_workouts
 from trainer.preferences import get_weekly_availability
@@ -59,6 +60,7 @@ class WeekDayReport:
     warnings: list[str]
     workouts: list[WeekWorkout]
     activities: list[WeekActivity]
+    readiness: dict | None = None
 
 
 @dataclass
@@ -194,7 +196,8 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
             day_status = 'no_record'
         temporal = 'today' if date_text == today else 'past' if date_text < today else 'future'
         raw_availability = availability.get(_DAYS[index]) if isinstance(availability, dict) else None
-        days.append(WeekDayReport(date_text, index, temporal, _availability(raw_availability), day_status, [], workouts, week_activities))
+        days.append(WeekDayReport(date_text, index, temporal, _availability(raw_availability), day_status, [],
+                                  workouts, week_activities, readiness_for_day(data, date_text)))
     all_activities = [activity for day in days for activity in day.activities]
     distances = [activity.distance_km for activity in all_activities
                  if isinstance(activity.distance_km, (int, float)) and not isinstance(activity.distance_km, bool)]
