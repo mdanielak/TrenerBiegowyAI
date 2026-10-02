@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 
 import pytest
 
@@ -81,12 +81,12 @@ def test_build_today_report_includes_trends_for_report_date(tmp_path):
     report = build_today_report(
         snapshot=_snapshot(
             daily_health=[
-                {"day": "2026-10-02", "rhr": 48, "stress_avg": 25},
-                {"day": "2026-10-01", "rhr": 50, "stress_avg": 30},
+                {"date": "2026-10-02", "rhr": 48, "stress_avg": 25},
+                {"date": "2026-10-01", "rhr": 50, "stress_avg": 30},
             ],
             sleep=[
-                {"day": "2026-10-02", "score": 90},
-                {"day": "2026-10-01", "score": 80},
+                {"date": "2026-10-02", "score": 90},
+                {"date": "2026-10-01", "score": 80},
             ],
         ),
         planned=None,

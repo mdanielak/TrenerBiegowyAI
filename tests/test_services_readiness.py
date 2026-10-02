@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Tests for services/readiness.py — readiness assessment and plan comparison."""
 import sys
 import os
@@ -109,15 +109,15 @@ class TestReadinessForDay:
     def test_uses_all_records_for_requested_day(self):
         data = {
             'daily_health': [
-                {'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25},
-                {'day': '2026-10-01', 'rhr': 56, 'stress_avg': 45},
+                {'date': '2026-10-02', 'rhr': 48, 'stress_avg': 25},
+                {'date': '2026-10-01', 'rhr': 56, 'stress_avg': 45},
             ],
             'sleep': [
-                {'day': '2026-10-02', 'score': 92, 'total_h': 8.0},
-                {'day': '2026-10-01', 'score': 65, 'total_h': 5.0},
+                {'date': '2026-10-02', 'score': 92, 'total_h': 8.0},
+                {'date': '2026-10-01', 'score': 65, 'total_h': 5.0},
             ],
             'hrv': [
-                {'day': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
+                {'date': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
                  'baseline_low': 67, 'baseline_high': 82},
             ],
         }
@@ -133,9 +133,9 @@ class TestReadinessForDay:
 
     def test_marks_sleep_missing_when_health_record_exists(self):
         data = {
-            'daily_health': [{'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
+            'daily_health': [{'date': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
             'sleep': [],
-            'hrv': [{'day': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
+            'hrv': [{'date': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
                      'baseline_low': 67, 'baseline_high': 82}],
         }
 
@@ -149,12 +149,12 @@ class TestSignalTrends:
     def test_reports_rising_falling_and_flat_signals(self):
         data = {
             'daily_health': [
-                {'day': '2026-10-02', 'rhr': 48, 'stress_avg': 30},
-                {'day': '2026-10-01', 'rhr': 50, 'stress_avg': 30},
+                {'date': '2026-10-02', 'rhr': 48, 'stress_avg': 30},
+                {'date': '2026-10-01', 'rhr': 50, 'stress_avg': 30},
             ],
             'sleep': [
-                {'day': '2026-10-02', 'score': 90},
-                {'day': '2026-10-01', 'score': 80},
+                {'date': '2026-10-02', 'score': 90},
+                {'date': '2026-10-01', 'score': 80},
             ],
         }
 
@@ -171,8 +171,8 @@ class TestSignalTrends:
 
     def test_returns_none_direction_without_previous_day(self):
         data = {
-            'daily_health': [{'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
-            'sleep': [{'day': '2026-10-02', 'score': 90}],
+            'daily_health': [{'date': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
+            'sleep': [{'date': '2026-10-02', 'score': 90}],
         }
 
         result = signal_trends(data, '2026-10-02')

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Readiness assessment and plan-vs-actual comparison services.
 
@@ -134,18 +134,18 @@ def compute_readiness_breakdown(data):
 def readiness_for_day(data, day):
     """Compute readiness using records matching the requested calendar day."""
     health = next(
-        (record for record in data.get('daily_health', []) if record.get('day') == day),
+        (record for record in data.get('daily_health', []) if record.get('date') == day),
         None,
     )
     if health is None:
         return None
 
     sleep = next(
-        (record for record in data.get('sleep', []) if record.get('day') == day),
+        (record for record in data.get('sleep', []) if record.get('date') == day),
         None,
     )
     hrv = next(
-        (record for record in data.get('hrv', []) if record.get('day') == day),
+        (record for record in data.get('hrv', []) if record.get('date') == day),
         None,
     )
     return compute_readiness_breakdown({
@@ -160,7 +160,7 @@ def signal_trends(data, day):
     previous_day = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
 
     def record_for(records, target_day):
-        return next((record for record in records if record.get('day') == target_day), None)
+        return next((record for record in records if record.get('date') == target_day), None)
 
     health_today = record_for(data.get('daily_health', []), day)
     health_previous = record_for(data.get('daily_health', []), previous_day)
