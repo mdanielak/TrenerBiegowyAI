@@ -46,6 +46,16 @@ python -m trainer privacy-check
 
 Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --fresh`. Dostępne są też podkomendy `sync`, `analyze`, `workouts`, `privacy-check` i `doctor`; sprawdź `python -m trainer --help` oraz pomoc wybranej podkomendy. Wynik synchronizacji może być częściowy — przed decyzją treningową sprawdź aktualność i kompletność snapshotu.
 
+## Lokalny dashboard
+
+Po przygotowaniu danych uruchom dashboard:
+
+```bash
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+Otwórz w przeglądarce [http://127.0.0.1:8000](http://127.0.0.1:8000). Serwer jest dostępny tylko z tego komputera. Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
+
 ## Konfiguracja środowiska
 
 Plik `.env` w katalogu głównym projektu jest wczytywany automatycznie i jest ignorowany przez Git. Rzeczywiste zmienne środowiskowe systemu mają pierwszeństwo przed wartościami z `.env`.

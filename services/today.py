@@ -61,7 +61,6 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
     if empty.status != "ok":
         return empty
 
-    assert snapshot is not None
     data = snapshot.data or {}
     day_activities = sorted(
         (item for item in data.get("activities", []) if str(item.get("date", ""))[:10] == yesterday),

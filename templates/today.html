@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trener Biegowy — dziś</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #1d2939; background: #f5f7fa; }
+    body { margin: 0; padding: 28px 16px; }
+    main { max-width: 700px; margin: auto; }
+    h1 { margin-bottom: 4px; } h2 { font-size: 1.1rem; margin: 28px 0 10px; }
+    .date, .muted { color: #52606d; } .card, .error { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px #1018281a; }
+    .warning { background: #fff4cc; border-left: 5px solid #b7791f; padding: 14px; margin-bottom: 18px; border-radius: 4px; }
+    code { background: #eef2f6; padding: 2px 5px; border-radius: 3px; word-break: break-word; }
+    .readiness { border-left: 7px solid #b7791f; } .readiness.ready, .readiness.ready_with_reserves { border-color: #25855a; background: #effaf3; }
+    .readiness.not_ready { border-color: #c53030; background: #fff1f1; }
+    .score { font-size: 2.6rem; font-weight: 700; line-height: 1; } .score span { font-size: 1.2rem; font-weight: 400; }
+    .level { font-size: 1.15rem; font-weight: 600; margin: 8px 0 0; }
+    .signals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; } .signal { background: #fff; padding: 12px; border-radius: 8px; }
+    .signal strong { display: block; font-size: .85rem; color: #52606d; } .signal span { font-size: 1.2rem; }
+    ul { padding-left: 20px; } li { margin: 7px 0; } footer { margin: 28px 0 8px; color: #52606d; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+  {% if error_message %}
+    <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }} Uruchom w terminalu: <code>{{ error_command }}</code></p></section>
+  {% else %}
+    {% if is_stale %}<section class="warning"><strong>Dane są nieaktualne.</strong> Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></section>{% endif %}
+    <header><h1>Dzisiaj</h1><p class="date">{{ formatted_date }}, {{ weekday }}</p>{% if not is_stale %}<p class="muted">Dane są aktualne.</p>{% endif %}</header>
+    <section class="card readiness {{ report.readiness.level }}"><div class="score">{{ readiness_score }}<span> / {{ readiness_max_score }}</span></div><p class="level">Gotowość: {{ readiness_label }}</p></section>
+    <h2>Sygnały</h2>
+    <section class="signals">
+      <div class="signal"><strong>Sen</strong><span>{{ report.signals.sleep_score if report.signals.sleep_score is not none else '—' }}</span></div>
+      <div class="signal"><strong>HRV</strong><span>{{ hrv_status if hrv_status is not none else '—' }}</span></div>
+      <div class="signal"><strong>Tętno spoczynkowe</strong><span>{% if report.signals.rhr is not none %}{{ report.signals.rhr }} bpm{% else %}—{% endif %}</span></div>
+      <div class="signal"><strong>Stres</strong><span>{{ report.signals.stress_avg if report.signals.stress_avg is not none else '—' }}</span></div>
+    </section>
+    <h2>Wczorajsze aktywności</h2><section class="card">
+      {% if report.yesterday_activities %}<ul>{% for activity in report.yesterday_activities %}<li>{{ activity.date[11:16] }} — {{ activity.name or 'aktywność' }}, {{ activity.distance_km if activity.distance_km is not none else '—' }} km, {{ activity.duration_min if activity.duration_min is not none else '—' }} min, HR {{ activity.avg_hr if activity.avg_hr is not none else '—' }}</li>{% endfor %}</ul>{% else %}<p>Nie zarejestrowano żadnych aktywności.</p>{% endif %}
+    </section>
+    <h2>Plan na dziś</h2><section class="card">{% if report.planned %}<p>{{ report.planned.name or 'trening' }}{% if report.planned.spec %} ({{ report.planned.spec.kind or 'typ nieznany' }}){% endif %}</p>{% else %}<p>Brak treningu w planie.</p>{% endif %}</section>
+    <h2>Dostępność</h2><section class="card">{% if report.availability and report.availability.available %}<p>Dzień treningowy: {{ report.availability.min_minutes }}–{{ report.availability.max_minutes }} min.</p>{% else %}<p>Dzień bez zaplanowanej dostępności.</p>{% endif %}</section>
+    <h2>Sugestia</h2><section class="card"><p>{{ suggestion }}.</p></section>
+    <footer>To nie jest porada medyczna.</footer>
+  {% endif %}
+  </main>
+</body>
+</html>
