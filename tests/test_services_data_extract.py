@@ -31,6 +31,7 @@ class TestExtract:
         assert data['hrv'] == []
         assert data['weight'] == []
         assert 'timestamp' in data
+        assert datetime.fromisoformat(data['timestamp']).tzinfo is not None
 
     @patch('services.data_extract.MAIN_DB', '/nonexistent/garmin.db')
     @patch('services.data_extract.ACT_DB', '/nonexistent/activities.db')
@@ -108,6 +109,30 @@ class TestSaveLoadJson:
         assert loaded['timestamp'] == data['timestamp']
         assert len(loaded['activities']) == 1
 
+    def test_save_overwrites_existing_file_atomically(self, tmp_path):
+        path = tmp_path / "test_data.json"
+        path.write_text(json.dumps({"old": True}), encoding="utf-8")
+
+        save_json({"new": True}, path)
+
+        assert json.loads(path.read_text(encoding="utf-8")) == {"new": True}
+
+    def test_save_failure_preserves_existing_file_and_cleans_temporary_file(self, tmp_path, monkeypatch):
+        path = tmp_path / "test_data.json"
+        original = {"timestamp": "2026-09-16T10:00:00", "old": True}
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+        def fail_dump(*args, **kwargs):
+            raise OSError("simulated write failure")
+
+        monkeypatch.setattr("services.data_extract.json.dump", fail_dump)
+
+        with pytest.raises(OSError, match="simulated write failure"):
+            save_json({"new": True}, path)
+
+        assert json.loads(path.read_text(encoding="utf-8")) == original
+        assert list(tmp_path.glob(f".{path.name}.*.tmp")) == []
+
     def test_load_missing_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
             load_data_latest(tmp_path / "nonexistent.json")
@@ -134,6 +159,29 @@ class TestSnapshotStatus:
         path.write_text(json.dumps({"timestamp": now.isoformat()}), encoding="utf-8")
         assert read_snapshot_status(path, now=now).status is SnapshotStatus.FRESH
         assert read_snapshot_status(path, now=now + timedelta(hours=25)).status is SnapshotStatus.STALE
+
+    def test_utc_timestamp_has_correct_age(self, tmp_path):
+        now = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+        path = tmp_path / "snapshot.json"
+        path.write_text(json.dumps({"timestamp": (now - timedelta(seconds=59)).isoformat()}), encoding="utf-8")
+
+        assert read_snapshot_status(path, now=now, ttl_seconds=60).status is SnapshotStatus.FRESH
+
+    def test_naive_legacy_timestamp_is_interpreted_as_local_time(self, tmp_path):
+        now = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+        local_created_at = (now.astimezone() - timedelta(seconds=59)).replace(tzinfo=None)
+        path = tmp_path / "snapshot.json"
+        path.write_text(json.dumps({"timestamp": local_created_at.isoformat()}), encoding="utf-8")
+
+        assert read_snapshot_status(path, now=now, ttl_seconds=60).status is SnapshotStatus.FRESH
+
+    def test_snapshot_status_at_ttl_boundary_and_with_z_suffix(self, tmp_path):
+        now = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
+        path = tmp_path / "snapshot.json"
+        path.write_text(json.dumps({"timestamp": (now - timedelta(seconds=60)).isoformat().replace("+00:00", "Z")}), encoding="utf-8")
+
+        assert read_snapshot_status(path, now=now, ttl_seconds=60).status is SnapshotStatus.FRESH
+        assert read_snapshot_status(path, now=now + timedelta(seconds=1), ttl_seconds=60).status is SnapshotStatus.STALE
 
 
 class TestSyncFailure:

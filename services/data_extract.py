@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -190,7 +191,7 @@ def extract():
     """Extract all recent data from DBs and return dict."""
     logger.debug("Extracting data from databases")
     data = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "activities": [],
         "daily_health": [],
         "sleep": [],
@@ -305,11 +306,24 @@ def extract():
 
 
 def save_json(data, path=None):
-    """Save extracted data to JSON file."""
+    """Atomically save extracted data to JSON file."""
     path = path or DATA_LATEST
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True
+    )
+    try:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+        raise
     print(f"Data saved to {path}")
 
 
@@ -330,10 +344,12 @@ def read_snapshot_status(path=None, now=None, ttl_seconds=SNAPSHOT_TTL_SECONDS):
             raise ValueError("Snapshot is missing its timestamp")
         created_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
+            created_at = created_at.astimezone()
+        created_at = created_at.astimezone(timezone.utc)
         current = now or datetime.now(timezone.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
+        current = current.astimezone(timezone.utc)
     except FileNotFoundError as exc:
         return SnapshotReadResult(SnapshotStatus.MISSING, error=exc)
     except (json.JSONDecodeError, ValueError, TypeError) as exc:
