@@ -16,6 +16,22 @@ _WALK = {'date': '2026-10-01 17:14', 'type': 'walking/generic', 'name': 'Wielicz
          'distance_km': 0.29, 'duration_min': 4.7, 'avg_hr': 135}
 _RUN = {'date': '2026-10-01 16:28', 'type': 'running/generic', 'name': 'Wieliczka Z2',
         'distance_km': 6.07, 'duration_min': 45.0, 'avg_hr': 133}
+_RUN_MORNING = {'date': '2026-10-01 07:05', 'type': 'running/generic', 'name': 'Rozbieganie',
+                'distance_km': 8.0, 'duration_min': 50.0, 'avg_hr': 128}
+_SWIM = {'date': '2026-10-01 19:00', 'type': 'swimming/lap_swimming', 'name': 'Basen',
+         'distance_km': 1.2, 'duration_min': 35.0, 'avg_hr': 120}
+
+
+def _yesterday_block(capsys):
+    """Zwraca linię "Wczoraj" wraz z wciętymi liniami aktywności."""
+    lines = capsys.readouterr().out.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith('Wczoraj'))
+    block = [lines[start]]
+    for line in lines[start + 1:]:
+        if not line.startswith('  '):
+            break
+        block.append(line)
+    return block
 
 
 def _run_today(monkeypatch, activities):
@@ -52,17 +68,36 @@ def test_missing_profile_points_to_setup(monkeypatch, capsys):
     assert 'setup' in capsys.readouterr().out
 
 
-def test_yesterday_prefers_run_over_later_walk(monkeypatch, capsys):
-    """Spacer zapisany po biegu nie może podmienić treningu, choć jest nowszy."""
+def test_yesterday_lists_run_and_trailing_walk(monkeypatch, capsys):
+    """Spacer dopisany po biegu nie może ukryć treningu ani zniknąć sam."""
     assert _run_today(monkeypatch, [_WALK, _RUN]) == 0
-    line = next(l for l in capsys.readouterr().out.splitlines() if l.startswith('Wczoraj:'))
-    assert 'Wieliczka Z2' in line
-    assert '6.07' in line
-    assert 'Chodzenie' not in line
+    block = _yesterday_block(capsys)
+    assert block[0] == 'Wczoraj (2 aktywności):'
+    assert '16:28' in block[1] and 'Wieliczka Z2' in block[1] and '6.07' in block[1]
+    assert '17:14' in block[2] and 'Chodzenie' in block[2]
 
 
-def test_yesterday_falls_back_to_walk_when_no_run(monkeypatch, capsys):
-    """Bez biegu nadal pokazujemy to, co było, zamiast pomijać dzień."""
+def test_yesterday_lists_both_runs_of_a_double_day(monkeypatch, capsys):
+    """Dwa biegi jednego dnia muszą być widoczne oba."""
+    assert _run_today(monkeypatch, [_RUN, _RUN_MORNING]) == 0
+    block = _yesterday_block(capsys)
+    assert block[0] == 'Wczoraj (2 aktywności):'
+    assert 'Rozbieganie' in block[1]
+    assert 'Wieliczka Z2' in block[2]
+
+
+def test_yesterday_lists_non_running_sports(monkeypatch, capsys):
+    """Pływanie to też trening, więc nie wolno go pomijać obok biegu."""
+    assert _run_today(monkeypatch, [_SWIM, _RUN]) == 0
+    block = _yesterday_block(capsys)
+    assert 'Wieliczka Z2' in block[1]
+    assert 'Basen' in block[2]
+
+
+def test_single_activity_stays_on_one_line(monkeypatch, capsys):
+    """Najczęstszy przypadek zostaje zwarty, bez nagłówka i wcięć."""
     assert _run_today(monkeypatch, [_WALK]) == 0
-    line = next(l for l in capsys.readouterr().out.splitlines() if l.startswith('Wczoraj:'))
-    assert 'Chodzenie' in line
+    block = _yesterday_block(capsys)
+    assert len(block) == 1
+    assert block[0].startswith('Wczoraj: ')
+    assert 'Chodzenie' in block[0]

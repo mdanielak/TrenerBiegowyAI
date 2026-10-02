@@ -11,6 +11,12 @@ from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
 
 
+def _activity_line(item) -> str:
+    """Nazwa nie musi być biegiem, więc fallback jest neutralny."""
+    return (f"{item.get('name') or 'aktywność'}, {item.get('distance_km', '?')} km, "
+            f"{item.get('duration_min', '?')} min, HR {item.get('avg_hr', '?')}")
+
+
 def _today_registry_entry(today: str):
     """Rejestr jest append-only; ostatni pasujący wpis jest rozstrzygający."""
     found = None
@@ -49,15 +55,19 @@ def main() -> int:
     data = snapshot.data or {}
     activities = data.get("activities", [])
     yesterday = (now.date().fromordinal(now.date().toordinal() - 1)).isoformat()
-    # Zegarek zapisuje spacer po biegu jako osobną, późniejszą aktywność tego
-    # samego dnia, a lista jest posortowana od najnowszych. Bez filtru typu
-    # wygrywałby więc spacer. Bieg ma pierwszeństwo; inną aktywność pokazujemy
-    # tylko wtedy, gdy danego dnia nie było biegu.
-    day_activities = [item for item in activities if str(item.get("date", ""))[:10] == yesterday]
-    runs = [item for item in day_activities if str(item.get("type", "")).startswith("running")]
-    yesterday_activity = next(iter(runs or day_activities), None)
-    if yesterday_activity:
-        print(f"Wczoraj: {yesterday_activity.get('name') or 'bieg'}, {yesterday_activity.get('distance_km', '?')} km, {yesterday_activity.get('duration_min', '?')} min, HR {yesterday_activity.get('avg_hr', '?')}")
+    # Jeden dzień może mieć wiele aktywności: dwa biegi, bieg i pływanie, a
+    # zegarek dopisuje jeszcze krótki spacer po treningu. Pokazujemy wszystkie
+    # w kolejności chronologicznej, żeby żadna nie chowała się za inną.
+    day_activities = sorted(
+        (item for item in activities if str(item.get("date", ""))[:10] == yesterday),
+        key=lambda item: str(item.get("date", "")),
+    )
+    if len(day_activities) == 1:
+        print(f"Wczoraj: {_activity_line(day_activities[0])}")
+    elif day_activities:
+        print(f"Wczoraj ({len(day_activities)} aktywności):")
+        for item in day_activities:
+            print(f"  {str(item.get('date', ''))[11:16]} {_activity_line(item)}")
     breakdown = compute_readiness_breakdown(data)
     print(f"Gotowość: {breakdown['level']} ({breakdown['score']}/{breakdown['max_score']})")
     health = (data.get("daily_health") or [{}])[0]
