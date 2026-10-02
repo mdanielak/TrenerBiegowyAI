@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 
 from trainer.commands import today
+from services import today as today_service
 from services.data_extract import SnapshotReadResult, SnapshotStatus
 from services import workout_registry
 
@@ -38,13 +39,13 @@ def _yesterday_block(capsys):
 
 def _run_today(monkeypatch, activities, registry_events=None, tmp_path=None):
     data = {'daily_health': [], 'sleep': [], 'hrv': [], 'activities': activities}
-    monkeypatch.setattr(today, 'datetime', _ClockAt20261002)
-    monkeypatch.setattr(today, 'load_profile', lambda: {})
-    monkeypatch.setattr(today, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.FRESH, data))
-    monkeypatch.setattr(today, 'get_weekly_availability',
+    monkeypatch.setattr(today_service, 'datetime', _ClockAt20261002)
+    monkeypatch.setattr(today_service, 'load_profile', lambda: {})
+    monkeypatch.setattr(today_service, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.FRESH, data))
+    monkeypatch.setattr(today_service, 'get_weekly_availability',
                         lambda _: {'available': False, 'min_minutes': 0, 'max_minutes': 0})
     if registry_events is None:
-        monkeypatch.setattr(today, 'list_workouts', lambda status: [])
+        monkeypatch.setattr(today_service, 'list_workouts', lambda status: [])
     else:
         if tmp_path is None:
             raise ValueError('tmp_path is required with registry events')
@@ -54,29 +55,29 @@ def _run_today(monkeypatch, activities, registry_events=None, tmp_path=None):
             encoding='utf-8',
         )
         monkeypatch.setattr(workout_registry, 'REGISTRY_PATH', registry_path)
-        monkeypatch.setattr(today, 'list_workouts', workout_registry.list_workouts)
+        monkeypatch.setattr(today_service, 'list_workouts', workout_registry.list_workouts)
     return today.main()
 
 
 def test_missing_snapshot_is_friendly(monkeypatch, capsys):
-    monkeypatch.setattr(today, 'load_profile', lambda: {})
-    monkeypatch.setattr(today, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.MISSING))
+    monkeypatch.setattr(today_service, 'load_profile', lambda: {})
+    monkeypatch.setattr(today_service, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.MISSING))
     assert today.main() == 1
     assert 'sync' in capsys.readouterr().out
 
 
 def test_stale_snapshot_warns(monkeypatch, capsys):
     data = {'daily_health': [], 'sleep': [], 'hrv': [], 'activities': []}
-    monkeypatch.setattr(today, 'load_profile', lambda: {})
-    monkeypatch.setattr(today, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.STALE, data))
-    monkeypatch.setattr(today, 'get_weekly_availability', lambda _: {'available': False, 'min_minutes': 0, 'max_minutes': 0})
-    monkeypatch.setattr(today, 'list_workouts', lambda status: [])
+    monkeypatch.setattr(today_service, 'load_profile', lambda: {})
+    monkeypatch.setattr(today_service, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.STALE, data))
+    monkeypatch.setattr(today_service, 'get_weekly_availability', lambda _: {'available': False, 'min_minutes': 0, 'max_minutes': 0})
+    monkeypatch.setattr(today_service, 'list_workouts', lambda status: [])
     assert today.main() == 0
     assert 'nieaktualny' in capsys.readouterr().out
 
 
 def test_missing_profile_points_to_setup(monkeypatch, capsys):
-    monkeypatch.setattr(today, 'load_profile', lambda: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(today_service, 'load_profile', lambda: (_ for _ in ()).throw(FileNotFoundError()))
     assert today.main() == 5
     assert 'setup' in capsys.readouterr().out
 
