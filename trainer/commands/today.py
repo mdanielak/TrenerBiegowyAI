@@ -5,7 +5,7 @@ from datetime import datetime
 
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.readiness import compute_readiness_breakdown
-from services.workout_registry import load_events
+from services.workout_registry import list_workouts
 from trainer.config import SNAPSHOT_TTL_SECONDS
 from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
@@ -18,12 +18,11 @@ def _activity_line(item) -> str:
 
 
 def _today_registry_entry(today: str):
-    """Rejestr jest append-only; ostatni pasujący wpis jest rozstrzygający."""
-    found = None
-    for entry in load_events():
-        if entry.get("event") == "added" and entry.get("date") == today:
-            found = entry
-    return found
+    """Zwróć najnowszy aktywny trening na datę z aktualnej projekcji rejestru."""
+    return next(
+        (entry for entry in list_workouts("active") if entry.get("date") == today),
+        None,
+    )
 
 
 def main() -> int:

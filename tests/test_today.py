@@ -1,7 +1,9 @@
 from datetime import datetime
+import json
 
 from trainer.commands import today
 from services.data_extract import SnapshotReadResult, SnapshotStatus
+from services import workout_registry
 
 
 class _ClockAt20261002(datetime):
@@ -34,14 +36,25 @@ def _yesterday_block(capsys):
     return block
 
 
-def _run_today(monkeypatch, activities):
+def _run_today(monkeypatch, activities, registry_events=None, tmp_path=None):
     data = {'daily_health': [], 'sleep': [], 'hrv': [], 'activities': activities}
     monkeypatch.setattr(today, 'datetime', _ClockAt20261002)
     monkeypatch.setattr(today, 'load_profile', lambda: {})
     monkeypatch.setattr(today, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.FRESH, data))
     monkeypatch.setattr(today, 'get_weekly_availability',
                         lambda _: {'available': False, 'min_minutes': 0, 'max_minutes': 0})
-    monkeypatch.setattr(today, 'load_events', lambda: [])
+    if registry_events is None:
+        monkeypatch.setattr(today, 'list_workouts', lambda status: [])
+    else:
+        if tmp_path is None:
+            raise ValueError('tmp_path is required with registry events')
+        registry_path = tmp_path / 'workout-registry.jsonl'
+        registry_path.write_text(
+            ''.join(json.dumps(event) + '\n' for event in registry_events),
+            encoding='utf-8',
+        )
+        monkeypatch.setattr(workout_registry, 'REGISTRY_PATH', registry_path)
+        monkeypatch.setattr(today, 'list_workouts', workout_registry.list_workouts)
     return today.main()
 
 
@@ -57,7 +70,7 @@ def test_stale_snapshot_warns(monkeypatch, capsys):
     monkeypatch.setattr(today, 'load_profile', lambda: {})
     monkeypatch.setattr(today, 'read_snapshot_status', lambda: SnapshotReadResult(SnapshotStatus.STALE, data))
     monkeypatch.setattr(today, 'get_weekly_availability', lambda _: {'available': False, 'min_minutes': 0, 'max_minutes': 0})
-    monkeypatch.setattr(today, 'load_events', lambda: [])
+    monkeypatch.setattr(today, 'list_workouts', lambda status: [])
     assert today.main() == 0
     assert 'nieaktualny' in capsys.readouterr().out
 
@@ -101,3 +114,42 @@ def test_single_activity_stays_on_one_line(monkeypatch, capsys):
     assert len(block) == 1
     assert block[0].startswith('Wczoraj: ')
     assert 'Chodzenie' in block[0]
+
+
+def test_deleted_registry_workout_is_not_shown(monkeypatch, capsys, tmp_path):
+    events = [
+        {'event': 'added', 'workout_id': 'w1', 'name': 'Interwały',
+         'date': '2026-10-02', 'spec': {'kind': 'intervals'}, 'ts': '2026-10-01T08:00:00'},
+        {'event': 'deleted', 'workout_id': 'w1', 'ts': '2026-10-01T09:00:00'},
+    ]
+
+    assert _run_today(monkeypatch, [], events, tmp_path) == 0
+    assert 'Plan z rejestru: brak' in capsys.readouterr().out
+
+
+def test_updated_registry_workout_shows_current_data(monkeypatch, capsys, tmp_path):
+    events = [
+        {'event': 'added', 'workout_id': 'w1', 'name': 'Pierwotny trening',
+         'date': '2026-10-02', 'spec': {'kind': 'easy'}, 'ts': '2026-10-01T08:00:00'},
+        {'event': 'updated', 'workout_id': 'w1', 'name': 'Zaktualizowany trening',
+         'date': '2026-10-02', 'ts': '2026-10-01T09:00:00'},
+    ]
+
+    assert _run_today(monkeypatch, [], events, tmp_path) == 0
+    output = capsys.readouterr().out
+    assert 'Plan z rejestru: Zaktualizowany trening (easy)' in output
+    assert 'Pierwotny trening' not in output
+
+
+def test_newest_active_registry_workout_is_shown_for_same_date(monkeypatch, capsys, tmp_path):
+    events = [
+        {'event': 'added', 'workout_id': 'older', 'name': 'Starszy trening',
+         'date': '2026-10-02', 'spec': {'kind': 'easy'}, 'ts': '2026-10-01T08:00:00'},
+        {'event': 'added', 'workout_id': 'newer', 'name': 'Nowszy trening',
+         'date': '2026-10-02', 'spec': {'kind': 'tempo'}, 'ts': '2026-10-01T09:00:00'},
+    ]
+
+    assert _run_today(monkeypatch, [], events, tmp_path) == 0
+    output = capsys.readouterr().out
+    assert 'Plan z rejestru: Nowszy trening (tempo)' in output
+    assert 'Starszy trening' not in output
