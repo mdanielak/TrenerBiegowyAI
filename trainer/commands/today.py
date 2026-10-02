@@ -49,7 +49,13 @@ def main() -> int:
     data = snapshot.data or {}
     activities = data.get("activities", [])
     yesterday = (now.date().fromordinal(now.date().toordinal() - 1)).isoformat()
-    yesterday_activity = next((item for item in activities if str(item.get("date", ""))[:10] == yesterday), None)
+    # Zegarek zapisuje spacer po biegu jako osobną, późniejszą aktywność tego
+    # samego dnia, a lista jest posortowana od najnowszych. Bez filtru typu
+    # wygrywałby więc spacer. Bieg ma pierwszeństwo; inną aktywność pokazujemy
+    # tylko wtedy, gdy danego dnia nie było biegu.
+    day_activities = [item for item in activities if str(item.get("date", ""))[:10] == yesterday]
+    runs = [item for item in day_activities if str(item.get("type", "")).startswith("running")]
+    yesterday_activity = next(iter(runs or day_activities), None)
     if yesterday_activity:
         print(f"Wczoraj: {yesterday_activity.get('name') or 'bieg'}, {yesterday_activity.get('distance_km', '?')} km, {yesterday_activity.get('duration_min', '?')} min, HR {yesterday_activity.get('avg_hr', '?')}")
     breakdown = compute_readiness_breakdown(data)
