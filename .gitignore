@@ -68,6 +68,10 @@ training-plans/_garmin_workouts*.jsonl
 workout-registry.jsonl
 memory/
 
+# Design reference material (source prompts, not part of the application)
+example.xml
+example2.xml
+
 # GarminDB internal
 GarminDB/.vscode/
 GarminDB/Jupyter/.ipynb_checkpoints/
