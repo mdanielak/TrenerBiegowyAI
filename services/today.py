@@ -1,11 +1,11 @@
 """Dane dla lokalnego widoku planu i gotowości na dziś."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
-from services.readiness import compute_readiness_breakdown
+from services.readiness import compute_readiness_breakdown, signal_trends
 from services.workout_registry import list_workouts
 from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
@@ -28,6 +28,7 @@ class TodayReport:
     availability: dict | None
     suggestion: str
     snapshot_timestamp: str | None = None
+    trends: dict = field(default_factory=dict)
 
 
 def _today_registry_entry(today: str):
@@ -59,6 +60,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         availability=None,
         suggestion="rest",
         snapshot_timestamp=None,
+        trends={},
     )
     if empty.status != "ok":
         return empty
@@ -69,6 +71,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         key=lambda item: str(item.get("date", "")),
     )
     readiness = compute_readiness_breakdown(data)
+    trends = signal_trends(data, today)
     health = (data.get("daily_health") or [{}])[0]
     sleep = (data.get("sleep") or [{}])[0]
     hrv = (data.get("hrv") or [{}])[0]
@@ -92,6 +95,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         availability=availability,
         suggestion=suggestion,
         snapshot_timestamp=data.get("timestamp"),
+        trends=trends,
     )
 
 

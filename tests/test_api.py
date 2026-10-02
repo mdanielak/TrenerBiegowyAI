@@ -140,13 +140,15 @@ def test_dashboard_renders_ok_report_and_missing_signals():
     with _client(report) as client:
         response = client.get("/")
     assert response.status_code == 200
-    assert "piątek" in response.text
-    assert "<strong>Sen</strong><span>—</span>" in response.text
-    assert "<strong>HRV</strong><span>—</span>" in response.text
-    assert "<strong>Tętno spoczynkowe</strong><span>—</span>" in response.text
-    assert "<strong>Stres</strong><span>—</span>" in response.text
-    assert "<strong>Tętno spoczynkowe</strong><span>—</span>" in response.text
+    assert "Piątek, 2 października 2026" in response.text
+    for label in ("Sen", "Zmienność tętna", "Tętno spoczynkowe", "Stres"):
+        assert label in response.text
+    # Każdy brakujący sygnał pokazuje pauzę, a nie zero ani pustą wartość.
+    assert response.text.count("—") >= 4
+    # Bez wartości nie wolno pokazywać samej jednostki.
     assert "— bpm" not in response.text
+    assert 'class="signal-unit"' not in response.text
+    assert response.text.count("brak danych") >= 4
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -157,10 +159,11 @@ def test_dashboard_translates_hrv_status_and_formats_polish_summary():
     )
     with _client(report) as client:
         response = client.get("/")
-    assert "<strong>HRV</strong><span>niezrównoważone</span>" in response.text
-    assert "<strong>Tętno spoczynkowe</strong><span>48 bpm</span>" in response.text
-    assert "<div class=\"score\">8<span> / 10</span>" in response.text
-    assert "2 października 2026, piątek" in response.text
+    assert "niezrównoważone" in response.text
+    assert "48<span class=\"signal-unit\">bpm</span>" in response.text
+    assert "<span class=\"ring-score\">8</span>" in response.text
+    assert "<span class=\"ring-max\">z 10</span>" in response.text
+    assert "Piątek, 2 października 2026" in response.text
     assert "Dane są aktualne." in response.text
     assert "Realizuj zaplanowany trening spokojnie." in response.text
 
@@ -169,7 +172,7 @@ def test_dashboard_keeps_unknown_hrv_status_raw():
     report = _report(signals={"sleep_score": 85, "hrv_status": "CUSTOM_STATUS", "rhr": 48, "stress_avg": 22})
     with _client(report) as client:
         response = client.get("/")
-    assert "<strong>HRV</strong><span>CUSTOM_STATUS</span>" in response.text
+    assert "CUSTOM_STATUS" in response.text
 
 
 def test_dashboard_shows_stale_warning():

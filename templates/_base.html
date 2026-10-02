@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Trener Biegowy{% endblock %}</title>
+  {% block head_extra %}{% endblock %}
+  {% include "_styles.html" %}
+</head>
+<body>
+{% import "_icons.html" as ico %}
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">{{ ico.runner(19) }}</span>
+      <span>
+        <span class="brand-name">Trener Biegowy</span>
+        <span class="brand-sub">Dane z Twojego zegarka</span>
+      </span>
+    </div>
+
+    <nav class="nav" aria-label="Nawigacja główna">
+      <span class="nav-label">Widoki</span>
+
+      <a class="nav-item{% if active_nav == 'today' %} active{% endif %}" href="/"{% if active_nav == 'today' %} aria-current="page"{% endif %}>
+        {{ ico.home() }}<span>Strona główna</span>
+      </a>
+
+      <span class="nav-item disabled" aria-disabled="true">
+        {{ ico.clipboard() }}<span>Plan treningowy</span>
+      </span>
+
+      <a class="nav-item{% if active_nav == 'week' %} active{% endif %}" href="/week"{% if active_nav == 'week' %} aria-current="page"{% endif %}>
+        {{ ico.calendar() }}<span>Kalendarz</span>
+      </a>
+
+      <span class="nav-item disabled" aria-disabled="true">
+        {{ ico.bar_chart() }}<span>Statystyki</span>
+      </span>
+
+      <span class="nav-item disabled" aria-disabled="true">
+        {{ ico.line_chart() }}<span>Analiza</span>
+      </span>
+
+      <span class="nav-item disabled" aria-disabled="true">
+        {{ ico.watch() }}<span>Sprzęt</span>
+      </span>
+
+      <span class="nav-item disabled" aria-disabled="true">
+        {{ ico.settings() }}<span>Ustawienia</span>
+      </span>
+    </nav>
+
+    <p class="nav-note">Przygaszone pozycje jeszcze nie działają. Dodamy je w kolejnych wersjach.</p>
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+</body>
+</html>

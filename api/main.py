@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -61,8 +62,87 @@ _WEEK_WARNING_LABELS = {
     "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne. Uruchom `python -m trainer sync`.",
     "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo obejmuje tylko 50 ostatnich treningów.",
 }
+_SIGNAL_STATE_CLASSES = {"OK": "ok", "WARN": "warn", "FAIL": "bad", "UNKNOWN": "none"}
+_SIGNAL_STATE_LABELS = {"OK": "dobrze", "WARN": "uwaga", "FAIL": "słabo", "UNKNOWN": "brak danych"}
+_SIGNAL_ORDER = ("Sleep", "HRV", "RHR", "Stress")
+_SIGNAL_META = {
+    "Sleep": {"label": "Sen", "unit": "/100", "icon": "moon", "trend_key": "sleep_score"},
+    "HRV": {"label": "Zmienność tętna", "unit": "", "icon": "pulse", "trend_key": None},
+    "RHR": {"label": "Tętno spoczynkowe", "unit": "bpm", "icon": "heart", "trend_key": "rhr"},
+    "Stress": {"label": "Stres", "unit": "", "icon": "bolt", "trend_key": "stress_avg"},
+}
+_TREND_LABELS = {
+    "up": "wyżej niż wczoraj",
+    "down": "niżej niż wczoraj",
+    "flat": "tak samo jak wczoraj",
+}
+_RING_RADIUS = 52
+_RING_STROKE = 11
+_RING_SIZE = 128
 SYNC_COOLDOWN = timedelta(seconds=60)
 _CSRF_COOKIE = "trainer_csrf"
+
+
+def _ring_geometry(score, max_score) -> dict:
+    """Policz wymiary pierścienia gotowości po stronie serwera (bez kodu w przeglądarce)."""
+    circumference = 2 * math.pi * _RING_RADIUS
+    fraction = 0.0
+    if max_score:
+        fraction = max(0.0, min(1.0, float(score) / float(max_score)))
+    return {
+        "size": _RING_SIZE,
+        "center": _RING_SIZE / 2,
+        "radius": _RING_RADIUS,
+        "stroke": _RING_STROKE,
+        "circumference": round(circumference, 2),
+        "offset": round(circumference * (1.0 - fraction), 2),
+    }
+
+
+def _trend_view(trend) -> dict | None:
+    """Przełóż trend dobowy na opis dla widoku. Kolor zawsze z towarzyszącym tekstem."""
+    if not trend:
+        return None
+    direction = trend.get("direction")
+    if direction is None:
+        return None
+    favorable = trend.get("favorable")
+    return {
+        "direction": direction,
+        "label": _TREND_LABELS.get(direction, ""),
+        "previous": trend.get("previous"),
+        "tone": "flat" if favorable is None else ("favorable" if favorable else "unfavorable"),
+    }
+
+
+def _signal_cards(report) -> list:
+    """Zbuduj kafelki sygnałów z tej samej oceny, która wyznaczyła wynik gotowości."""
+    readiness_data = cast(dict, report.readiness) or {}
+    details = {item["metric"]: item for item in readiness_data.get("details", [])}
+    signals = report.signals or {}
+    trends = getattr(report, "trends", None) or {}
+    value_keys = {"Sleep": "sleep_score", "RHR": "rhr", "Stress": "stress_avg"}
+
+    cards = []
+    for metric in _SIGNAL_ORDER:
+        meta = _SIGNAL_META[metric]
+        status = details.get(metric, {}).get("status", "UNKNOWN")
+        if metric == "HRV":
+            raw = signals.get("hrv_status")
+            value = _HRV_STATUSES.get(raw, raw) if raw is not None else None
+        else:
+            value = signals.get(value_keys[metric])
+        trend_key = meta["trend_key"]
+        cards.append({
+            "label": meta["label"],
+            "unit": meta["unit"],
+            "icon": meta["icon"],
+            "value": value,
+            "state_class": _SIGNAL_STATE_CLASSES.get(status, "none"),
+            "state_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
+            "trend": _trend_view(trends.get(trend_key)) if trend_key else None,
+        })
+    return cards
 
 
 class HealthResponse(BaseModel):
@@ -245,7 +325,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 request=request,
                 name="today.html",
                 context={"error_message": message, "error_command": command,
-                         "sync_banner": {"refresh": False}},
+                         "sync_banner": {"refresh": False}, "active_nav": "today"},
                 status_code=status_code,
                 headers={"Cache-Control": "no-store"},
             ), csrf_token(request))
@@ -273,6 +353,9 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 "csrf_token": token,
                 "sync_banner": banner,
                 "last_sync_time": _format_sync_time(getattr(report, "snapshot_timestamp", None), now),
+                "signal_cards": _signal_cards(report),
+                "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
+                "active_nav": "today",
             },
             headers={"Cache-Control": "no-store"},
         ), token)
@@ -316,6 +399,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 "day_status_labels": _WEEK_STATUS_LABELS,
                 "warning_labels": _WEEK_WARNING_LABELS,
                 "format_date": _format_date,
+                "active_nav": "week",
             },
             headers={"Cache-Control": "no-store"},
         )

@@ -103,3 +103,39 @@ def test_zero_default_availability_is_unconfigured():
     availability = _day(report, '2026-12-28').availability
     assert availability is not None
     assert availability.configured is False
+
+
+def test_week_summary_includes_activity_totals_heart_rate_and_workout_counts():
+    report = _report(
+        [_entry(1, distance_km=5.0, duration_min=30.0, hr_target='<150', hr_zone='Z2'),
+         _entry(2, name='Niedopasowany')],
+        [_activity(10, distance_km=5.5, duration_min=31.0, avg_hr=140),
+         _activity(11, name='Spacer', type='walking/generic', distance_km=2.0,
+                   duration_min=20.0, avg_hr=120)],
+    )
+    workout = _day(report, '2026-12-28').workouts[0]
+
+    assert (workout.planned_distance_km, workout.planned_duration_min, workout.hr_target, workout.hr_zone) == (
+        5.0, 30.0, '<150', 'Z2')
+    assert report.summary is not None
+    assert (report.summary.total_distance_km, report.summary.total_duration_min,
+            report.summary.average_hr, report.summary.completed_workouts,
+            report.summary.planned_workouts) == (7.5, 51.0, 130, 1, 2)
+    assert _day(report, '2026-12-28').activities[0].avg_hr == 140
+
+
+def test_week_summary_without_heart_rate_keeps_average_as_none():
+    report = _report(activities=[_activity(avg_hr=None)])
+
+    assert report.summary is not None
+    assert (report.summary.total_distance_km, report.summary.total_duration_min,
+            report.summary.average_hr) == (10.0, 50.0, None)
+
+
+def test_empty_week_summary_uses_none_for_activity_totals():
+    report = _report()
+
+    assert report.summary is not None
+    assert (report.summary.total_distance_km, report.summary.total_duration_min,
+            report.summary.average_hr, report.summary.completed_workouts,
+            report.summary.planned_workouts) == (None, None, None, 0, 0)

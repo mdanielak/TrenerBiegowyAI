@@ -8,7 +8,13 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.readiness import compute_readiness_breakdown, compare_plan_vs_actual, get_today_workout
+from services.readiness import (
+    compare_plan_vs_actual,
+    compute_readiness_breakdown,
+    get_today_workout,
+    readiness_for_day,
+    signal_trends,
+)
 
 
 def _make_data(rhr: object = 50, hrv_status: object = 'BALANCED', hrv_last: object = 75,
@@ -97,6 +103,83 @@ class TestReadinessBreakdown:
         data = _make_data()
         result = compute_readiness_breakdown(data)
         assert result['max_score'] == 10
+
+
+class TestReadinessForDay:
+    def test_uses_all_records_for_requested_day(self):
+        data = {
+            'daily_health': [
+                {'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25},
+                {'day': '2026-10-01', 'rhr': 56, 'stress_avg': 45},
+            ],
+            'sleep': [
+                {'day': '2026-10-02', 'score': 92, 'total_h': 8.0},
+                {'day': '2026-10-01', 'score': 65, 'total_h': 5.0},
+            ],
+            'hrv': [
+                {'day': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
+                 'baseline_low': 67, 'baseline_high': 82},
+            ],
+        }
+
+        result = readiness_for_day(data, '2026-10-02')
+
+        assert result['score'] == 10.0
+        assert result['level'] == 'ready'
+
+    def test_returns_none_without_health_record(self):
+        data = _make_data()
+        assert readiness_for_day(data, '2026-10-02') is None
+
+    def test_marks_sleep_missing_when_health_record_exists(self):
+        data = {
+            'daily_health': [{'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
+            'sleep': [],
+            'hrv': [{'day': '2026-10-02', 'status': 'BALANCED', 'last_night': 78,
+                     'baseline_low': 67, 'baseline_high': 82}],
+        }
+
+        result = readiness_for_day(data, '2026-10-02')
+
+        assert result['sleep_score_val'] is None
+        assert 'sleep' in result['missing_metrics']
+
+
+class TestSignalTrends:
+    def test_reports_rising_falling_and_flat_signals(self):
+        data = {
+            'daily_health': [
+                {'day': '2026-10-02', 'rhr': 48, 'stress_avg': 30},
+                {'day': '2026-10-01', 'rhr': 50, 'stress_avg': 30},
+            ],
+            'sleep': [
+                {'day': '2026-10-02', 'score': 90},
+                {'day': '2026-10-01', 'score': 80},
+            ],
+        }
+
+        result = signal_trends(data, '2026-10-02')
+
+        assert result['rhr'] == {
+            'current': 48, 'previous': 50, 'direction': 'down', 'favorable': True,
+        }
+        assert result['stress_avg']['direction'] == 'flat'
+        assert result['stress_avg']['favorable'] is None
+        assert result['sleep_score'] == {
+            'current': 90, 'previous': 80, 'direction': 'up', 'favorable': True,
+        }
+
+    def test_returns_none_direction_without_previous_day(self):
+        data = {
+            'daily_health': [{'day': '2026-10-02', 'rhr': 48, 'stress_avg': 25}],
+            'sleep': [{'day': '2026-10-02', 'score': 90}],
+        }
+
+        result = signal_trends(data, '2026-10-02')
+
+        assert result['rhr'] == {
+            'current': 48, 'previous': None, 'direction': None, 'favorable': None,
+        }
 
 
 class TestComparePlanVsActual:

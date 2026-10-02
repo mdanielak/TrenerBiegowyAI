@@ -75,3 +75,25 @@ def test_build_today_report_keeps_snapshot_timestamp(tmp_path):
         availability={"available": False}, now=datetime(2026, 10, 2),
     )
     assert report.snapshot_timestamp == "2026-10-02T09:14:00+00:00"
+
+
+def test_build_today_report_includes_trends_for_report_date(tmp_path):
+    report = build_today_report(
+        snapshot=_snapshot(
+            daily_health=[
+                {"day": "2026-10-02", "rhr": 48, "stress_avg": 25},
+                {"day": "2026-10-01", "rhr": 50, "stress_avg": 30},
+            ],
+            sleep=[
+                {"day": "2026-10-02", "score": 90},
+                {"day": "2026-10-01", "score": 80},
+            ],
+        ),
+        planned=None,
+        availability={"available": False},
+        now=datetime(2026, 10, 2),
+    )
+
+    assert report.trends["rhr"]["direction"] == "down"
+    assert report.trends["rhr"]["favorable"] is True
+    assert report.trends["sleep_score"]["direction"] == "up"

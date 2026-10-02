@@ -1,264 +1,160 @@
 # System wizualny — Trener Biegowy
 
-Dokument pełni podwójną rolę: jest instrukcją dla osoby lub agenta pracującego nad warstwą web
-oraz zapisem podjętych decyzji wizualnych. Styl wywodzi się z estetyki „Minimalist Dark" —
-ciemna paleta slate z ciepłym akcentem amber — przystosowanej do twardych ograniczeń tego
-projektu. Wszystkie wartości kontrastu podane niżej są policzone według WCAG 2.1, nie
-oszacowane, i dotyczą konkretnych par barw użytych w tym interfejsie.
+Dokument jest instrukcją dla osoby lub agenta pracującego nad warstwą web oraz zapisem decyzji wizualnych. Obowiązuje jasny, spokojny motyw oparty na odcieniach slate i niebieskim akcencie. Wszystkie wartości kontrastu podane niżej są policzone według WCAG 2.1, nie oszacowane, i dotyczą konkretnych par barw użytych w tym interfejsie.
 
 ## Rola
 
-Projektujesz i utrzymujesz interfejs lokalnego asystenta treningu biegowego. Zanim napiszesz
-jakikolwiek kod, zbuduj obraz obecnego stanu: przeczytaj szablon, który zmieniasz, i sprawdź,
-jakie tokeny oraz klasy już istnieją. Nie wprowadzaj nowego wzorca, jeśli działający już jest.
+Projektujesz i utrzymujesz interfejs lokalnego asystenta treningu biegowego. Zanim napiszesz kod, przeczytaj szablon, który zmieniasz, i sprawdź, jakie tokeny oraz klasy już istnieją. Nie wprowadzaj nowego wzorca, jeśli działający już jest.
 
-Pamiętaj, kto korzysta z tej aplikacji. To jedna osoba nietechniczna, która o szóstej rano
-sprawdza, czy ma dziś biegać. Czyta liczby dotyczące własnego zdrowia i podejmuje na ich
-podstawie decyzję. Dlatego czytelność i jednoznaczność mają pierwszeństwo przed efektem
-wizualnym — zawsze, bez wyjątku. Jeśli wybór estetyczny pogarsza odczyt danych, odrzuć go.
-
-Zmiany opisuj krótko i po polsku, bez żargonu. Wyjaśniaj powód decyzji, nie tylko jej treść.
+Z aplikacji korzysta jedna osoba nietechniczna, która sprawdza informacje dotyczące własnego zdrowia i podejmuje na ich podstawie decyzję. Dlatego czytelność i jednoznaczność mają pierwszeństwo przed efektem wizualnym. Zmiany opisuj krótko i po polsku, bez żargonu; wyjaśniaj powód decyzji, nie tylko jej treść.
 
 ## Kontekst techniczny i granice nienaruszalne
 
-Stos: FastAPI, szablony Jinja2, CSS wpisany w szablon. Nie ma tu Reacta, Tailwinda,
-frameworka animacji ani kroku budowania. Nie dodawaj ich.
+Stos: FastAPI, szablony Jinja2, CSS wpisany w szablon. Nie ma tu Reacta, Tailwinda, frameworka animacji ani kroku budowania. Nie dodawaj ich.
 
-Zakazy wynikające z założeń projektu. Każdy chroni aplikację przed złożonością, która nie
-opłaca się przy jednym użytkowniku na jednym komputerze:
-
-- **Zero JavaScriptu.** Żadnych skryptów, atrybutów zdarzeń ani `<script>`.
-- **Zero zasobów z sieci.** Bez CDN, bez fontów zewnętrznych, bez obrazków z adresów URL.
-  Font to wyłącznie stos systemowy.
-- **Brak `StaticFiles`.** Nie montujemy katalogu statycznego; CSS mieszka w szablonach.
+- **Zero kodu wykonywanego w przeglądarce.** Żadnych skryptów, atrybutów zdarzeń ani `<script>`.
+- **Zero zasobów z sieci.** Bez CDN, fontów zewnętrznych, obrazków z adresów URL i reguł dociągających zasoby zewnętrzne. Font to wyłącznie stos systemowy.
+- **Brak `StaticFiles`.** Nie montujemy katalogu statycznego.
 - **Nigdy `|safe`.** Autoescaping Jinja pozostaje włączony wszędzie.
-- **Jedna kolumna, maksymalnie 700 px**, wyśrodkowana. Bez układów wielokolumnowych
-  i bez siatek „bento".
 - **Kolor nigdy nie jest jedynym nośnikiem znaczenia.** Każdy stan ma też tekst.
 - **Teksty po polsku**, bez skrótów i terminów technicznych w treści widocznej dla użytkownika.
 
-Konsekwencja zakazu JavaScriptu: światło podążające za kursorem, paralaksa przy przewijaniu
-i animacje wyzwalane widocznością elementu są niemożliwe. Nie próbuj ich obchodzić.
-
 ## Jedno źródło prawdy dla stylu
 
-Trzy szablony — `today.html`, `week.html`, `job.html` — powielają dziś własne bloki CSS.
-To się rozjedzie przy pierwszej zmianie palety. Ponieważ nie mamy katalogu statycznego,
-wspólny styl trzymaj w częściowym szablonie `templates/_styles.html` i włączaj go przez
-`{% include "_styles.html" %}` w sekcji `<head>`. Deklaracje specyficzne dla jednego widoku
-mogą zostać w tym widoku, ale tokeny i komponenty wspólne — nigdy.
-
-Tokeny zapisuj jako własne właściwości CSS w `:root`. Nie wklejaj wartości szesnastkowych
-wprost w reguły. Dzięki temu dodanie jasnego motywu sprowadzi się później do jednego bloku
-`@media (prefers-color-scheme: light)` zamiast przeglądania wszystkich szablonów.
+Cały styl mieszka wyłącznie w `templates/_styles.html`, włączanym przez `{% include "_styles.html" %}` w sekcji `<head>`. Nie dodawaj bloków CSS do pozostałych szablonów. Tokeny zapisuj jako własne właściwości CSS w `:root`; nie wklejaj wartości szesnastkowych wprost w reguły.
 
 ## Tokeny
 
-Motyw ciemny jest obecnie jedynym. Deklaruj `color-scheme: dark`.
-Jasny motyw jako wybór użytkownika przyjdzie później — struktura tokenów ma to umożliwić
-bez przepisywania reguł.
+Motyw jasny jest jedynym obowiązującym. Deklaruj `color-scheme: light`.
 
 ### Powierzchnie i tekst
 
-Paleta opiera się na ciepłym slate, nie na czystej czerni. Każda warstwa jest nieco inna —
-głębia powstaje z samej ciemności, nie z mocnych cieni.
+Jasne powierzchnie rozdzielają informacje subtelną różnicą tła, obramowaniem i lekkim cieniem. Nie buduj głębi z ciemnych bloków ani z dużych efektów rozmycia.
+
+| Token | Wartość | Zastosowanie |
+|:------|:--------|:-------------|
+| `--bg` | `#F8FAFC` | Główne tło aplikacji |
+| `--surface` | `#FFFFFF` | Karty i główne powierzchnie |
+| `--surface-alt` | `#F1F5F9` | Kafelki i wgłębienia |
+| `--border` | `#E2E8F0` | Standardowe obramowanie |
+| `--border-strong` | `#CBD5E1` | Mocniejsze obramowanie |
+| `--fg` | `#0F172A` | Tekst główny |
+| `--fg-mid` | `#475569` | Tekst średni, opisy i etykiety |
+| `--fg-muted` | `#64748B` | Tekst drugorzędny |
+
+| Tekst | Na bieli | Na tle aplikacji | Na kafelku | Dodatkowe tło |
+|:------|:---------|:-----------------|:-----------|:---------------|
+| `#0F172A` | 17,85:1 | 17,06:1 | 16,30:1 | 16,40:1 na `#EFF6FF`; 17,05:1 na `#F0FDF4` |
+| `#475569` | 7,58:1 | 7,24:1 | 6,92:1 | — |
+| `#64748B` | 4,76:1 | 4,55:1 | — | — |
+
+**Ważne ograniczenie:** `#64748B` na kafelku `#F1F5F9` daje tylko **4,34:1**, czyli poniżej wymaganego progu 4,5:1 dla drobnego tekstu. Na kafelkach wolno używać wyłącznie `#475569` lub ciemniejszego.
+
+### Akcent
+
+| Token | Wartość | Zastosowanie |
+|:------|:--------|:-------------|
+| `--accent` | `#2563EB` | Linki, główne działania i zaznaczenie |
+| `--accent-strong` | `#1D4ED8` | Tekst na jasnych tłach akcentu i mocniejszy stan |
+| `--accent-soft` | `#EFF6FF` | Delikatne tło akcentu |
+| `--accent-soft-2` | `#DBEAFE` | Mocniejsze jasne tło akcentu |
+
+Niebieski `#2563EB` ma 5,17:1 na bieli, 4,94:1 na tle aplikacji i 4,75:1 na `#EFF6FF`. Biel na przycisku `#2563EB` ma 5,17:1. Mocniejszy `#1D4ED8` ma 6,70:1 na bieli oraz 5,49:1 na `#DBEAFE`.
+
+**Ważne ograniczenie:** `#2563EB` na `#DBEAFE` daje 4,24:1, czyli za mało dla tekstu. Na tle `#DBEAFE` stosuje się `#1D4ED8`.
+
+### Barwy znaczeń
+
+Zasada nadrzędna: ciemny odcień służy do **tekstu**, a jasny odcień tylko do **ikon, pierścieni i wykresów**. Dla ikon, pierścieni i wykresów wymagany próg wynosi 3:1, nie 4,5:1.
+
+| Stan | Tekst i tło | Kontrast tekstu | Ikona, pierścień lub wykres |
+|:-----|:------------|:----------------|:----------------------------|
+| Dobrze | `#15803D` na `#DCFCE7` | 4,57:1; 4,79:1 na `#F0FDF4`; 5,02:1 na bieli | `#16A34A` |
+| Uwaga | `#B45309` na `#FEF3C7` | 4,51:1 | `#D97706` |
+| Źle | `#B91C1C` na `#FEE2E2` | 5,30:1 | `#DC2626` |
+
+Stan zawsze opisuj także tekstem. Ikona lub kolor mogą go wspierać, lecz nie mogą go zastępować.
+
+### Kolory odrzucone ze wzoru graficznego
+
+Barwy użyte wprost na dostarczonych obrazach projektowych nie spełniają norm czytelności dla drobnego tekstu, dlatego zastąpiono je ciemniejszymi odcieniami tekstowymi.
+
+- `#16A34A` ma 3,30:1 na bieli oraz 3,15:1 na `#F0FDF4`; jest dopuszczony wyłącznie jako ikona lub pierścień.
+- `#D97706` ma 3,19:1 na bieli oraz 3,07:1 na `#FFFBEB`; jest dopuszczony wyłącznie jako ikona.
+- `#DC2626` na `#FEF2F2` ma 4,41:1, nieznacznie poniżej progu; zastępuje go para `#B91C1C` na `#FEE2E2`.
+- Biel na zieleni `#16A34A` ma 3,30:1. Jest dopuszczalna wyłącznie jako znak graficzny, na przykład symbol potwierdzenia, nigdy jako tekst.
+
+### Typografia, kształt i głębia
+
+Stos fontów: `"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif`. Bez wyjątków. Hierarchię buduj rozmiarem i grubością, nie kolorem. Promienie: pola i przyciski `8px`, karty `12px`, plakietki `999px`. Odstępy opieraj na wielokrotnościach `4px`.
+
+Cienie są lekkie i warstwowe, aby jedynie oddzielać kartę od tła. Nie zastępują obramowania i nie mogą dominować nad treścią.
+
+## Komponenty
+
+**Przycisk główny.** Tło `--accent`, biały tekst, promień `8px`, bez wersalików. Po najechaniu używa `--accent-strong`; po wciśnięciu zmniejsza się do 98 procent. Stan nieaktywny zawsze ma tekst wyjaśniający powód.
+
+**Przycisk drugorzędny.** Tło `--surface`, tekst `--fg-mid`, obramowanie `--border-strong`. Po najechaniu tło `--surface-alt` i tekst `--fg`.
+
+**Karta i kafelek.** Karta ma tło `--surface`, obramowanie `--border` i lekki cień. Kafelek lub wgłębienie ma tło `--surface-alt`; jego drobny tekst stosuje `--fg-mid` albo ciemniejszy, nigdy `--fg-muted`.
+
+**Pasek komunikatu.** Używa jasnego tła stanu i pełnego zdania po polsku. Stan przekazuje tekst, a kolor i ikona tylko go wzmacniają.
+
+**Brak danych.** Pokazuj znakiem myślnika `—`, nigdy zerem ani pustym miejscem.
+
+**Linki.** Kolor `--accent`; podkreślenie może pojawiać się po najechaniu. Link musi pozostawać rozpoznawalny jako element interaktywny.
+
+## Zasady
+
+- Znaczenie nigdy nie jest przekazywane samym kolorem; zawsze towarzyszy mu tekst.
+- Brak danych pokazujemy znakiem myślnika, nigdy zerem.
+- Przejścia trwają 200 milisekund z wygaszaniem. Przesunięcia nie przekraczają dwóch pikseli, a wciśnięcie przycisku zmniejsza go do 98 procent.
+- Obowiązuje obsługa ustawienia ograniczonego ruchu przez `@media (prefers-reduced-motion: reduce)`.
+- Obramowanie zaznaczenia klawiaturą ma dwa piksele w barwie akcentu i odstęp dwóch pikseli: `outline: 2px solid var(--accent); outline-offset: 2px`. Stosuj `:focus-visible`.
+- Zakazane są rozmycia tła i duże powierzchnie rozmyte, animacje wejścia oraz pulsowanie. Widok odświeża się samoczynnie co piętnaście sekund w trakcie pobierania danych, więc efekty te powodowałyby uporczywe migotanie.
+- Cały styl mieszka wyłącznie w pliku `templates/_styles.html`.
+- Zakazane są czcionki z sieci, reguły dociągające zasoby zewnętrzne oraz jakikolwiek kod wykonywany w przeglądarce.
+
+## Dostępność
+
+Minimalny kontrast tekstu wynosi `4,5:1`, a elementów sterujących, ikon, pierścieni, wykresów i obramowań `3:1`. Przy każdej nowej parze barw policz kontrast i dopisz wynik do tego dokumentu. Pole kliknięcia przycisku ma co najmniej `44px` wysokości. Zachowaj `lang="pl"` i sensowną hierarchię nagłówków.
+
+## Anty-wzorce
+
+Nie używaj wartości szesnastkowych wprost zamiast tokenów, koloru jako jedynego komunikatu, `#64748B` na `#F1F5F9`, `#2563EB` jako tekstu na `#DBEAFE`, białego tekstu na zieleni `#16A34A`, dużych ruchów po najechaniu, animacji sprężystych, pulsowania, rozmycia tła ani powielonego CSS w szablonach.
+
+## Wariant odrzucony: motyw ciemny
+
+Wariant ciemny nie został odrzucony z przyczyn technicznych. Użytkownik ocenił go jako niezgodny z oczekiwanym wyglądem, dlatego nie jest obowiązującym motywem. Poniższy zapis zachowujemy jako historię decyzji i źródło wcześniej policzonych kontrastów.
+
+### Dawne powierzchnie i tekst
 
 | Token | Wartość | Zastosowanie |
 |:------|:--------|:-------------|
 | `--bg` | `#0A0A0F` | Główne tło strony |
 | `--bg-alt` | `#12121A` | Delikatnie wyniesione pasy i stopka |
 | `--card` | `#1A1A24` | Tło kart i wydzielonych sekcji |
-| `--fg` | `#FAFAFA` | Tekst główny — 18,9:1 na tle, 16,5:1 na karcie |
-| `--fg-muted` | `#A1A1AA` | Opisy, daty, etykiety — 7,7:1 na tle, 6,7:1 na karcie |
-| `--border` | `rgba(255,255,255,0.08)` | Subtelne linie i krawędzie |
-| `--border-hover` | `rgba(255,255,255,0.15)` | Krawędź po najechaniu |
+| `--fg` | `#FAFAFA` | Tekst główny |
+| `--fg-muted` | `#A1A1AA` | Opisy, daty i etykiety |
+| `--accent` | `#F59E0B` | Linki, działania i tło przycisku głównego |
+| `--accent-fg` | `#0A0A0F` | Tekst na tle akcentu |
 
-Uwaga do pierwowzoru: „Minimalist Dark" podaje dla tekstu drugorzędnego `#71717A`, co daje
-zaledwie **4,09:1** na tle i **3,57:1** na karcie, więc nie spełnia minimum dla tekstu.
-Dlatego używamy `#A1A1AA`. Nie przywracaj ciemniejszej wartości.
+`#FAFAFA` ma 18,9:1 na `#0A0A0F`, 17,9:1 na `#12121A` i 16,5:1 na `#1A1A24`. `#A1A1AA` ma odpowiednio 7,7:1, 7,3:1 i 6,7:1. Amber `#F59E0B` ma odpowiednio 9,2:1, 8,7:1 i 8,0:1. Ciemny tekst na akcencie ma 9,2:1.
 
-### Akcent
+Biel na akcencie `#F59E0B` ma tylko **2,15:1** i była bezwzględnie zakazana; tekst na amber zawsze musiał być ciemny.
 
-| Token | Wartość | Zastosowanie |
-|:------|:--------|:-------------|
-| `--accent` | `#F59E0B` | Linki, tekst akcentowany, tło przycisku głównego |
-| `--accent-fg` | `#0A0A0F` | Tekst **na** tle amber — wyłącznie ciemny |
-| `--accent-glow` | `rgba(245,158,11,0.35)` | Poświata przycisku po najechaniu |
-| `--accent-soft` | `rgba(245,158,11,0.12)` | Tło wyróżnionych plakietek |
+Odrzucony tekst drugorzędny `#71717A` dawał 4,09:1 na tle i 3,57:1 na karcie, dlatego w dawnym wariancie zastąpiono go `#A1A1AA`. Odrzucony akcent indygo `#5E6AD2` dawał jako tekst tylko 4,33:1.
 
-Amber ma 9,2:1 na tle i 8,0:1 na karcie, więc nadaje się jednocześnie na tekst i na
-wypełnienie przycisku — dzięki temu wystarcza jeden token akcentu.
+### Dawne stany
 
-Reguła bezwzględna: **na tle amber nigdy nie umieszczaj białego tekstu** — biel na `#F59E0B`
-daje 2,15:1 i jest nieczytelna. Tekst na amber jest zawsze ciemny (`--accent-fg`, 9,2:1).
+| Token | Wartość | Na `#0A0A0F` | Na `#12121A` | Na `#1A1A24` |
+|:------|:--------|:--------------|:--------------|:--------------|
+| `--ok` | `#4ADE80` | 11,3:1 | 10,7:1 | 9,9:1 |
+| `--warn` | `#FCD34D` | 13,7:1 | 12,9:1 | 12,0:1 |
+| `--danger` | `#F87171` | 7,1:1 | 6,7:1 | 6,2:1 |
 
-Druga reguła: amber oznacza **wyłącznie działanie** — przycisk, link, element interaktywny.
-Nie używaj go dekoracyjnie ani do sygnalizowania stanu danych. Interfejs pozostaje
-w zasadzie monochromatyczny; ciepły akcent ma być rzadki, bo z rzadkości bierze swoją siłę.
+Pozostały dwie istotne pułapki: barwa ostrzeżenia wobec akcentu miała kontrast tylko 1,49:1, a barwa pozytywna wobec negatywnej 1,59:1. Dlatego amber oznaczał wyłącznie działanie, żółty wyłącznie ostrzeżenie, a każdy stan nadal wymagał tekstu.
 
-### Stany
+### Dawne efekty
 
-Dotychczasowe kolory statusów pochodzą z jasnego motywu i na ciemnym tle są nieczytelne:
-zielony `#17663E` daje 2,92:1, czerwony `#8A1C1C` zaledwie 2,20:1, pomarańczowy `#8A5A00`
-tylko 3,44:1. Wszystkie trzy wymagają zamiany. Zastąp je wartościami poniżej i zaktualizuj
-`job.html`, gdzie stare kolory są wpisane wprost.
-
-| Token | Wartość | Na tle | Na karcie | Znaczenie |
-|:------|:--------|:-------|:----------|:----------|
-| `--ok` | `#4ADE80` | 11,3:1 | 9,9:1 | Gotowość, sukces zadania, dopasowany trening |
-| `--warn` | `#FCD34D` | 13,7:1 | 12,0:1 | Dane nieaktualne, gotowość z zapasem, stan niepewny |
-| `--danger` | `#F87171` | 7,1:1 | 6,2:1 | Brak gotowości, nieudana synchronizacja |
-
-Dwie pułapki wynikające z policzonych wartości, obie wymagają dyscypliny:
-
-Żółty ostrzegawczy i amber mają niemal tę samą jasność — wzajemny kontrast to tylko 1,49:1.
-Rozróżnia je więc wyłącznie kontekst, dlatego trzymaj się podziału: amber pojawia się
-na elementach interaktywnych, żółty ostrzegawczy tylko na paskach komunikatów i krawędziach
-kart. Nigdy odwrotnie.
-
-Zielony i czerwony również mają podobną jasność — 1,59:1 między sobą. Dla osoby
-nierozróżniającej tych barw są praktycznie identyczne. To właśnie dlatego zasada
-„kolor nigdy sam" jest nienaruszalna: stan zawsze opisuje też tekst.
-
-Stan sygnalizuj obramowaniem lewej krawędzi karty w kolorze stanu oraz tekstową etykietą.
-Tła stanów twórz jako półprzejrzystą warstwę barwy stanu nad powierzchnią, w granicach
-10–15% krycia. Nie używaj jasnych wypełnień — na ciemnym motywie rażą.
-
-### Typografia
-
-Stos: `system-ui, -apple-system, "Segoe UI", sans-serif`. Bez wyjątków. Pierwowzór wskazuje
-Space Grotesk i Inter, ale wymagałyby pobrania z sieci, co jest tu zakazane.
-
-Skala pozostaje powściągliwa, bo widok jest wąski i gęsty informacyjnie: wynik gotowości
-`2,6rem` o grubości 700, nagłówek strony `1,6rem`, nagłówki sekcji `1,1rem` grubości 600,
-treść `1rem`, metadane `0,9rem`. Nagłówkom nadaj `letter-spacing: -0.02em` i ciasną
-interlinię, treści `line-height: 1.6`. Hierarchię buduj rozmiarem i grubością, nie kolorem.
-
-Nie stosuj gradientowych wypełnień tekstu ani wersalików.
-
-### Promienie, odstępy, cienie
-
-Promienie miękkie, lecz nieprzesadzone: pola i przyciski `8px`, karty `12px`,
-większe sekcje `16px`, plakietki `999px`.
-
-Odstępy opieraj na wielokrotnościach `4px`. Pierwowzór zakłada bardzo przestronne układy,
-ale został zaprojektowany dla stron marketingowych — u nas widok ma być zwarty i czytelny
-bez przewijania. Rozsądne wartości: wyściółka karty `18px`, przerwa między kafelkami `10px`,
-odstęp nad nagłówkiem sekcji `28px`, wyściółka strony `28px 16px`.
-
-Cienie zawsze warstwowe, nigdy jednowarstwowe. Na ciemnym tle samo rozmycie nie wystarcza,
-więc pierwszą warstwą jest włosowe obramowanie:
-
-```css
-/* karta */
-box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.35);
-/* przycisk glowny po najechaniu */
-box-shadow: 0 0 20px rgba(245,158,11,0.35);
-```
-
-## Efekty — zakres świadomie ograniczony
-
-Przyjęta zasada: tylko efekty tanie w renderowaniu i spokojne w odbiorze.
-
-Dozwolone:
-
-- Delikatna ciepła aura u góry strony:
-  `radial-gradient(ellipse at top, rgba(245,158,11,0.04) 0%, transparent 55%)`
-- Warstwowe cienie i włosowe obramowania
-- Poświata amber wokół przycisku po najechaniu — mały element, koszt znikomy
-- Przejścia `200ms ease-out`
-- Rozjaśnienie krawędzi i tła po najechaniu, przesunięcie najwyżej `2px`
-- `scale(0.98)` na wciśnięciu przycisku
-
-Zakazane, mimo obecności w pierwowzorze:
-
-- `backdrop-filter` i półprzejrzyste karty z rozmyciem tła — kosztowne przy każdym
-  renderowaniu; karty mają tło pełne (`--card`)
-- Duże rozmyte kule świetlne i animowane plamy
-- Nakładka szumu — przy 2% krycia niezauważalna, a dodaje złożoności
-- Animacje wejścia elementów
-
-Ostatni zakaz ma powód praktyczny, nie estetyczny. W trakcie synchronizacji widok dnia
-przeładowuje się co 15 sekund przez `meta refresh`. Każda animacja wejścia odpalałaby się
-od nowa przy każdym przeładowaniu, dając uporczywe migotanie dokładnie wtedy, gdy użytkownik
-czeka i patrzy na ekran. Strona musi wtedy wyglądać stabilnie. Z tego samego powodu nie
-animuj paska stanu synchronizacji ani niczego, co pojawia się w trakcie trwania zadania.
-
-## Komponenty
-
-**Przycisk główny** („Zsynchronizuj dane"). Tło `--accent`, tekst `--accent-fg`,
-promień `8px`, wyściółka `11px 20px`, grubość 600, bez wersalików. Po najechaniu
-`filter: brightness(1.08)` i poświata amber. Na wciśnięciu `scale(0.98)`.
-Stan nieaktywny: krycie `0.5`, `cursor: not-allowed`, bez poświaty — i zawsze wraz
-z tekstem paska wyjaśniającym powód, bo sam wyszarzony przycisk nie informuje,
-dlaczego nie działa.
-
-**Przycisk drugorzędny.** Tło przezroczyste, tekst `--fg`, obramowanie `--border-hover`.
-Po najechaniu tło `rgba(255,255,255,0.05)` i jaśniejsza krawędź.
-
-**Karta.** Tło `--card`, promień `12px`, wyściółka `18px`, cień warstwowy.
-Karta gotowości dodatkowo z obramowaniem lewej krawędzi `5px` w kolorze stanu.
-
-**Pasek komunikatu.** Tło w barwie stanu przy 12% krycia, lewa krawędź `4px` w pełnym
-kolorze stanu, tekst `--fg`. Treść zawsze pełnym zdaniem po polsku. Jeśli istnieje strona
-szczegółów, dołącz link „Szczegóły".
-
-**Kafelki sygnałów.** Siatka dwukolumnowa, jedna kolumna poniżej `480px`. Tło `--bg-alt`,
-etykieta w `--fg-muted` rozmiarem `0,85rem`, wartość `1,2rem` w `--fg`.
-Brak danych pokazuj jako `—`, nigdy jako zero ani puste miejsce.
-
-**Linki.** Kolor `--accent`, podkreślenie z `text-underline-offset: 2px`.
-Nie usuwaj podkreśleń — to dla tej osoby jedyny sygnał, że coś jest klikalne.
-
-## Dostępność
-
-Obowiązkowo, nie opcjonalnie:
-
-- Widoczny pierścień fokusu na każdym elemencie interaktywnym:
-  `outline: 2px solid var(--accent); outline-offset: 2px`. Używaj `:focus-visible`.
-  Nigdy nie zeruj `outline` bez podania zamiennika.
-- Minimalny kontrast tekstu `4,5:1`; elementy sterujące i obramowania `3:1`.
-  Przy nowym kolorze policz kontrast, nie zgaduj.
-- Pole kliknięcia przycisku co najmniej `44px` wysokości.
-- Blok `@media (prefers-reduced-motion: reduce)` wyłączający wszystkie przejścia.
-- Stan nigdy wyłącznie kolorem — zawsze z towarzyszącym tekstem.
-- Zachowaj `lang="pl"` oraz sensowną hierarchię nagłówków.
-
-## Czego nie przenieśliśmy z pierwowzorów i dlaczego
-
-Uczciwy zapis odrzuceń, by nie wracać do nich bez potrzeby. Światło podążające za kursorem,
-paralaksa i animacje wyzwalane przewijaniem wymagają JavaScriptu. Fonty Space Grotesk, Inter
-i JetBrains Mono wymagają pobierania z sieci. Klasy Tailwinda nie mają zastosowania wobec
-braku kroku budowania. Siatki „bento" i układy wielokolumnowe przeczą zasadzie jednej wąskiej
-kolumny. Szkło z `backdrop-filter`, wielkie rozmyte kule i nakładka szumu kosztują zbyt wiele
-przy widoku odświeżanym co 15 sekund, a dają efekt niewspółmierny do ceny. Bardzo przestronne
-odstępy z pierwowzoru pasują stronom marketingowym, nie gęstemu widokowi danych.
-
-Z drugiego wariantu stylu — „Linear / Modern" z akcentem indygo `#5E6AD2` — zrezygnowaliśmy
-świadomie: ten akcent daje jako tekst tylko 4,33:1, więc wymagałby drugiego, jaśniejszego
-tokenu na linki. Amber spełnia obie role naraz.
-
-## Anty-wzorce
-
-Czysta czerń `#000000` i czysta biel jako tekst. Biały tekst na tle amber. Amber użyty
-do oznaczania stanu danych zamiast działania. Płaskie jednowarstwowe cienie. Wyraziste
-obramowania — mają być prawie niewidoczne, w granicach 8–15% krycia bieli. Duże ruchy po
-najechaniu powyżej `2px`. Animacje sprężyste i odbijające. Wartości szesnastkowe wpisane
-wprost zamiast tokenów. Powielony CSS w wielu szablonach. Komunikat niosący znaczenie
-wyłącznie kolorem. Wersaliki i rozstrzelone napisy.
-
-## Weryfikacja zmiany wizualnej
-
-Po każdej zmianie w szablonach:
-
-1. `python -m pytest -q` — testy sprawdzają teksty i strukturę odpowiedzi, więc zmiana
-   treści komunikatu wymaga aktualizacji testu. Nie zmieniaj tekstów widocznych dla
-   użytkownika bez potrzeby.
-2. `python -m trainer privacy-check`
-3. Potwierdź brak `|safe`, brak `<script>` i brak odwołań do adresów zewnętrznych
-   w szablonach.
-4. Sprawdź widok w przeglądarce pod `http://127.0.0.1:8000` w trzech stanach: spokoju,
-   trwającej synchronizacji oraz blokady po świeżej synchronizacji. Serwer działa bez
-   przeładowywania kodu, więc po zmianie wymaga restartu.
-5. Zwęź szerokość okna do około 380 px i sprawdź, czy układ pozostaje czytelny.
-6. Przy każdej nowej parze barw policz kontrast i dopisz wynik do tabeli w tym dokumencie.
+W ciemnym wariancie stosowano warstwowe cienie i włosowe obramowania. Zakazane pozostawały `backdrop-filter`, półprzezroczyste karty z rozmyciem tła, duże rozmyte kule świetlne, animacje wejścia i pulsowanie — widok odświeża się co 15 sekund podczas pobierania danych.

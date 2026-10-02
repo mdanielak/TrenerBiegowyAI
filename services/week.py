@@ -31,6 +31,10 @@ class WeekWorkout:
     matched_activity_id: int | None
     match_method: str
     warnings: list[str]
+    planned_distance_km: float | None = None
+    planned_duration_min: float | None = None
+    hr_target: str | None = None
+    hr_zone: str | None = None
 
 
 @dataclass
@@ -42,6 +46,7 @@ class WeekActivity:
     distance_km: float | None
     duration_min: float | None
     matched_workout_id: int | None
+    avg_hr: int | None = None
 
 
 @dataclass
@@ -57,6 +62,15 @@ class WeekDayReport:
 
 
 @dataclass
+class WeekSummary:
+    total_distance_km: float | None = None
+    total_duration_min: float | None = None
+    average_hr: int | None = None
+    completed_workouts: int = 0
+    planned_workouts: int = 0
+
+
+@dataclass
 class WeekReport:
     week_start: str
     week_end: str
@@ -67,6 +81,7 @@ class WeekReport:
     snapshot_timestamp: str | None
     warnings: list[str]
     days: list[WeekDayReport]
+    summary: WeekSummary | None = None
 
 
 def _sport(entry):
@@ -155,11 +170,15 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
                 status = 'planned'
             else:
                 status = 'no_record'
-            workouts.append(WeekWorkout(entry.get('workout_id'), entry.get('schedule_id'), entry.get('name') or '', _sport(entry), status, matched_id, method, []))
+            workouts.append(WeekWorkout(
+                entry.get('workout_id'), entry.get('schedule_id'), entry.get('name') or '', _sport(entry),
+                status, matched_id, method, [], entry.get('distance_km'), entry.get('duration_min'),
+                entry.get('hr_target'), entry.get('hr_zone'),
+            ))
         week_activities = [WeekActivity(
             activity.get('activity_id'), str(activity.get('date', '')), activity.get('type') or '',
             activity.get('name') or '', activity.get('distance_km'), activity.get('duration_min'),
-            matched_ids.get(activity.get('activity_id')),
+            matched_ids.get(activity.get('activity_id')), activity.get('avg_hr'),
         ) for activity in day_activities]
         if any(workout.status == 'uncertain' for workout in workouts):
             day_status = 'uncertain'
@@ -176,8 +195,23 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
         temporal = 'today' if date_text == today else 'past' if date_text < today else 'future'
         raw_availability = availability.get(_DAYS[index]) if isinstance(availability, dict) else None
         days.append(WeekDayReport(date_text, index, temporal, _availability(raw_availability), day_status, [], workouts, week_activities))
+    all_activities = [activity for day in days for activity in day.activities]
+    distances = [activity.distance_km for activity in all_activities
+                 if isinstance(activity.distance_km, (int, float)) and not isinstance(activity.distance_km, bool)]
+    durations = [activity.duration_min for activity in all_activities
+                 if isinstance(activity.duration_min, (int, float)) and not isinstance(activity.duration_min, bool)]
+    heart_rates = [activity.avg_hr for activity in all_activities
+                   if isinstance(activity.avg_hr, int) and not isinstance(activity.avg_hr, bool)]
+    all_workouts = [workout for day in days for workout in day.workouts]
+    summary = WeekSummary(
+        total_distance_km=sum(distances) if distances else None,
+        total_duration_min=sum(durations) if durations else None,
+        average_hr=round(sum(heart_rates) / len(heart_rates)) if heart_rates else None,
+        completed_workouts=sum(workout.status == 'matched' for workout in all_workouts),
+        planned_workouts=len(all_workouts),
+    )
     return WeekReport(monday.isoformat(), sunday.isoformat(), today, 'local_registry', registry_status,
-                      snapshot_status, timestamp, warnings, days)
+                      snapshot_status, timestamp, warnings, days, summary)
 
 
 def get_week_report(*, now=None) -> WeekReport:

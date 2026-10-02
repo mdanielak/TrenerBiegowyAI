@@ -5,7 +5,7 @@ Readiness assessment and plan-vs-actual comparison services.
 Extracted from analyze_and_readiness.py — pure logic, no side effects.
 Importable from CLI, tests, and future API.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from services.activity_matching import find_activity_for_workout
 
@@ -128,6 +128,77 @@ def compute_readiness_breakdown(data):
         "sleep_total": sleep_total,
         "stress": stress,
         "details": details,
+    }
+
+
+def readiness_for_day(data, day):
+    """Compute readiness using records matching the requested calendar day."""
+    health = next(
+        (record for record in data.get('daily_health', []) if record.get('day') == day),
+        None,
+    )
+    if health is None:
+        return None
+
+    sleep = next(
+        (record for record in data.get('sleep', []) if record.get('day') == day),
+        None,
+    )
+    hrv = next(
+        (record for record in data.get('hrv', []) if record.get('day') == day),
+        None,
+    )
+    return compute_readiness_breakdown({
+        'daily_health': [health],
+        'sleep': [sleep] if sleep is not None else [],
+        'hrv': [hrv] if hrv is not None else [],
+    })
+
+
+def signal_trends(data, day):
+    """Return day-over-day trends for readiness signals."""
+    previous_day = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
+
+    def record_for(records, target_day):
+        return next((record for record in records if record.get('day') == target_day), None)
+
+    health_today = record_for(data.get('daily_health', []), day)
+    health_previous = record_for(data.get('daily_health', []), previous_day)
+    sleep_today = record_for(data.get('sleep', []), day)
+    sleep_previous = record_for(data.get('sleep', []), previous_day)
+
+    def trend(current, previous, favorable_direction):
+        if current is None or previous is None:
+            direction = None
+        elif current > previous:
+            direction = 'up'
+        elif current < previous:
+            direction = 'down'
+        else:
+            direction = 'flat'
+        return {
+            'current': current,
+            'previous': previous,
+            'direction': direction,
+            'favorable': direction == favorable_direction if direction in ('up', 'down') else None,
+        }
+
+    return {
+        'rhr': trend(
+            health_today.get('rhr') if health_today else None,
+            health_previous.get('rhr') if health_previous else None,
+            'down',
+        ),
+        'stress_avg': trend(
+            health_today.get('stress_avg') if health_today else None,
+            health_previous.get('stress_avg') if health_previous else None,
+            'down',
+        ),
+        'sleep_score': trend(
+            sleep_today.get('score') if sleep_today else None,
+            sleep_previous.get('score') if sleep_previous else None,
+            'up',
+        ),
     }
 
 
