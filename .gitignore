@@ -37,6 +37,10 @@ build/
 /*.xlsx
 /*.csv
 
+# Root-level screenshots kept for local preview only
+/Dzien.png
+/Tydzien.png
+
 # IDE / Editors
 .vscode/
 .idea/
