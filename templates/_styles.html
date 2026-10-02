@@ -27,16 +27,19 @@
     --accent-soft-2: #DBEAFE;
 
     /* --- znaczenia: tekst ciemny, ikona jasna --- */
-    --ok-fg: #15803D;     /* 4.57:1 na --ok-bg */
+    --ok-fg: #15803D;     /* 4.57:1 na --ok-bg, 4.81:1 na --ok-soft */
     --ok-bg: #DCFCE7;
+    --ok-soft: #F0FDF4;
     --ok-icon: #16A34A;
 
-    --warn-fg: #B45309;   /* 4.51:1 na --warn-bg */
+    --warn-fg: #B45309;   /* 4.51:1 na --warn-bg, 4.98:1 na --warn-soft */
     --warn-bg: #FEF3C7;
+    --warn-soft: #FFFBEB;
     --warn-icon: #D97706;
 
-    --danger-fg: #B91C1C; /* 5.30:1 na --danger-bg */
+    --danger-fg: #B91C1C; /* 5.30:1 na --danger-bg, 6.01:1 na --danger-soft */
     --danger-bg: #FEE2E2;
+    --danger-soft: #FEF2F2;
     --danger-icon: #DC2626;
 
     /* --- kształt i głębia --- */
@@ -89,6 +92,26 @@
   .row { display: flex; align-items: center; gap: 10px; }
   .spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .icon { flex: none; vertical-align: -0.18em; }
+
+  /* Obrazek z lokalnego pakietu grafik. Zawsze dekoracyjny: znaczenie niesie tekst obok. */
+  .asset { flex: none; display: block; object-fit: contain; }
+  .asset.inline { display: inline-block; vertical-align: -0.2em; }
+
+  /* Kolorowy kafelek pod ikoną. Odcień powtarza stan opisany słowem w sąsiednim tekście. */
+  .icon-box {
+    width: 60px; height: 60px;
+    flex: none;
+    display: grid; place-items: center;
+    border-radius: 15px;
+    background: var(--surface-alt);
+    color: var(--fg-mid);
+  }
+  .icon-box.ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .icon-box.warn { background: var(--warn-bg); color: var(--warn-fg); }
+  .icon-box.bad { background: var(--danger-bg); color: var(--danger-fg); }
+  .icon-box.info { background: var(--accent-soft-2); color: var(--accent-strong); }
+  .icon-box.none { background: var(--surface); border: 1px solid var(--border); }
+  .icon-box.sm { width: 36px; height: 36px; border-radius: 10px; }
 
   /* ============================ szkielet ============================ */
 
@@ -153,6 +176,7 @@
     pointer-events: none;
   }
   .nav-item.disabled .icon { opacity: 0.7; }
+  .nav-item.disabled .asset { opacity: 0.45; }
 
   .nav-note {
     margin-top: 10px;
@@ -229,14 +253,22 @@
 
   .signals { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+  /* Tło w odcieniu stanu. Nigdy --fg-muted na tych tłach: tylko --fg lub --fg-mid. */
   .signal {
     background: var(--surface-alt);
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
     padding: 12px 13px;
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    align-items: flex-start;
+    gap: 11px;
   }
+  .signal.ok { background: var(--ok-soft); border-color: var(--ok-bg); }
+  .signal.warn { background: var(--warn-soft); border-color: var(--warn-bg); }
+  .signal.bad { background: var(--danger-soft); border-color: var(--danger-bg); }
+  .signal.none { background: var(--surface-alt); border-color: var(--border); }
+
+  .signal-main { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
   .signal-top { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--fg-mid); }
   .signal-value { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
   .signal-unit { font-size: 12px; font-weight: 500; color: var(--fg-mid); margin-left: 2px; }
@@ -273,6 +305,7 @@
     flex-direction: column;
     gap: 2px;
   }
+  .tile-head { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
   .tile-label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--fg-mid); }
   .tile-value { font-size: 23px; font-weight: 660; letter-spacing: -0.025em; }
   .tile-unit { font-size: 13px; font-weight: 500; color: var(--fg-mid); margin-left: 3px; }
@@ -290,9 +323,9 @@
   .list-item:last-child { padding-bottom: 0; }
 
   .item-icon {
-    width: 36px; height: 36px; flex: none;
+    width: 52px; height: 52px; flex: none;
     display: grid; place-items: center;
-    border-radius: var(--radius-sm);
+    border-radius: 13px;
     background: var(--accent-soft);
     color: var(--accent-strong);
   }
@@ -357,15 +390,22 @@
     padding: 1px 7px; border-radius: var(--radius-pill);
   }
 
+  /* Ikona dnia stoi duza nad nazwa treningu, jak w makiecie 02. */
   .day-block {
     background: var(--surface-alt);
     border-radius: var(--radius-sm);
-    padding: 8px 9px;
+    padding: 10px 9px;
     font-size: 12.5px;
     line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1px;
   }
   .day.past .day-block { background: var(--surface); }
-  .day-block-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-mid); margin-bottom: 2px; }
+  .day-block-icon { margin-bottom: 6px; }
+  .day-block-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-mid); }
   .day-block-title { font-weight: 600; color: var(--fg); }
   .day-block-meta { color: var(--fg-mid); font-size: 12px; }
 
@@ -459,6 +499,41 @@
     font-size: 12px;
     color: var(--fg-muted);
   }
+
+  /* ===================== strefy tętna ===================== */
+
+  /* Chip strefy. Kolor tylko wzmacnia nazwę, która stoi w środku chipa. */
+  .zone-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 34px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    background: var(--surface-alt);
+    color: var(--fg-mid);
+  }
+  /* Wariant wiodący: zajmuje miejsce ikony w wierszu listy, więc musi mieć jej wymiary. */
+  .zone-chip.lead { flex: none; width: 36px; height: 36px; min-width: 36px; padding: 0; }
+  .zone-chip.z1 { background: #E0F2FE; color: #075985; } /* 6.56:1 */
+  .zone-chip.z2 { background: var(--ok-bg); color: var(--ok-fg); }
+  .zone-chip.z3 { background: var(--warn-bg); color: var(--warn-fg); }
+  .zone-chip.z4 { background: #FFEDD5; color: #9A3412; } /* 6.38:1 */
+  .zone-chip.z5 { background: var(--danger-bg); color: var(--danger-fg); }
+
+  /* ===================== puste stany z ilustracją ===================== */
+
+  .empty-art {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 22px 16px;
+    text-align: center;
+    background: var(--surface-alt);
+    border-radius: var(--radius-sm);
+    color: var(--fg-mid);
+    font-size: 13.5px;
+  }
+  .empty-art .asset { opacity: 0.85; }
 
   /* ===================== dostępność ===================== */
 

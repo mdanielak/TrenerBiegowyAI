@@ -8,6 +8,7 @@ and any other API compatible with OpenAI Chat Completions format.
 Import as: from ai.openai_compatible import OpenAICompatibleProvider
 """
 import json
+import logging
 from typing import Union
 
 from ai.base import AIProvider
@@ -16,6 +17,15 @@ try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
+
+
+# A minute covers slower local models while preventing indefinitely blocked CLI runs.
+AI_REQUEST_TIMEOUT = 60.0
+# Two SDK-managed retries balance transient provider failures against prompt completion.
+AI_MAX_RETRIES = 2
+
+
+logger = logging.getLogger(__name__)
 
 
 class AIProviderError(Exception):
@@ -47,10 +57,16 @@ class OpenAICompatibleProvider(AIProvider):
 
         self.base_url = base_url
         self.model = model
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            timeout=AI_REQUEST_TIMEOUT,
+            max_retries=AI_MAX_RETRIES,
+        )
 
-    def chat(self, system_prompt: str, user_message: str,
-             response_model=None) -> Union[str, dict]:
+    def chat(self, system_prompt: str, user_message: str, response_model=None, *,
+             temperature: float | None = None, seed: int | None = None,
+             top_p: float | None = None) -> Union[str, dict]:
         """Send a chat completion request.
 
         If response_model is a Pydantic BaseModel class, requests JSON output
@@ -67,6 +83,9 @@ class OpenAICompatibleProvider(AIProvider):
         # Request JSON output for structured responses
         if response_model is not None:
             kwargs["response_format"] = {"type": "json_object"}
+        for name, value in (("temperature", temperature), ("seed", seed), ("top_p", top_p)):
+            if value is not None:
+                kwargs[name] = value
 
         try:
             response = self.client.chat.completions.create(**kwargs)
@@ -82,15 +101,17 @@ class OpenAICompatibleProvider(AIProvider):
             try:
                 data = json.loads(content)
             except json.JSONDecodeError as e:
+                logger.debug("AI returned invalid JSON response: %s", content)
                 raise AIResponseError(
-                    f"AI returned invalid JSON: {e}\nRaw response: {content[:500]}"
-                ) from e
+                    f"AI returned invalid JSON ({len(content)} characters)"
+                ) from None
 
             try:
                 return response_model.model_validate(data)
             except Exception as e:
+                logger.debug("AI response validation failed for data: %s", data)
                 raise AIResponseError(
-                    f"AI response validation failed: {e}\nData: {data}"
-                ) from e
+                    f"AI response validation failed for response of {len(content)} characters"
+                ) from None
 
         return content

@@ -634,3 +634,405 @@ def test_week_hides_registry_problem_warning_when_registry_is_ok():
         response = client.get("/week")
     assert "Nie znaleziono lokalnego rejestru treningów" not in response.text
     assert "Lokalny rejestr treningów jest nieczytelny" not in response.text
+
+
+def _analysis_readiness(**overrides):
+    values = _readiness()
+    values["details"] = [
+        {"metric": "RHR", "status": "OK", "message": "RHR 48 w normie"},
+        {"metric": "HRV", "status": "WARN", "message": "HRV niezrównoważone"},
+        {"metric": "Sleep", "status": "FAIL", "message": "Słaby sen 42"},
+        {"metric": "Stress", "status": "UNKNOWN", "message": "Brak danych o stresie"},
+    ]
+    values.update(overrides)
+    return values
+
+
+def _analysis_client(readiness=None, **report_overrides):
+    report = _report(readiness=readiness or _analysis_readiness(), **report_overrides)
+    return TestClient(create_app(report_provider=lambda: report))
+
+
+def test_analysis_renders_every_metric_with_status_and_message():
+    with _analysis_client() as client:
+        response = client.get("/analysis")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    for label in ("Tętno spoczynkowe", "Zmienność tętna", "Sen", "Stres"):
+        assert label in response.text
+    for message in ("RHR 48 w normie", "HRV niezrównoważone", "Słaby sen 42", "Brak danych o stresie"):
+        assert message in response.text
+    assert 'class="pill ok"' in response.text
+    assert 'class="pill warn"' in response.text
+    assert 'class="pill bad"' in response.text
+
+
+def test_analysis_maps_unknown_status_to_neutral_pill():
+    with _analysis_client() as client:
+        response = client.get("/analysis")
+    assert 'class="pill neutral"' in response.text
+    assert "brak danych" in response.text
+
+
+def test_analysis_shows_coverage_and_confidence():
+    readiness = _analysis_readiness(
+        available_metrics=["sleep", "rhr"], missing_metrics=["hrv", "stress"],
+        confidence="medium", raw_score=5.0, available_max_score=6.0,
+    )
+    with _analysis_client(readiness) as client:
+        response = client.get("/analysis")
+    assert "z 4" in response.text
+    assert "Średnia" in response.text
+    assert "z 6" in response.text
+
+
+def test_analysis_shows_dash_for_missing_measurements_without_leaking_none():
+    readiness = _analysis_readiness(
+        rhr=None, hrv_last=None, hrv_baseline="None-None", hrv_status=None,
+        sleep_score_val=None, sleep_total=None, stress=None,
+    )
+    with _analysis_client(readiness) as client:
+        response = client.get("/analysis")
+    assert response.status_code == 200
+    assert "—" in response.text
+    assert "None" not in response.text
+
+
+def test_analysis_escapes_metric_message():
+    readiness = _analysis_readiness(details=[
+        {"metric": "RHR", "status": "OK", "message": "<script>alert(1)</script>"},
+    ])
+    with _analysis_client(readiness) as client:
+        response = client.get("/analysis")
+    assert "<script>alert(1)</script>" not in response.text
+    assert "&lt;script&gt;" in response.text
+
+
+def test_analysis_marks_navigation_entry_as_current():
+    with _analysis_client() as client:
+        response = client.get("/analysis")
+    assert 'href="/analysis" aria-current="page"' in response.text
+
+
+def test_analysis_reports_missing_snapshot_as_not_found():
+    report = _report(status="snapshot_missing", readiness=None)
+    with TestClient(create_app(report_provider=lambda: report)) as client:
+        response = client.get("/analysis")
+    assert response.status_code == 404
+    assert response.headers["cache-control"] == "no-store"
+
+
+def _profile(**overrides):
+    values = {
+        "name": "Michał",
+        "age": 38,
+        "weight_kg": 74,
+        "height_cm": 180,
+        "device": "Garmin Fenix 7S",
+        "hr_max": 192,
+        "hr_rest": 47,
+        "lactate_threshold_hr": 170,
+        "vo2max_running": 49,
+        "hr_zones": "Z1 96-121, Z2 122-136, Z3 137-154, Z4 155-172, Z5 173-192",
+        "hr_zones_source": "Garmin Connect — dane profilu",
+        "hr_zone_floors": {"z1": 96, "z2": 122, "z3": 137, "z4": 155, "z5": 173},
+        "target_race": "Półmaraton",
+        "target_date": "2027-04-18",
+        "target_time": "1:45:00",
+        "target_hm": "1:45:00",
+        "current_hm_record": "1:52:30",
+        "training_frequency": 4,
+    }
+    values.update(overrides)
+    return values
+
+
+def _settings_client(profile=None, provider=None):
+    return TestClient(create_app(report_provider=lambda: _report(),
+                                 profile_provider=provider or (lambda: _profile() if profile is None else profile)))
+
+
+def test_settings_renders_profile_values_and_zones():
+    with _settings_client() as client:
+        response = client.get("/settings")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert "Michał" in response.text
+    assert "Garmin Fenix 7S" in response.text
+    assert "192" in response.text
+    assert "Strefa Z1" in response.text
+    assert "96–121" in response.text
+    assert "Strefa Z5" in response.text
+    assert "173–192" in response.text
+    assert "Garmin Connect — dane profilu" in response.text
+
+
+def test_settings_shows_dash_for_missing_fields():
+    with _settings_client(profile={"name": "Michał"}) as client:
+        response = client.get("/settings")
+    assert response.status_code == 200
+    assert "—" in response.text
+    assert "Nie zapisano jeszcze stref tętna" in response.text
+
+
+def test_settings_falls_back_to_zone_floors_when_summary_missing():
+    with _settings_client(profile={"hr_zone_floors": {"z1": 96, "z2": 122}}) as client:
+        response = client.get("/settings")
+    assert "Strefa Z1" in response.text
+    assert "od 96" in response.text
+    assert "Strefa Z3" not in response.text
+
+
+def test_settings_escapes_profile_values():
+    with _settings_client(profile=_profile(name="<script>alert(1)</script>")) as client:
+        response = client.get("/settings")
+    assert "<script>alert(1)</script>" not in response.text
+    assert "&lt;script&gt;" in response.text
+
+
+def test_settings_reports_missing_profile_with_setup_command():
+    def missing():
+        raise FileNotFoundError("Nie znaleziono lokalnego profilu")
+
+    with _settings_client(provider=missing) as client:
+        response = client.get("/settings")
+    assert response.status_code == 404
+    assert "python -m trainer setup" in response.text
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_settings_reports_unreadable_profile_as_unavailable():
+    def broken():
+        raise ValueError("uszkodzony plik")
+
+    with _settings_client(provider=broken) as client:
+        response = client.get("/settings")
+    assert response.status_code == 503
+    assert "Nie można odczytać lokalnego profilu biegacza." in response.text
+
+
+def test_settings_marks_navigation_entry_as_current():
+    with _settings_client() as client:
+        response = client.get("/settings")
+    assert 'href="/settings" aria-current="page"' in response.text
+
+
+def _execution(**overrides):
+    values = {
+        "happened": True,
+        "match_method": "id",
+        "certain": True,
+        "activity_id": 42,
+        "distance_km": 6.4,
+        "duration_min": 40,
+        "avg_hr": 128,
+        "max_hr": 141,
+        "pace": "6:15",
+        "review_key": "2026-10-02:1716765035",
+    }
+    values.update(overrides)
+    return values
+
+
+_PLANNED = {"name": "6 min rozgrzewki + 34 min Z2",
+            "spec": {"kind": "hr_zone_run", "duration_min": 40, "zone_number": 2}}
+
+
+def _workout_client(execution=None, review=None, profile=None, planned=None):
+    report = _report(planned=planned if planned is not None else _PLANNED, execution=execution)
+    return TestClient(create_app(
+        report_provider=lambda: report,
+        profile_provider=(lambda: profile) if profile is not None else (lambda: _profile()),
+        review_loader=lambda **kwargs: review,
+    ))
+
+
+def test_dashboard_workout_section_reports_execution_and_local_score():
+    with _workout_client(execution=_execution()) as client:
+        response = client.get("/")
+    assert response.status_code == 200
+    assert "Trening na dziś" in response.text
+    assert "Znaleziono wykonanie" in response.text
+    assert "40 min w planie" in response.text
+    assert "cel Z2 (122–136 bpm)" in response.text
+    assert "Zgodność z planem" in response.text
+    assert "Dopasowanie do formy" in response.text
+    assert "Pewność oceny: wysoka." in response.text
+    assert "bez udziału AI" in response.text
+
+
+def test_dashboard_workout_section_offers_review_when_comment_is_missing():
+    with _workout_client(execution=_execution()) as client:
+        response = client.get("/")
+    assert "Oceń mój trening" in response.text
+    assert 'action="/actions/review"' in response.text
+    assert 'name="review_key" value="2026-10-02:1716765035"' in response.text
+
+
+def test_dashboard_workout_section_shows_saved_comment_without_button():
+    review = {"review_key": "2026-10-02:1716765035",
+              "score": {"zgodnosc_z_planem": 10},
+              "comment": "Bieg trzymał dolną część drugiej strefy. Utrzymaj ten spokój do niedzieli."}
+    with _workout_client(execution=_execution(), review=review) as client:
+        response = client.get("/")
+    assert "Komentarz trenera" in response.text
+    assert "Utrzymaj ten spokój do niedzieli." in response.text
+    assert "Oceń mój trening" not in response.text
+
+
+def test_dashboard_workout_section_escapes_saved_comment():
+    review = {"comment": "<script>alert(1)</script>"}
+    with _workout_client(execution=_execution(), review=review) as client:
+        response = client.get("/")
+    assert "<script>alert(1)</script>" not in response.text
+    assert "&lt;script&gt;" in response.text
+
+
+def test_dashboard_workout_section_reports_missing_execution():
+    with _workout_client(execution=_execution(happened=False, match_method="unmatched",
+                                              certain=False, activity_id=None, distance_km=None,
+                                              duration_min=None, avg_hr=None, max_hr=None)) as client:
+        response = client.get("/")
+    assert "Brak wykonania w lokalnych danych" in response.text
+    assert "W lokalnych danych nie ma dziś aktywności pasującej do tego treningu." in response.text
+    assert "Oceń mój trening" in response.text
+
+
+def test_dashboard_workout_section_warns_about_heuristic_match():
+    with _workout_client(execution=_execution(match_method="heuristic", certain=False)) as client:
+        response = client.get("/")
+    assert "Wykonanie dopasowano po czasie i dystansie" in response.text
+
+
+def test_dashboard_workout_section_without_plan_is_empty():
+    with _workout_client(execution=None, planned=None) as client:
+        response = client.get("/")
+    assert "Na dziś nie ma zapisanego treningu." in response.text
+    assert "Oceń mój trening" not in response.text
+
+
+def test_dashboard_workout_section_skips_score_without_profile():
+    def broken():
+        raise FileNotFoundError("brak profilu")
+
+    report = _report(planned=_PLANNED, execution=_execution())
+    app = create_app(report_provider=lambda: report, profile_provider=broken,
+                     review_loader=lambda **kwargs: None)
+    with TestClient(app) as client:
+        response = client.get("/")
+    assert response.status_code == 200
+    assert "Nie można policzyć punktów bez lokalnego profilu biegacza." in response.text
+    assert "Zgodność z planem" not in response.text
+
+
+def _review_app(tmp_path, operation):
+    report = _report(planned=_PLANNED, execution=_execution())
+    return create_app(report_provider=lambda: report, profile_provider=lambda: _profile(),
+                      review_loader=lambda **kwargs: None, review_operation=operation,
+                      job_store=JobStore(tmp_path / "jobs"), lock_directory=tmp_path / "locks")
+
+
+def test_review_action_uses_csrf_and_runs_operation(tmp_path):
+    seen = []
+    with TestClient(_review_app(tmp_path, lambda *, review_key: seen.append(review_key))) as client:
+        token = _csrf(client)
+        response = client.post("/actions/review", data={"csrf_token": token,
+                                                       "review_key": "2026-10-02:1716765035"},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert seen == ["2026-10-02:1716765035"]
+
+
+def test_review_action_rejects_invalid_csrf_without_running_operation(tmp_path):
+    seen = []
+    with TestClient(_review_app(tmp_path, lambda *, review_key: seen.append(review_key))) as client:
+        _csrf(client)
+        response = client.post("/actions/review", data={"csrf_token": "podrobiony",
+                                                       "review_key": "2026-10-02:1716765035"},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert response.status_code == 403
+    assert seen == []
+
+
+def test_review_action_rejects_missing_review_key(tmp_path):
+    seen = []
+    with TestClient(_review_app(tmp_path, lambda *, review_key: seen.append(review_key))) as client:
+        token = _csrf(client)
+        response = client.post("/actions/review", data={"csrf_token": token, "review_key": ""},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert response.status_code == 403
+    assert seen == []
+
+
+def test_review_action_failure_does_not_render_exception_text(tmp_path):
+    def boom(*, review_key):
+        raise RuntimeError("klucz-api-w-tresci-bledu")
+
+    store = JobStore(tmp_path / "jobs")
+    report = _report(planned=_PLANNED, execution=_execution())
+    app = create_app(report_provider=lambda: report, profile_provider=lambda: _profile(),
+                     review_loader=lambda **kwargs: None, review_operation=boom,
+                     job_store=store, lock_directory=tmp_path / "locks")
+    with TestClient(app) as client:
+        token = _csrf(client)
+        client.post("/actions/review", data={"csrf_token": token,
+                                             "review_key": "2026-10-02:1716765035"},
+                    headers={"Origin": "http://testserver"}, follow_redirects=False)
+        page = client.get("/")
+    assert "klucz-api-w-tresci-bledu" not in page.text
+
+
+def test_asset_route_serves_allowed_png_with_cache_header():
+    with _client(_report()) as client:
+        response = client.get("/assets/01_navigation/home.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    assert len(response.content) > 0
+    assert response.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_asset_route_rejects_category_outside_whitelist():
+    with _client(_report()) as client:
+        response = client.get("/assets/05_ui_charts/readiness_ring.png")
+    assert response.status_code == 404
+
+
+def test_asset_route_rejects_unknown_file():
+    with _client(_report()) as client:
+        response = client.get("/assets/01_navigation/nie-ma-takiego.png")
+    assert response.status_code == 404
+
+
+def test_asset_route_is_case_sensitive():
+    with _client(_report()) as client:
+        response = client.get("/assets/01_navigation/HOME.PNG")
+    assert response.status_code == 404
+
+
+def test_asset_route_rejects_encoded_path_traversal():
+    with _client(_report()) as client:
+        response = client.get("/assets/01_navigation/%2e%2e%2f%2e%2e%2fapi%2fmain.py")
+    assert response.status_code == 404
+
+
+def test_asset_route_does_not_leak_absolute_paths_in_error():
+    with _client(_report()) as client:
+        response = client.get("/assets/01_navigation/brak.png")
+    assert response.status_code == 404
+    assert "I:" not in response.text
+    assert "trener_biegowy_ai_assets" not in response.text
+
+
+def test_every_asset_referenced_by_templates_is_served():
+    import pathlib
+
+    refs = set()
+    for template in pathlib.Path("templates").glob("*.html"):
+        refs |= set(re.findall(r"/assets/([^\"']+)", template.read_text(encoding="utf-8")))
+    literal = sorted(reference for reference in refs if "{{" not in reference)
+    assert literal, "szablony nie odwoluja sie do zadnego obrazka"
+    with _client(_report()) as client:
+        missing = [r for r in literal if client.get(f"/assets/{r}").status_code != 200]
+    assert missing == []

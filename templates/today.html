@@ -91,63 +91,162 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.pulse(17) }}<span>Sygnały z organizmu</span></h2>
+          <h2>{{ ico.pulse(26) }}<span>Sygnały z organizmu</span></h2>
         </div>
         <div class="signals">
           {% for card in signal_cards %}
-            <div class="signal">
-              <span class="signal-top">
-                {% if card.icon == 'moon' %}{{ ico.moon(15) }}
-                {% elif card.icon == 'pulse' %}{{ ico.pulse(15) }}
-                {% elif card.icon == 'heart' %}{{ ico.heart(15) }}
-                {% elif card.icon == 'bolt' %}{{ ico.bolt(15) }}{% endif %}
-                <span>{{ card.label }}</span>
+            <div class="signal {{ card.state_class }}">
+              <span class="icon-box {{ card.state_class }}">
+                <img class="asset" src="/assets/{{ card.asset }}" width="32" height="32" alt="">
               </span>
 
-              <span class="signal-value">
-                {% if card.value is not none %}{{ card.value }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
-                {%- else %}—{% endif %}
-              </span>
+              <span class="signal-main">
+                <span class="signal-top"><span>{{ card.label }}</span></span>
 
-              <span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>
-
-              {% if card.trend %}
-                <span class="trend {{ card.trend.tone }}">
-                  {% if card.trend.direction == 'up' %}{{ ico.arrow_up(13) }}
-                  {% elif card.trend.direction == 'down' %}{{ ico.arrow_down(13) }}{% endif %}
-                  <span>{{ card.trend.label }}{% if card.trend.previous is not none %} ({{ card.trend.previous }}){% endif %}</span>
+                <span class="signal-value">
+                  {% if card.value is not none %}{{ card.value }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
+                  {%- else %}—{% endif %}
                 </span>
-              {% endif %}
+
+                <span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>
+
+                {% if card.trend %}
+                  <span class="trend {{ card.trend.tone }}">
+                    {% if card.trend.direction == 'up' %}{{ ico.arrow_up(13) }}
+                    {% elif card.trend.direction == 'down' %}{{ ico.arrow_down(13) }}{% endif %}
+                    <span>{{ card.trend.label }}{% if card.trend.previous is not none %} ({{ card.trend.previous }}){% endif %}</span>
+                  </span>
+                {% endif %}
+              </span>
             </div>
           {% endfor %}
         </div>
       </section>
     </div>
 
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.runner(26) }}<span>Trening na dziś</span></h2>
+        {% if workout %}
+          <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
+        {% endif %}
+      </div>
+
+      {% if not workout %}
+        <div class="empty-art">
+          <img class="asset" src="/assets/09_illustrations/training_plan.png" width="176" height="139" alt="">
+          <p>Na dziś nie ma zapisanego treningu.</p>
+        </div>
+      {% else %}
+        <div class="stack">
+
+          <div class="list-item">
+            <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png" width="28" height="28" alt=""></span>
+            <span class="item-body">
+              <span class="item-title">{{ workout.name }}</span>
+              <span class="item-meta">
+                <span>{% if workout.planned_duration is not none %}{{ workout.planned_duration }} min w planie{% else %}czas w planie —{% endif %}</span>
+                {% if workout.target %}<span>cel {{ workout.target }}</span>{% endif %}
+              </span>
+            </span>
+          </div>
+
+          {% if workout.execution.happened %}
+            <div class="grid grid-4">
+              <div class="tile">
+                <span class="tile-head">
+                  <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+                  <span class="tile-label"><span>Czas</span></span>
+                </span>
+                <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
+              </div>
+              <div class="tile">
+                <span class="tile-head">
+                  <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+                  <span class="tile-label"><span>Dystans</span></span>
+                </span>
+                <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
+              </div>
+              <div class="tile">
+                <span class="tile-head">
+                  <span class="icon-box sm info"><img class="asset" src="/assets/02_health_status/resting_hr.png" width="20" height="20" alt=""></span>
+                  <span class="tile-label"><span>Średnie tętno</span></span>
+                </span>
+                <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
+                {% if workout.score and workout.score.strefa_wykonania is not none %}
+                  <span class="tile-foot">strefa Z{{ workout.score.strefa_wykonania }}</span>
+                {% endif %}
+              </div>
+              <div class="tile">
+                <span class="tile-head">
+                  <span class="icon-box sm info">{{ ico.bolt(20) }}</span>
+                  <span class="tile-label"><span>Maksymalne tętno</span></span>
+                </span>
+                <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="empty-art">
+              <img class="asset" src="/assets/03_activity/no_training.png" width="176" height="176" alt="">
+              <p>W lokalnych danych nie ma dziś aktywności pasującej do tego treningu.</p>
+            </div>
+          {% endif %}
+
+          {% if workout.match_note %}
+            <p class="mid">{{ workout.match_note }}</p>
+          {% endif %}
+          {% if workout.planned_count %}
+            <p class="mid">Na dziś zapisano więcej treningów ({{ workout.planned_count }}). Oceniany jest pierwszy z nich.</p>
+          {% endif %}
+
+          {% if workout.score_rows %}
+            <div class="grid grid-2">
+              {% for row in workout.score_rows %}
+                <div class="tile">
+                  <span class="tile-head">
+                    <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/training_load.png" width="20" height="20" alt=""></span>
+                    <span class="tile-label"><span>{{ row.label }}</span></span>
+                  </span>
+                  <span class="tile-value">{{ row.value }}<span class="tile-unit">z 10</span></span>
+                  <span class="tile-foot">{{ row.hint }}</span>
+                </div>
+              {% endfor %}
+            </div>
+            <p class="mid">Punkty wylicza ten komputer z Twojego planu i pomiarów zegarka, bez udziału AI. Pewność oceny: {{ workout.confidence_label }}.</p>
+          {% else %}
+            <p class="mid">Nie można policzyć punktów bez lokalnego profilu biegacza.</p>
+          {% endif %}
+
+          {% if workout.comment %}
+            <div class="suggestion">
+              <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+              <div>
+                <p class="suggestion-title">Komentarz trenera</p>
+                <p class="suggestion-text">{{ workout.comment }}</p>
+              </div>
+            </div>
+          {% elif workout.review_key %}
+            <div class="spread">
+              <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
+              <form method="post" action="/actions/review">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="review_key" value="{{ workout.review_key }}">
+                <button type="submit" class="btn-secondary">
+                  {{ ico.bulb(18) }}<span>Oceń mój trening</span>
+                </button>
+              </form>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endif %}
+    </section>
+
     <div class="grid grid-2">
 
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.clipboard(17) }}<span>Plan na dziś</span></h2>
-        </div>
-        {% if report.planned %}
-          <div class="list-item">
-            <span class="item-icon">{{ ico.runner(18) }}</span>
-            <span class="item-body">
-              <span class="item-title">{{ report.planned.name or 'Trening' }}</span>
-              {% if report.planned.spec and report.planned.spec.kind %}
-                <span class="item-meta"><span>{{ report.planned.spec.kind }}</span></span>
-              {% endif %}
-            </span>
-          </div>
-        {% else %}
-          <p class="empty">Na dziś nie ma zapisanego treningu.</p>
-        {% endif %}
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2>{{ ico.clock(17) }}<span>Twoja dostępność</span></h2>
+          <h2>{{ ico.clock(26) }}<span>Twoja dostępność</span></h2>
         </div>
         {% if report.availability and report.availability.available %}
           <div class="list-item">
@@ -158,20 +257,22 @@
             </span>
           </div>
         {% else %}
-          <p class="empty">Ten dzień nie jest u Ciebie dniem treningowym.</p>
+          <div class="empty-art">
+            <img class="asset" src="/assets/03_activity/rest_day.png" width="176" height="176" alt="">
+            <p>Ten dzień nie jest u Ciebie dniem treningowym.</p>
+          </div>
         {% endif %}
       </section>
-    </div>
 
-    <section class="card">
-      <div class="card-head">
-        <h2>{{ ico.runner(17) }}<span>Wczorajsze aktywności</span></h2>
-      </div>
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ ico.runner(26) }}<span>Wczorajsze aktywności</span></h2>
+        </div>
       {% if report.yesterday_activities %}
         <div class="list">
           {% for activity in report.yesterday_activities %}
             <div class="list-item">
-              <span class="item-icon">{{ ico.runner(18) }}</span>
+              <span class="item-icon"><img class="asset" src="/assets/03_activity/run_fast.png" width="28" height="28" alt=""></span>
               <span class="item-body">
                 <span class="item-title">{{ activity.name or 'Aktywność' }}</span>
                 <span class="item-meta">
@@ -188,12 +289,16 @@
           {% endfor %}
         </div>
       {% else %}
-        <p class="empty">Wczoraj nie zarejestrowano żadnej aktywności.</p>
+        <div class="empty-art">
+          <img class="asset" src="/assets/09_illustrations/running.png" width="176" height="138" alt="">
+          <p>Wczoraj nie zarejestrowano żadnej aktywności.</p>
+        </div>
       {% endif %}
-    </section>
+      </section>
+    </div>
 
     <div class="suggestion">
-      {{ ico.bulb() }}
+      <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
       <div>
         <p class="suggestion-title">Co dziś zrobić</p>
         <p class="suggestion-text">{{ suggestion|capitalize }}.</p>

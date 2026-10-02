@@ -13,17 +13,21 @@ from typing import List, NoReturn, Optional, cast
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from services.assets import ASSET_MEDIA_TYPE, build_manifest, resolve_asset
 from services.data_extract import SnapshotStatus
-from services.actions import run_sync_job, synchronize_data
+from services.actions import review_workout, run_review_job, run_sync_job, synchronize_data
 from services.jobs import JobConflictError, JobCooldownError, JobNotFoundError, JobStore
 from services.locking import LockBusyError, acquire_lock
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
+from services.workout_reviews import load_review
+from services.workout_scoring import planned_duration_min, score_execution
 from trainer.logging_config import setup_logging
+from trainer.profile_store import load_profile
 
 
 logger = logging.getLogger(__name__)
@@ -66,10 +70,14 @@ _SIGNAL_STATE_CLASSES = {"OK": "ok", "WARN": "warn", "FAIL": "bad", "UNKNOWN": "
 _SIGNAL_STATE_LABELS = {"OK": "dobrze", "WARN": "uwaga", "FAIL": "słabo", "UNKNOWN": "brak danych"}
 _SIGNAL_ORDER = ("Sleep", "HRV", "RHR", "Stress")
 _SIGNAL_META = {
-    "Sleep": {"label": "Sen", "unit": "/100", "icon": "moon", "trend_key": "sleep_score"},
-    "HRV": {"label": "Zmienność tętna", "unit": "", "icon": "pulse", "trend_key": None},
-    "RHR": {"label": "Tętno spoczynkowe", "unit": "bpm", "icon": "heart", "trend_key": "rhr"},
-    "Stress": {"label": "Stres", "unit": "", "icon": "bolt", "trend_key": "stress_avg"},
+    "Sleep": {"label": "Sen", "unit": "/100", "icon": "moon",
+              "asset": "02_health_status/sleep.png", "trend_key": "sleep_score"},
+    "HRV": {"label": "Zmienność tętna", "unit": "", "icon": "pulse",
+            "asset": "02_health_status/hrv.png", "trend_key": None},
+    "RHR": {"label": "Tętno spoczynkowe", "unit": "bpm", "icon": "heart",
+            "asset": "02_health_status/resting_hr.png", "trend_key": "rhr"},
+    "Stress": {"label": "Stres", "unit": "", "icon": "bolt",
+               "asset": "02_health_status/stress.png", "trend_key": "stress_avg"},
 }
 _TREND_LABELS = {
     "up": "wyżej niż wczoraj",
@@ -81,6 +89,29 @@ _RING_STROKE = 11
 _RING_SIZE = 128
 _WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
 _READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}
+_ANALYSIS_PILL_CLASSES = {"OK": "ok", "WARN": "warn", "FAIL": "bad", "UNKNOWN": "neutral"}
+_CONFIDENCE_LABELS = {"high": "wysoka", "medium": "średnia", "low": "niska", "none": "brak"}
+_PROFILE_RUNNER_FIELDS = (
+    ("name", "Imię", ""),
+    ("age", "Wiek", "lat"),
+    ("weight_kg", "Waga", "kg"),
+    ("height_cm", "Wzrost", "cm"),
+    ("device", "Zegarek", ""),
+)
+_PROFILE_HEART_FIELDS = (
+    ("hr_max", "Tętno maksymalne", "bpm"),
+    ("hr_rest", "Tętno spoczynkowe", "bpm"),
+    ("lactate_threshold_hr", "Tętno progowe (LTHR)", "bpm"),
+    ("vo2max_running", "VO2max (bieg)", ""),
+)
+_PROFILE_GOAL_FIELDS = (
+    ("target_race", "Zawody docelowe", ""),
+    ("target_date", "Data celu", ""),
+    ("target_time", "Czas docelowy", ""),
+    ("target_hm", "Cel na półmaraton", ""),
+    ("current_hm_record", "Obecny rekord półmaratonu", ""),
+    ("training_frequency", "Liczba treningów w tygodniu", ""),
+)
 _CHART_WIDTH = 640
 _CHART_HEIGHT = 170
 _CHART_PAD_LEFT = 30
@@ -88,6 +119,7 @@ _CHART_PAD_RIGHT = 14
 _CHART_PAD_TOP = 14
 _CHART_PAD_BOTTOM = 28
 SYNC_COOLDOWN = timedelta(seconds=60)
+REVIEW_COOLDOWN = timedelta(seconds=30)
 _CSRF_COOKIE = "trainer_csrf"
 
 
@@ -145,6 +177,7 @@ def _signal_cards(report) -> list:
             "label": meta["label"],
             "unit": meta["unit"],
             "icon": meta["icon"],
+            "asset": meta["asset"],
             "value": value,
             "state_class": _SIGNAL_STATE_CLASSES.get(status, "none"),
             "state_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
@@ -369,15 +402,162 @@ def _sync_banner(store: JobStore, now: datetime) -> dict[str, str | bool | None]
     return {"message": None, "details_url": None, "refresh": False, "disabled": False}
 
 
+def _analysis_rows(readiness_data: dict) -> list[dict]:
+    """Przełóż rozkład punktów gotowości na wiersze widoku. Status jest jedynym źródłem koloru."""
+    rows = []
+    for detail in readiness_data.get("details") or []:
+        metric = detail.get("metric")
+        status = detail.get("status")
+        meta = _SIGNAL_META.get(metric, {})
+        rows.append({
+            "label": meta.get("label") or metric or "Sygnał",
+            "icon": meta.get("icon"),
+            "pill_class": _ANALYSIS_PILL_CLASSES.get(status, "neutral"),
+            "status_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
+            "message": detail.get("message") or "",
+        })
+    return rows
+
+
+def _analysis_measurements(readiness_data: dict) -> list[dict]:
+    """Pokaż zmierzone wartości stojące za oceną. Brak pomiaru zostaje brakiem, nie zerem."""
+    baseline = readiness_data.get("hrv_baseline")
+    baseline_text = None
+    if baseline is not None and "None" not in str(baseline):
+        baseline_text = str(baseline).replace("-", "–")
+    hrv_status = readiness_data.get("hrv_status")
+    return [
+        {"label": "Tętno spoczynkowe", "value": readiness_data.get("rhr"), "unit": "bpm", "icon": "heart"},
+        {"label": "HRV ostatniej nocy", "value": readiness_data.get("hrv_last"), "unit": "", "icon": "pulse"},
+        {"label": "HRV — zakres bazowy", "value": baseline_text, "unit": "", "icon": "pulse"},
+        {"label": "HRV — ocena zegarka", "icon": "pulse",
+         "value": _HRV_STATUSES.get(hrv_status) if hrv_status is not None else None, "unit": ""},
+        {"label": "Sen — ocena", "value": readiness_data.get("sleep_score_val"), "unit": "/100", "icon": "moon"},
+        {"label": "Sen — długość", "value": readiness_data.get("sleep_total"), "unit": "h", "icon": "moon"},
+        {"label": "Stres — średnia dobowa", "value": readiness_data.get("stress"), "unit": "", "icon": "bolt"},
+    ]
+
+
+def _profile_rows(profile: dict, fields) -> list[dict]:
+    """Zbuduj wiersze profilu tylko z zapisanych pól. Nic nie jest domyślane."""
+    rows = []
+    for key, label, unit in fields:
+        value = profile.get(key)
+        rows.append({
+            "label": label,
+            "value": None if value is None or value == "" else value,
+            "unit": unit,
+        })
+    return rows
+
+
+def _hr_zone_rows(profile: dict) -> list[dict]:
+    """Pokaż strefy dokładnie tak, jak zapisał je profil — bez przeliczania granic."""
+    zones = profile.get("hr_zones")
+    rows = []
+    if isinstance(zones, str) and zones.strip():
+        for entry in zones.split(","):
+            parts = entry.strip().split(" ", 1)
+            if len(parts) == 2 and parts[0] and parts[1]:
+                rows.append({"name": parts[0], "range": parts[1].replace("-", "–")})
+        if rows:
+            return rows
+    floors = profile.get("hr_zone_floors")
+    if isinstance(floors, dict):
+        for key in ("z1", "z2", "z3", "z4", "z5"):
+            if floors.get(key) is not None:
+                rows.append({"name": key.upper(), "range": f"od {floors[key]}"})
+    return rows
+
+
+_MATCH_NOTES = {
+    "heuristic": "Wykonanie dopasowano po czasie i dystansie, bez pewnego identyfikatora.",
+    "ambiguous": "Do tego treningu pasuje więcej niż jedna aktywność.",
+}
+_SCORE_ROWS = (
+    ("zgodnosc_z_planem", "Zgodność z planem", "Jak blisko planu był czas i tętno."),
+    ("dopasowanie_do_formy", "Dopasowanie do formy", "Czy intensywność pasowała do gotowości tego dnia."),
+)
+_SCORE_CONFIDENCE_LABELS = {"wysoka": "wysoka", "srednia": "średnia", "niska": "niska"}
+
+
+def _workout_status(execution: dict) -> tuple[str, str]:
+    """Opisz wykonanie treningu słowem i klasą koloru."""
+    if execution.get("happened") is True:
+        return "Znaleziono wykonanie", "ok" if execution.get("certain") is True else "warn"
+    if execution.get("match_method") == "ambiguous":
+        return "Nie można jednoznacznie porównać", "warn"
+    return "Brak wykonania w lokalnych danych", "neutral"
+
+
+def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
+                     review_loader: Callable[..., Optional[dict]]) -> Optional[dict]:
+    """Zbierz dane sekcji treningu: plan, wykonanie, lokalne punkty i komentarz."""
+    execution = getattr(report, "execution", None)
+    if execution is None:
+        return None
+
+    planned = report.planned or {}
+    spec = planned.get("spec") or {}
+    try:
+        profile = profile_provider()
+    except (FileNotFoundError, OSError, ValueError):
+        profile = {}
+
+    score = None
+    if profile.get("hr_max") is not None:
+        score = score_execution(
+            planned=planned,
+            execution=execution,
+            readiness_score=(report.readiness or {}).get("score"),
+            hr_zone_floors=profile.get("hr_zone_floors") or {},
+            hr_max=profile.get("hr_max"),
+        )
+
+    review_key = execution.get("review_key")
+    try:
+        review = review_loader(review_key=review_key) if review_key else None
+    except OSError:
+        review = None
+
+    band = (score or {}).get("zakres_docelowy")
+    zone = (score or {}).get("strefa_docelowa")
+    status_label, status_class = _workout_status(execution)
+    score_rows = [
+        {"label": label, "hint": hint, "value": score[key]}
+        for key, label, hint in _SCORE_ROWS if score is not None
+    ]
+    return {
+        "execution": execution,
+        "name": planned.get("name") or "Trening",
+        "kind": spec.get("kind"),
+        "planned_duration": planned_duration_min(spec),
+        "target": f"Z{zone} ({band[0]}–{band[1]} bpm)" if zone is not None and band else None,
+        "status_label": status_label,
+        "status_class": status_class,
+        "match_note": _MATCH_NOTES.get(execution.get("match_method")),
+        "planned_count": execution.get("planned_count"),
+        "score": score,
+        "score_rows": score_rows,
+        "confidence_label": _SCORE_CONFIDENCE_LABELS.get(score["pewnosc"]) if score else None,
+        "comment": (review or {}).get("comment"),
+        "review_key": review_key,
+    }
+
+
 def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                week_report_provider: Callable[[], WeekReport] = get_week_report,
-                sync_operation: Callable[[], None] = synchronize_data,
+                 sync_operation: Callable[[], None] = synchronize_data,
+                profile_provider: Callable[[], dict] = load_profile,
+                review_operation: Callable[..., dict] | None = None,
+                review_loader: Callable[..., Optional[dict]] = load_review,
                 job_store: JobStore | None = None, lock_directory=None,
                 now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
 
     store = job_store or JobStore(Path("local/jobs"))
     scheduled_job_ids = set()
+    asset_manifest = build_manifest()
 
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI):
@@ -419,6 +599,18 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
     def health() -> HealthResponse:
         return HealthResponse(status="ok", version="0.1.0")
 
+    @app.get("/assets/{category}/{name}")
+    def asset(category: str, name: str) -> FileResponse:
+        """Wydaj obraz wyłącznie z białej listy zbudowanej przy starcie aplikacji."""
+        asset_path = resolve_asset(f"{category}/{name}", asset_manifest)
+        if asset_path is None:
+            raise HTTPException(status_code=404, detail="Nie znaleziono obrazu.")
+        return FileResponse(
+            asset_path,
+            media_type=ASSET_MEDIA_TYPE,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request):
         report = report_provider()
@@ -458,6 +650,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 "last_sync_time": _format_sync_time(getattr(report, "snapshot_timestamp", None), now),
                 "signal_cards": _signal_cards(report),
                 "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
+                "workout": _workout_section(report, profile_provider, review_loader),
                 "active_nav": "today",
             },
             headers={"Cache-Control": "no-store"},
@@ -511,6 +704,74 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
             headers={"Cache-Control": "no-store"},
         )
 
+    @app.get("/analysis", response_class=HTMLResponse)
+    def analysis(request: Request):
+        report = report_provider()
+        if report.status != "ok":
+            status_code, message, command = _report_error(report)
+            return _TEMPLATES.TemplateResponse(
+                request=request, name="analysis.html",
+                context={"error_message": message, "error_command": command, "active_nav": "analysis"},
+                status_code=status_code, headers={"Cache-Control": "no-store"},
+            )
+
+        readiness_data = cast(dict, report.readiness)
+        available = readiness_data.get("available_metrics") or []
+        missing = readiness_data.get("missing_metrics") or []
+        return _TEMPLATES.TemplateResponse(
+            request=request, name="analysis.html",
+            context={
+                "formatted_date": _format_date(report.date),
+                "weekday": _WEEKDAYS[report.weekday_index],
+                "is_stale": report.snapshot_status is SnapshotStatus.STALE,
+                "level": readiness_data["level"],
+                "readiness_score": _format_score(readiness_data["score"]),
+                "readiness_max_score": _format_score(readiness_data["max_score"]),
+                "readiness_label": _READINESS_LABELS.get(readiness_data["level"], readiness_data["level"]),
+                "metric_rows": _analysis_rows(readiness_data),
+                "measurements": _analysis_measurements(readiness_data),
+                "confidence_label": _CONFIDENCE_LABELS.get(str(readiness_data.get("confidence") or ""), "brak"),
+                "metrics_available": len(available),
+                "metrics_total": len(available) + len(missing),
+                "raw_score": _format_score(float(readiness_data.get("raw_score") or 0)),
+                "available_max_score": _format_score(float(readiness_data.get("available_max_score") or 0)),
+                "active_nav": "analysis",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings(request: Request):
+        try:
+            profile = profile_provider()
+        except FileNotFoundError:
+            return _TEMPLATES.TemplateResponse(
+                request=request, name="settings.html",
+                context={"error_message": "Nie znaleziono lokalnego profilu biegacza.",
+                         "error_command": "python -m trainer setup", "active_nav": "settings"},
+                status_code=404, headers={"Cache-Control": "no-store"},
+            )
+        except Exception:
+            logger.error("Could not read runner profile")
+            return _TEMPLATES.TemplateResponse(
+                request=request, name="settings.html",
+                context={"error_message": "Nie można odczytać lokalnego profilu biegacza.",
+                         "error_command": "python -m trainer setup", "active_nav": "settings"},
+                status_code=503, headers={"Cache-Control": "no-store"},
+            )
+        return _TEMPLATES.TemplateResponse(
+            request=request, name="settings.html",
+            context={
+                "runner_rows": _profile_rows(profile, _PROFILE_RUNNER_FIELDS),
+                "heart_rows": _profile_rows(profile, _PROFILE_HEART_FIELDS),
+                "goal_rows": _profile_rows(profile, _PROFILE_GOAL_FIELDS),
+                "zone_rows": _hr_zone_rows(profile),
+                "zones_source": profile.get("hr_zones_source") or None,
+                "active_nav": "settings",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
     @app.post("/actions/sync")
     def submit_sync(request: Request, csrf_token: str = Form(default="")):
         if not csrf_valid(request, csrf_token):
@@ -542,6 +803,47 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 try:
                     return run_sync_job(store=store, job_id=job.id, operation=sync_operation,
                                         fresh=False, lock_directory=lock_directory)
+                finally:
+                    scheduled_job_ids.discard(job.id)
+            request.app.state.job_executor.submit(execute)
+        return RedirectResponse(url="/", status_code=303)
+
+    def run_review(*, review_key: str):
+        """Uruchom ocenę treningu na tym samym dostawcy raportu, co pulpit."""
+        if review_operation is not None:
+            return review_operation(review_key=review_key)
+        return review_workout(review_key=review_key, report_provider=report_provider,
+                              profile_loader=profile_provider)
+
+    @app.post("/actions/review")
+    def submit_review(request: Request, csrf_token: str = Form(default=""),
+                      review_key: str = Form(default="")):
+        if not csrf_valid(request, csrf_token) or not review_key:
+            return _TEMPLATES.TemplateResponse(
+                request=request,
+                name="today.html",
+                context={
+                    "error_message": "Nie można potwierdzić, że żądanie pochodzi z tej strony. Odśwież stronę i spróbuj ponownie.",
+                    "error_link": "/",
+                    "sync_banner": {"refresh": False},
+                    "active_nav": "today",
+                },
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+        try:
+            with acquire_lock(name="jobs", directory=lock_directory):
+                job = store.submit("review", {"review_key": review_key}, cooldown=REVIEW_COOLDOWN)
+                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
+                if should_schedule:
+                    scheduled_job_ids.add(job.id)
+        except (LockBusyError, JobConflictError, JobCooldownError):
+            return RedirectResponse(url="/", status_code=303)
+        if should_schedule:
+            def execute():
+                try:
+                    return run_review_job(store=store, job_id=job.id, review_key=review_key,
+                                          operation=run_review, lock_directory=lock_directory)
                 finally:
                     scheduled_job_ids.discard(job.id)
             request.app.state.job_executor.submit(execute)

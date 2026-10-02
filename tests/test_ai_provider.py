@@ -12,7 +12,13 @@ from pydantic import BaseModel
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai.base import AIProvider
-from ai.openai_compatible import OpenAICompatibleProvider, AIProviderError, AIResponseError
+from ai.openai_compatible import (
+    AI_MAX_RETRIES,
+    AI_REQUEST_TIMEOUT,
+    AIProviderError,
+    AIResponseError,
+    OpenAICompatibleProvider,
+)
 
 
 class TestAIProviderABC:
@@ -39,6 +45,8 @@ class TestOpenAICompatibleProvider:
         mock_openai_cls.assert_called_once_with(
             base_url="https://api.example.com/v1",
             api_key="test-key",
+            timeout=AI_REQUEST_TIMEOUT,
+            max_retries=AI_MAX_RETRIES,
         )
         assert provider.model == "test-model"
 
@@ -100,12 +108,13 @@ class TestOpenAICompatibleProvider:
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "not json at all"
+        mock_response.choices[0].message.content = "TAJNE_DANE_ZDROWOTNE not json at all"
         mock_client.chat.completions.create.return_value = mock_response
 
         provider = OpenAICompatibleProvider("http://localhost/v1", "key", "model")
-        with pytest.raises(AIResponseError, match="invalid JSON"):
+        with pytest.raises(AIResponseError, match="invalid JSON") as exc_info:
             provider.chat("System", "User", response_model=TestModel)
+        assert "TAJNE_DANE_ZDROWOTNE" not in str(exc_info.value)
 
     @patch('ai.openai_compatible.OpenAI')
     def test_chat_structured_validation_error(self, mock_openai_cls):
@@ -120,13 +129,14 @@ class TestOpenAICompatibleProvider:
         mock_response.choices = [MagicMock()]
         # Missing required field 'score'
         mock_response.choices[0].message.content = json.dumps({
-            "readiness": "ready"
+            "readiness": "TAJNE_DANE_ZDROWOTNE"
         })
         mock_client.chat.completions.create.return_value = mock_response
 
         provider = OpenAICompatibleProvider("http://localhost/v1", "key", "model")
-        with pytest.raises(AIResponseError, match="validation failed"):
+        with pytest.raises(AIResponseError, match="validation failed") as exc_info:
             provider.chat("System", "User", response_model=TestModel)
+        assert "TAJNE_DANE_ZDROWOTNE" not in str(exc_info.value)
 
     @patch('ai.openai_compatible.OpenAI')
     def test_chat_api_error(self, mock_openai_cls):
@@ -151,3 +161,21 @@ class TestOpenAICompatibleProvider:
         provider = OpenAICompatibleProvider("http://localhost/v1", "key", "model")
         with pytest.raises(AIProviderError, match="empty response"):
             provider.chat("System", "User")
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_chat_omits_none_sampling_arguments(self, mock_openai_cls):
+        client = MagicMock(); mock_openai_cls.return_value = client
+        response = MagicMock(); response.choices[0].message.content = "ok"
+        client.chat.completions.create.return_value = response
+        OpenAICompatibleProvider("url", "key", "model").chat("system", "user")
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert "temperature" not in kwargs and "seed" not in kwargs and "top_p" not in kwargs
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_chat_passes_sampling_arguments(self, mock_openai_cls):
+        client = MagicMock(); mock_openai_cls.return_value = client
+        response = MagicMock(); response.choices[0].message.content = "ok"
+        client.chat.completions.create.return_value = response
+        OpenAICompatibleProvider("url", "key", "model").chat("system", "user", temperature=0.0, seed=7, top_p=0.5)
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["temperature"] == 0.0 and kwargs["seed"] == 7 and kwargs["top_p"] == 0.5

@@ -1,0 +1,148 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — ustawienia{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+{% if error_message %}
+
+  <div class="page-head">
+    <h1>Nie można pokazać ustawień</h1>
+  </div>
+  <div class="banner bad">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p>{{ error_message }}</p>
+      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      <p><a href="/">Wróć do widoku dnia</a></p>
+    </div>
+  </div>
+
+{% else %}
+
+  <div class="page-head">
+    <div>
+      <h1>Ustawienia</h1>
+      <p class="page-sub">Twój profil biegacza zapisany na tym komputerze</p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">Tę stronę można tylko przeglądać.</p>
+        <p class="mid">
+          Aby odświeżyć dane z zegarka, uruchom w terminalu: <code>python -m trainer profile --sync</code>.
+          Strefy tętna zaktualizujesz przez <code>python -m trainer zones --sync</code>,
+          a cały profil ustawisz od nowa przez <code>python -m trainer setup</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ ico.runner(26) }}<span>Biegacz</span></h2>
+        </div>
+        <div class="list">
+          {% for row in runner_rows %}
+            <div class="list-item">
+              <span class="item-icon"><img class="asset" src="/assets/01_navigation/profile.png" width="28" height="28" alt=""></span>
+              <span class="item-body">
+                <span class="item-title">{{ row.label }}</span>
+              </span>
+              <span class="item-side">
+                <span class="item-strong">
+                  {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                  {%- else %}—{% endif %}
+                </span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ ico.heart(26) }}<span>Tętno i forma</span></h2>
+        </div>
+        <div class="list">
+          {% for row in heart_rows %}
+            <div class="list-item">
+              <span class="item-icon"><img class="asset" src="/assets/02_health_status/resting_hr.png" width="28" height="28" alt=""></span>
+              <span class="item-body">
+                <span class="item-title">{{ row.label }}</span>
+              </span>
+              <span class="item-side">
+                <span class="item-strong">
+                  {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                  {%- else %}—{% endif %}
+                </span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.pulse(26) }}<span>Strefy tętna</span></h2>
+      </div>
+      {% if zone_rows %}
+        <div class="list">
+          {% for zone in zone_rows %}
+            <div class="list-item">
+              <span class="zone-chip lead {{ zone.name|lower }}">{{ zone.name }}</span>
+              <span class="item-body">
+                <span class="item-title">Strefa {{ zone.name }}</span>
+              </span>
+              <span class="item-side">
+                <span class="item-strong">{{ zone.range }}</span>
+                <span class="item-meta" style="justify-content: flex-end">bpm</span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+        {% if zones_source %}
+          <p class="tile-foot">Źródło stref: {{ zones_source }}</p>
+        {% endif %}
+      {% else %}
+        <div class="empty-art">
+          <img class="asset" src="/assets/03_activity/sports_watch.png" width="176" height="176" alt="">
+          <p>Nie zapisano jeszcze stref tętna. Uruchom <code>python -m trainer zones --sync</code>.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.calendar(26) }}<span>Cele</span></h2>
+      </div>
+      <div class="list">
+        {% for row in goal_rows %}
+          <div class="list-item">
+            <span class="item-icon"><img class="asset" src="/assets/01_navigation/calendar.png" width="28" height="28" alt=""></span>
+            <span class="item-body">
+              <span class="item-title">{{ row.label }}</span>
+            </span>
+            <span class="item-side">
+              <span class="item-strong">
+                {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                {%- else %}—{% endif %}
+              </span>
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <footer>Te dane są zapisane tylko na tym komputerze i nie są nikomu wysyłane.</footer>
+
+  </div>
+
+{% endif %}
+{% endblock %}

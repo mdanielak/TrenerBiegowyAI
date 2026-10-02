@@ -24,32 +24,32 @@
       <span class="nav-label">Widoki</span>
 
       <a class="nav-item{% if active_nav == 'today' %} active{% endif %}" href="/"{% if active_nav == 'today' %} aria-current="page"{% endif %}>
-        {{ ico.home() }}<span>Strona główna</span>
+        <img class="asset" src="/assets/01_navigation/home.png" width="34" height="34" alt=""><span>Strona główna</span>
       </a>
 
       <span class="nav-item disabled" aria-disabled="true">
-        {{ ico.clipboard() }}<span>Plan treningowy</span>
+        <img class="asset" src="/assets/01_navigation/plan.png" width="34" height="34" alt=""><span>Plan treningowy</span>
       </span>
 
       <a class="nav-item{% if active_nav == 'week' %} active{% endif %}" href="/week"{% if active_nav == 'week' %} aria-current="page"{% endif %}>
-        {{ ico.calendar() }}<span>Kalendarz</span>
+        <img class="asset" src="/assets/01_navigation/calendar.png" width="34" height="34" alt=""><span>Kalendarz</span>
       </a>
 
       <span class="nav-item disabled" aria-disabled="true">
-        {{ ico.bar_chart() }}<span>Statystyki</span>
+        <img class="asset" src="/assets/01_navigation/statistics.png" width="34" height="34" alt=""><span>Statystyki</span>
       </span>
 
-      <span class="nav-item disabled" aria-disabled="true">
-        {{ ico.line_chart() }}<span>Analiza</span>
-      </span>
+      <a class="nav-item{% if active_nav == 'analysis' %} active{% endif %}" href="/analysis"{% if active_nav == 'analysis' %} aria-current="page"{% endif %}>
+        <img class="asset" src="/assets/01_navigation/analysis.png" width="34" height="34" alt=""><span>Analiza</span>
+      </a>
 
       <span class="nav-item disabled" aria-disabled="true">
-        {{ ico.watch() }}<span>Sprzęt</span>
+        <img class="asset" src="/assets/01_navigation/watch.png" width="34" height="34" alt=""><span>Sprzęt</span>
       </span>
 
-      <span class="nav-item disabled" aria-disabled="true">
-        {{ ico.settings() }}<span>Ustawienia</span>
-      </span>
+      <a class="nav-item{% if active_nav == 'settings' %} active{% endif %}" href="/settings"{% if active_nav == 'settings' %} aria-current="page"{% endif %}>
+        <img class="asset" src="/assets/01_navigation/settings.png" width="34" height="34" alt=""><span>Ustawienia</span>
+      </a>
     </nav>
 
     <p class="nav-note">Przygaszone pozycje jeszcze nie działają. Dodamy je w kolejnych wersjach.</p>

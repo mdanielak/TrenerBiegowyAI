@@ -48,10 +48,10 @@ def compute_readiness_breakdown(data):
     elif rhr <= 53:
         available_metrics.append('rhr')
         raw_score += 1.5
-        details.append({"metric": "RHR", "status": "WARN", "message": f"RHR lekko podwyzszone ({rhr})"})
+        details.append({"metric": "RHR", "status": "WARN", "message": f"RHR lekko podwyższone ({rhr})"})
     else:
         available_metrics.append('rhr')
-        details.append({"metric": "RHR", "status": "FAIL", "message": f"RHR podwyzszone ({rhr}) — regeneracja"})
+        details.append({"metric": "RHR", "status": "FAIL", "message": f"RHR podwyższone ({rhr}) — regeneracja"})
 
     # 2. HRV
     if any(value is None for value in (hrv_status, hrv_last, hrv_baseline_low, hrv_baseline_high)):
@@ -59,14 +59,14 @@ def compute_readiness_breakdown(data):
     elif hrv_status == "BALANCED" and hrv_last is not None and hrv_baseline_low is not None and hrv_last >= hrv_baseline_low:
         available_metrics.append('hrv')
         raw_score += 3
-        details.append({"metric": "HRV", "status": "OK", "message": f"HRV zrownowazone ({hrv_last})"})
+        details.append({"metric": "HRV", "status": "OK", "message": f"HRV zrównoważone ({hrv_last})"})
     elif hrv_status == "BALANCED":
         available_metrics.append('hrv')
         raw_score += 1
-        details.append({"metric": "HRV", "status": "WARN", "message": f"HRV w normie ale ponizej baseline ({hrv_last})"})
+        details.append({"metric": "HRV", "status": "WARN", "message": f"HRV w normie, ale poniżej baseline ({hrv_last})"})
     else:
         available_metrics.append('hrv')
-        details.append({"metric": "HRV", "status": "FAIL", "message": f"HRV niezrownowazone ({hrv_status}) — zwolnij"})
+        details.append({"metric": "HRV", "status": "FAIL", "message": f"HRV niezrównoważone ({hrv_status}) — zwolnij"})
 
     # 3. Sleep
     if sleep_score_val is None:
@@ -81,7 +81,7 @@ def compute_readiness_breakdown(data):
         details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen akceptowalny (score {sleep_score_val})"})
     else:
         available_metrics.append('sleep')
-        details.append({"metric": "Sleep", "status": "FAIL", "message": f"Slaby sen ({sleep_score_val})"})
+        details.append({"metric": "Sleep", "status": "FAIL", "message": f"Słaby sen ({sleep_score_val})"})
 
     # 4. Stress
     if stress is None:
@@ -96,7 +96,7 @@ def compute_readiness_breakdown(data):
         details.append({"metric": "Stress", "status": "WARN", "message": f"Umiarkowany stres ({stress})"})
     else:
         available_metrics.append('stress')
-        details.append({"metric": "Stress", "status": "WARN", "message": f"Podwyzszony stres ({stress})"})
+        details.append({"metric": "Stress", "status": "WARN", "message": f"Podwyższony stres ({stress})"})
 
     weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0}
     available_max_score = sum(weights[name] for name in available_metrics)

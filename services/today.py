@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
+from services.activity_matching import find_activity_for_workout
 from services.readiness import compute_readiness_breakdown, signal_trends
 from services.workout_registry import list_workouts
 from trainer.preferences import get_weekly_availability
@@ -29,14 +30,43 @@ class TodayReport:
     suggestion: str
     snapshot_timestamp: str | None = None
     trends: dict = field(default_factory=dict)
+    today_activities: list = field(default_factory=list)
+    execution: dict | None = None
 
 
-def _today_registry_entry(today: str):
-    """Zwróć najnowszy aktywny trening na datę z aktualnej projekcji rejestru."""
-    return next(
-        (entry for entry in list_workouts("active") if entry.get("date") == today),
-        None,
+def _today_registry_entries(today: str):
+    """Zwróć aktywne treningi na datę z aktualnej projekcji rejestru."""
+    return [entry for entry in list_workouts("active") if entry.get("date") == today]
+
+
+def _execution(*, workouts, today_activities, today):
+    """Zwróć wykonanie pierwszego treningu zaplanowanego na dziś."""
+    if not workouts:
+        return None
+
+    workout = workouts[0]
+    matching_workout = {**workout, "date": workout.get("date") or today}
+    activity, match_method = find_activity_for_workout(
+        workout=matching_workout,
+        activities=today_activities,
     )
+    happened = activity is not None
+    execution = {
+        "happened": happened,
+        "match_method": match_method,
+        "certain": match_method != "ambiguous",
+        "activity_id": activity.get("activity_id") if happened else None,
+        "distance_km": activity.get("distance_km") if happened else None,
+        "duration_min": activity.get("duration_min") if happened else None,
+        "avg_hr": activity.get("avg_hr") if happened else None,
+        "max_hr": activity.get("max_hr") if happened else None,
+        "pace": activity.get("pace") if happened else None,
+        "review_key": f"{matching_workout['date']}:{workout.get('workout_id')}"
+        if workout.get("workout_id") is not None else f"{matching_workout['date']}:{workout.get('name')}",
+    }
+    if len(workouts) > 1:
+        execution["planned_count"] = len(workouts)
+    return execution
 
 
 def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now) -> TodayReport:
@@ -61,6 +91,8 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         suggestion="rest",
         snapshot_timestamp=None,
         trends={},
+        today_activities=[],
+        execution=None,
     )
     if empty.status != "ok":
         return empty
@@ -70,6 +102,11 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         (item for item in data.get("activities", []) if str(item.get("date", ""))[:10] == yesterday),
         key=lambda item: str(item.get("date", "")),
     )
+    today_activities = sorted(
+        (item for item in data.get("activities", []) if str(item.get("date", ""))[:10] == today),
+        key=lambda item: str(item.get("date", "")),
+    )
+    planned_workouts = planned if isinstance(planned, list) else [planned] if planned else []
     readiness = compute_readiness_breakdown(data)
     trends = signal_trends(data, today)
     health = (data.get("daily_health") or [{}])[0]
@@ -87,7 +124,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         date=today,
         weekday_index=weekday_index,
         snapshot_status=snapshot.status,
-        planned=planned,
+        planned=planned_workouts[0] if planned_workouts else None,
         yesterday_date=yesterday,
         yesterday_activities=day_activities,
         readiness=readiness,
@@ -96,6 +133,12 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         suggestion=suggestion,
         snapshot_timestamp=data.get("timestamp"),
         trends=trends,
+        today_activities=today_activities,
+        execution=_execution(
+            workouts=planned_workouts,
+            today_activities=today_activities,
+            today=today,
+        ),
     )
 
 
@@ -111,7 +154,7 @@ def get_today_report(*, now=None) -> TodayReport:
     if snapshot.status in (SnapshotStatus.MISSING, SnapshotStatus.INVALID):
         return build_today_report(snapshot=snapshot, planned=None, availability=None, now=current)
 
-    planned = _today_registry_entry(current.date().isoformat())
+    planned = _today_registry_entries(current.date().isoformat())
     availability = get_weekly_availability(_DAYS[current.weekday()])
     return build_today_report(
         snapshot=snapshot,

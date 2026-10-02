@@ -56,7 +56,10 @@
     {% if report.summary %}
       <div class="grid grid-4">
         <div class="tile">
-          <span class="tile-label">{{ ico.runner(15) }}<span>Przebiegnięty dystans</span></span>
+          <span class="tile-head">
+            <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+            <span class="tile-label"><span>Przebiegnięty dystans</span></span>
+          </span>
           <span class="tile-value">
             {% if report.summary.total_distance_km is not none %}{{ report.summary.total_distance_km|round(1) }}<span class="tile-unit">km</span>
             {%- else %}—{% endif %}
@@ -65,7 +68,10 @@
         </div>
 
         <div class="tile">
-          <span class="tile-label">{{ ico.clock(15) }}<span>Czas w ruchu</span></span>
+          <span class="tile-head">
+            <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+            <span class="tile-label"><span>Czas w ruchu</span></span>
+          </span>
           <span class="tile-value">
             {% if report.summary.total_duration_min is not none %}{{ format_minutes(report.summary.total_duration_min) }}
             {%- else %}—{% endif %}
@@ -74,7 +80,10 @@
         </div>
 
         <div class="tile">
-          <span class="tile-label">{{ ico.heart(15) }}<span>Średnie tętno</span></span>
+          <span class="tile-head">
+            <span class="icon-box sm info"><img class="asset" src="/assets/02_health_status/resting_hr.png" width="20" height="20" alt=""></span>
+            <span class="tile-label"><span>Średnie tętno</span></span>
+          </span>
           <span class="tile-value">
             {% if report.summary.average_hr is not none %}{{ report.summary.average_hr }}<span class="tile-unit">bpm</span>
             {%- else %}—{% endif %}
@@ -83,7 +92,10 @@
         </div>
 
         <div class="tile">
-          <span class="tile-label">{{ ico.clipboard(15) }}<span>Wykonane treningi</span></span>
+          <span class="tile-head">
+            <span class="icon-box sm info"><img class="asset" src="/assets/07_ui_icons/plan.png" width="20" height="20" alt=""></span>
+            <span class="tile-label"><span>Wykonane treningi</span></span>
+          </span>
           <span class="tile-value">{{ report.summary.completed_workouts }}<span class="tile-unit">z {{ report.summary.planned_workouts }}</span></span>
           <span class="tile-foot">Zapisane treningi z odnalezionym wykonaniem</span>
         </div>
@@ -93,7 +105,7 @@
     {% if chart %}
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.line_chart(17) }}<span>Gotowość w tym tygodniu</span></h2>
+          <h2>{{ ico.line_chart(26) }}<span>Gotowość w tym tygodniu</span></h2>
         </div>
         <svg class="chart" width="{{ chart.width }}" height="{{ chart.height }}"
              viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
@@ -117,7 +129,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.calendar(17) }}<span>Dzień po dniu</span></h2>
+        <h2>{{ ico.calendar(26) }}<span>Dzień po dniu</span></h2>
       </div>
 
       <div class="legend">
@@ -145,7 +157,8 @@
 
             {% for workout in day.workouts %}
               <div class="day-block">
-                <span class="day-block-label">Plan</span>
+                <img class="asset day-block-icon" src="/assets/07_ui_icons/plan.png" width="64" height="64" alt="">
+                <span class="day-block-label"><span>Plan</span></span>
                 <span class="day-block-title">{{ workout.name or '—' }}</span>
                 <span class="day-block-meta">
                   {% if workout.planned_distance_km is not none %}{{ workout.planned_distance_km }} km{% endif %}
@@ -160,7 +173,14 @@
 
             {% for activity in day.activities %}
               <div class="day-block">
-                <span class="day-block-label">Wykonanie</span>
+                {% if activity.sport.startswith('walking') %}
+                  <img class="asset day-block-icon" src="/assets/03_activity/walk_blue.png" width="64" height="64" alt="">
+                {%- elif activity.sport.startswith('running') %}
+                  <img class="asset day-block-icon" src="/assets/03_activity/run_fast.png" width="64" height="64" alt="">
+                {%- else %}
+                  <img class="asset day-block-icon" src="/assets/07_ui_icons/activity.png" width="64" height="64" alt="">
+                {%- endif %}
+                <span class="day-block-label"><span>Wykonanie</span></span>
                 <span class="day-block-title">{{ activity.name or '—' }}</span>
                 <span class="day-block-meta">
                   {{ activity.started_at[11:16] or '—' }}
@@ -176,9 +196,9 @@
 
             {% if not day.workouts and not day.activities %}
               <span class="day-block-meta">
-                {% if day.availability is none or not day.availability.configured %}Brak zadeklarowanej dostępności
-                {%- elif day.availability.available %}Wolne {{ day.availability.min_minutes }}–{{ day.availability.max_minutes }} min
-                {%- else %}Dzień odpoczynku{% endif %}
+                {% if day.availability is none or not day.availability.configured %}<img class="asset inline" src="/assets/07_ui_icons/dot_empty.png" width="22" height="22" alt=""> Brak zadeklarowanej dostępności
+                {%- elif day.availability.available %}<img class="asset inline" src="/assets/03_activity/no_training.png" width="22" height="22" alt=""> Wolne {{ day.availability.min_minutes }}–{{ day.availability.max_minutes }} min
+                {%- else %}<img class="asset inline" src="/assets/03_activity/rest_day.png" width="22" height="22" alt=""> Dzień odpoczynku{% endif %}
               </span>
             {% endif %}
           </div>

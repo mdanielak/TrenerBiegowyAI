@@ -97,3 +97,77 @@ def test_build_today_report_includes_trends_for_report_date(tmp_path):
     assert report.trends["rhr"]["direction"] == "down"
     assert report.trends["rhr"]["favorable"] is True
     assert report.trends["sleep_score"]["direction"] == "up"
+
+
+def test_execution_is_none_without_planned_workout(tmp_path):
+    report = build_today_report(snapshot=_snapshot(), planned=None, availability=None,
+                                now=datetime(2026, 10, 2))
+    assert report.execution is None
+
+
+def test_execution_copies_matched_today_activity_values(tmp_path):
+    planned = {"date": "2026-10-02", "workout_id": 7, "name": "Spokojny bieg", "distance_km": 5}
+    activity = {"date": "2026-10-02 07:00", "activity_id": 12, "type": "running",
+                "name": "Spokojny bieg", "distance_km": 5.0, "duration_min": 31.5,
+                "avg_hr": 140, "max_hr": 155, "pace": "6:18"}
+    report = build_today_report(snapshot=_snapshot(activities=[activity]), planned=planned,
+                                availability=None, now=datetime(2026, 10, 2))
+    assert report.execution == {
+        "happened": True, "match_method": "heuristic", "certain": True,
+        "activity_id": 12, "distance_km": 5.0, "duration_min": 31.5,
+        "avg_hr": 140, "max_hr": 155, "pace": "6:18", "review_key": "2026-10-02:7",
+    }
+
+
+def test_execution_without_today_activity_has_none_values(tmp_path):
+    planned = {"date": "2026-10-02", "workout_id": 7, "name": "Bieg"}
+    report = build_today_report(snapshot=_snapshot(), planned=planned, availability=None,
+                                now=datetime(2026, 10, 2))
+    assert report.execution["happened"] is False
+    assert report.execution["match_method"] == "unmatched"
+    assert all(report.execution[key] is None for key in (
+        "activity_id", "distance_km", "duration_min", "avg_hr", "max_hr", "pace",
+    ))
+
+
+def test_execution_is_uncertain_for_ambiguous_match(tmp_path):
+    planned = {"date": "2026-10-02", "name": "Bieg", "distance_km": 5}
+    activities = [
+        {"date": "2026-10-02 07:00", "type": "running", "distance_km": 5},
+        {"date": "2026-10-02 08:00", "type": "running", "distance_km": 5},
+    ]
+    report = build_today_report(snapshot=_snapshot(activities=activities), planned=planned,
+                                availability=None, now=datetime(2026, 10, 2))
+    assert report.execution["match_method"] == "ambiguous"
+    assert report.execution["certain"] is False
+
+
+def test_today_activities_are_separate_from_yesterday(tmp_path):
+    report = build_today_report(snapshot=_snapshot(activities=[
+        {"date": "2026-10-01 07:00", "activity_id": 1},
+        {"date": "2026-10-02 08:00", "activity_id": 3},
+        {"date": "2026-10-02 06:00", "activity_id": 2},
+    ]), planned=None, availability=None, now=datetime(2026, 10, 2))
+    assert [item["activity_id"] for item in report.today_activities] == [2, 3]
+    assert [item["activity_id"] for item in report.yesterday_activities] == [1]
+
+
+def test_review_key_is_stable_for_same_planned_workout(tmp_path):
+    planned = {"date": "2026-10-02", "workout_id": 7, "name": "Bieg"}
+    first = build_today_report(snapshot=_snapshot(), planned=planned, availability=None,
+                               now=datetime(2026, 10, 2))
+    second = build_today_report(snapshot=_snapshot(), planned=planned, availability=None,
+                                now=datetime(2026, 10, 2))
+    assert first.execution["review_key"] == second.execution["review_key"]
+
+
+def test_execution_uses_first_of_multiple_planned_workouts(tmp_path):
+    planned = [
+        {"date": "2026-10-02", "workout_id": 7, "name": "Pierwszy"},
+        {"date": "2026-10-02", "workout_id": 8, "name": "Drugi"},
+    ]
+    report = build_today_report(snapshot=_snapshot(), planned=planned, availability=None,
+                                now=datetime(2026, 10, 2))
+    assert report.planned == planned[0]
+    assert report.execution["review_key"] == "2026-10-02:7"
+    assert report.execution["planned_count"] == 2
