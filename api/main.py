@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from services.data_extract import SnapshotStatus
 from services.today import TodayReport, get_today_report
+from services.week import WeekReport, get_week_report
 from trainer.logging_config import setup_logging
 
 
@@ -42,6 +43,19 @@ _MONTHS_GENITIVE = (
     "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
     "lipca", "sierpnia", "września", "października", "listopada", "grudnia",
 )
+_WEEK_STATUS_LABELS = {
+    "no_plan": "Brak zapisanego treningu",
+    "activity_only": "Aktywności bez zapisanego treningu",
+    "planned": "Zaplanowane",
+    "matched": "Znaleziono wykonanie",
+    "partially_matched": "Znaleziono wykonanie części treningów",
+    "no_record": "Brak wykonania w lokalnych danych",
+    "uncertain": "Nie można jednoznacznie porównać",
+}
+_WEEK_WARNING_LABELS = {
+    "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne. Uruchom `python -m trainer sync`.",
+    "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo obejmuje tylko 50 ostatnich treningów.",
+}
 
 
 class HealthResponse(BaseModel):
@@ -105,7 +119,8 @@ def _format_date(value: str) -> str:
     return f"{parsed.day} {_MONTHS_GENITIVE[parsed.month - 1]} {parsed.year}"
 
 
-def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report) -> FastAPI:
+def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
+               week_report_provider: Callable[[], WeekReport] = get_week_report) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
 
     @asynccontextmanager
@@ -170,6 +185,37 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report)
             if report.snapshot_status is SnapshotStatus.STALE else None
         )
         return ReadinessResponse(**readiness_data, warning=warning)
+
+    @app.get("/week", response_class=HTMLResponse)
+    def week(request: Request):
+        try:
+            report = week_report_provider()
+        except FileNotFoundError:
+            return _TEMPLATES.TemplateResponse(
+                request=request, name="week.html",
+                context={"error_message": "Brakuje lokalnych danych raportu.",
+                         "error_command": "python -m trainer sync"},
+                status_code=404, headers={"Cache-Control": "no-store"},
+            )
+        except Exception:
+            logger.error("Could not build weekly report")
+            return _TEMPLATES.TemplateResponse(
+                request=request, name="week.html",
+                context={"error_message": "Nie można odczytać lokalnych danych raportu.",
+                         "error_command": "python -m trainer sync"},
+                status_code=503, headers={"Cache-Control": "no-store"},
+            )
+        return _TEMPLATES.TemplateResponse(
+            request=request, name="week.html",
+            context={
+                "report": report,
+                "weekdays": _WEEKDAYS,
+                "day_status_labels": _WEEK_STATUS_LABELS,
+                "warning_labels": _WEEK_WARNING_LABELS,
+                "format_date": _format_date,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
 
     return app
 

@@ -8,6 +8,7 @@ import pytest
 from api.main import create_app
 from services.data_extract import SnapshotStatus
 from services.today import TodayReport
+from services.week import DayAvailability, WeekActivity, WeekDayReport, WeekReport, WeekWorkout
 
 
 _ORIGINAL_CONNECT = socket.socket.connect
@@ -72,6 +73,24 @@ def _report(status="ok", snapshot_status=SnapshotStatus.FRESH, **overrides):
 
 def _client(report):
     return TestClient(create_app(report_provider=lambda: report))
+
+
+def _week_report(statuses=None, warnings=None):
+    statuses = statuses or ["no_plan"] * 7
+    days = []
+    for index, status in enumerate(statuses):
+        days.append(WeekDayReport(
+            date=f"2026-09-{28 + index:02d}" if index < 3 else f"2026-10-{index - 2:02d}",
+            weekday_index=index, temporal_state="today" if index == 4 else "past",
+            availability=DayAvailability(False, 0, 0, False), status=status,
+            warnings=[], workouts=[], activities=[],
+        ))
+    return WeekReport("2026-09-28", "2026-10-04", "2026-10-02", "local_registry", "ok",
+                      SnapshotStatus.FRESH, None, warnings or [], days)
+
+
+def _week_client(report):
+    return TestClient(create_app(report_provider=lambda: _report(), week_report_provider=lambda: report))
 
 
 def test_health_is_minimal_liveness():
@@ -172,3 +191,71 @@ def test_readiness_returns_stale_data_with_warning():
         response = client.get("/readiness")
     assert response.status_code == 200
     assert "nieaktualne" in response.json()["warning"]
+
+
+def test_week_renders_seven_days_and_no_store():
+    with _week_client(_week_report()) as client:
+        response = client.get("/week")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    for weekday in ("Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"):
+        assert weekday in response.text
+
+
+def test_week_renders_all_day_status_labels():
+    statuses = ["no_plan", "activity_only", "planned", "matched", "partially_matched", "no_record", "uncertain"]
+    with _week_client(_week_report(statuses)) as client:
+        response = client.get("/week")
+    for label in ("Brak zapisanego treningu", "Aktywności bez zapisanego treningu", "Zaplanowane",
+                  "Znaleziono wykonanie", "Znaleziono wykonanie części treningów",
+                  "Brak wykonania w lokalnych danych", "Nie można jednoznacznie porównać"):
+        assert label in response.text
+
+
+def test_week_shows_all_workouts_and_activities_and_escapes_names():
+    report = _week_report()
+    report.days[0].workouts = [
+        WeekWorkout(1, None, "<script>workout</script>", "running", "matched", 1, "heuristic", []),
+        WeekWorkout(2, None, "Drugi trening", "running", "planned", None, "unmatched", []),
+    ]
+    report.days[0].activities = [
+        WeekActivity(1, "2026-09-28 08:00", "running/generic", "<script>activity</script>", 5, 30, 1),
+        WeekActivity(2, "2026-09-28 09:00", "walking/generic", "Spacer", None, None, None),
+    ]
+    with _week_client(report) as client:
+        response = client.get("/week")
+    assert "&lt;script&gt;workout&lt;/script&gt;" in response.text
+    assert "&lt;script&gt;activity&lt;/script&gt;" in response.text
+    assert "<script>" not in response.text
+    assert "Drugi trening" in response.text and "Spacer" in response.text
+    assert "— km" not in response.text and "— min" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings", "expected"),
+    [
+        (SnapshotStatus.MISSING, [], "Plan widoczny"),
+        (SnapshotStatus.INVALID, [], "Plan widoczny"),
+        (SnapshotStatus.STALE, ["snapshot_stale"], "Dane o aktywnościach mogą być nieaktualne"),
+    ],
+)
+def test_week_snapshot_states_are_not_errors(status, warnings, expected):
+    report = _week_report(warnings=warnings)
+    report.snapshot_status = status
+    report.days[0].workouts = [WeekWorkout(1, None, "Plan widoczny", "running", "planned", None, "unmatched", [])]
+    with _week_client(report) as client:
+        response = client.get("/week")
+    assert response.status_code == 200
+    assert expected in response.text
+
+
+def test_week_shows_unconfigured_availability_ambiguous_message_and_links():
+    report = _week_report()
+    report.days[0].workouts = [WeekWorkout(1, None, "Plan", "running", "uncertain", None, "ambiguous", [])]
+    with _week_client(report) as client:
+        week_response = client.get("/week")
+        today_response = client.get("/")
+    assert "Brak zadeklarowanej dostępności" in week_response.text
+    assert "Nie można jednoznacznie przypisać wykonania." in week_response.text
+    assert 'href="/"' in week_response.text
+    assert 'href="/week"' in today_response.text

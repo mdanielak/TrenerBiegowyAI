@@ -1,0 +1,198 @@
+"""Czysta warstwa danych tygodniowego raportu treningowego."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from services.activity_matching import assign_activities
+from services.data_extract import SnapshotStatus, read_snapshot_status
+from services.training_plan import week_bounds
+from services.workout_registry import list_workouts
+from trainer.preferences import get_weekly_availability
+
+_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+@dataclass
+class DayAvailability:
+    available: bool
+    min_minutes: int
+    max_minutes: int
+    configured: bool
+
+
+@dataclass
+class WeekWorkout:
+    workout_id: int
+    schedule_id: int | None
+    name: str
+    sport: str
+    status: str
+    matched_activity_id: int | None
+    match_method: str
+    warnings: list[str]
+
+
+@dataclass
+class WeekActivity:
+    activity_id: int | None
+    started_at: str
+    sport: str
+    name: str
+    distance_km: float | None
+    duration_min: float | None
+    matched_workout_id: int | None
+
+
+@dataclass
+class WeekDayReport:
+    date: str
+    weekday_index: int
+    temporal_state: str
+    availability: DayAvailability | None
+    status: str
+    warnings: list[str]
+    workouts: list[WeekWorkout]
+    activities: list[WeekActivity]
+
+
+@dataclass
+class WeekReport:
+    week_start: str
+    week_end: str
+    today: str
+    plan_source: str
+    registry_status: str
+    snapshot_status: SnapshotStatus
+    snapshot_timestamp: str | None
+    warnings: list[str]
+    days: list[WeekDayReport]
+
+
+def _sport(entry):
+    """Rozpoznaj sport jedynie z jednoznacznego technicznego opisu."""
+    spec = entry.get('spec')
+    kind = spec.get('kind') if isinstance(spec, dict) else None
+    if isinstance(kind, str) and ('run' in kind.lower() or kind.lower() == 'easy'):
+        return 'running'
+    definition = entry.get('definition')
+    if isinstance(definition, dict) and definition.get('sport') == 'running':
+        return 'running'
+    return 'unknown'
+
+
+def _valid_date(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def _availability(raw):
+    if not isinstance(raw, dict):
+        return None
+    available = bool(raw.get('available', False))
+    minimum = raw.get('min_minutes', 0)
+    maximum = raw.get('max_minutes', 0)
+    if not isinstance(minimum, int):
+        minimum = 0
+    if not isinstance(maximum, int):
+        maximum = 0
+    return DayAvailability(available, minimum, maximum, available or minimum != 0 or maximum != 0)
+
+
+def build_week_report(*, snapshot, registry_entries, registry_status, availability, now) -> WeekReport:
+    """Zbuduj raport tygodnia z przekazanych danych, bez odczytu plików."""
+    monday, sunday = week_bounds(now.date())
+    today = now.date().isoformat()
+    snapshot_status = snapshot.status if snapshot is not None else SnapshotStatus.MISSING
+    data = snapshot.data if snapshot is not None and isinstance(snapshot.data, dict) else {}
+    timestamp = data.get('timestamp') if isinstance(data.get('timestamp'), str) else None
+    warnings = []
+    if snapshot_status == SnapshotStatus.STALE:
+        warnings.append('snapshot_stale')
+    raw_activities = data.get('activities', [])
+    if not isinstance(raw_activities, list):
+        raw_activities = []
+    if len(raw_activities) >= 50:
+        warnings.append('snapshot_activities_may_be_incomplete')
+    entries = []
+    for entry in registry_entries or []:
+        if not isinstance(entry, dict) or entry.get('atp_plan_id'):
+            continue
+        entry_date = _valid_date(entry.get('date'))
+        if entry_date is not None and monday <= entry_date <= sunday:
+            entries.append(entry)
+    by_date = {}
+    for entry in entries:
+        by_date.setdefault(entry['date'], []).append(entry)
+    activities_by_date = {}
+    for activity in raw_activities:
+        if isinstance(activity, dict) and monday.isoformat() <= str(activity.get('date', ''))[:10] <= sunday.isoformat():
+            activities_by_date.setdefault(str(activity.get('date'))[:10], []).append(activity)
+
+    days = []
+    for index in range(7):
+        date = monday + timedelta(days=index)
+        date_text = date.isoformat()
+        day_entries = by_date.get(date_text, [])
+        day_activities = activities_by_date.get(date_text, [])
+        assignments = assign_activities(workouts=day_entries, activities=day_activities)
+        matched_ids = {}
+        workouts = []
+        for position, entry in enumerate(day_entries):
+            activity, method = assignments[position]
+            matched_id = activity.get('activity_id') if activity else None
+            if matched_id is not None:
+                matched_ids[matched_id] = entry.get('workout_id')
+            if method == 'ambiguous':
+                status = 'uncertain'
+            elif activity is not None:
+                status = 'matched'
+            elif date_text >= today:
+                status = 'planned'
+            else:
+                status = 'no_record'
+            workouts.append(WeekWorkout(entry.get('workout_id'), entry.get('schedule_id'), entry.get('name') or '', _sport(entry), status, matched_id, method, []))
+        week_activities = [WeekActivity(
+            activity.get('activity_id'), str(activity.get('date', '')), activity.get('type') or '',
+            activity.get('name') or '', activity.get('distance_km'), activity.get('duration_min'),
+            matched_ids.get(activity.get('activity_id')),
+        ) for activity in day_activities]
+        if any(workout.status == 'uncertain' for workout in workouts):
+            day_status = 'uncertain'
+        elif not workouts:
+            day_status = 'activity_only' if week_activities else 'no_plan'
+        elif all(workout.status == 'matched' for workout in workouts):
+            day_status = 'matched'
+        elif any(workout.status == 'matched' for workout in workouts):
+            day_status = 'partially_matched'
+        elif date_text >= today:
+            day_status = 'planned'
+        else:
+            day_status = 'no_record'
+        temporal = 'today' if date_text == today else 'past' if date_text < today else 'future'
+        raw_availability = availability.get(_DAYS[index]) if isinstance(availability, dict) else None
+        days.append(WeekDayReport(date_text, index, temporal, _availability(raw_availability), day_status, [], workouts, week_activities))
+    return WeekReport(monday.isoformat(), sunday.isoformat(), today, 'local_registry', registry_status,
+                      snapshot_status, timestamp, warnings, days)
+
+
+def get_week_report(*, now=None) -> WeekReport:
+    """Wczytaj lokalny snapshot, rejestr i preferencje dla raportu tygodnia."""
+    current = now or datetime.now()
+    snapshot = read_snapshot_status()
+    try:
+        entries = list_workouts('active')
+        registry_status = 'ok'
+    except FileNotFoundError:
+        entries = []
+        registry_status = 'missing'
+    except (ValueError, OSError):
+        entries = []
+        registry_status = 'invalid'
+    return build_week_report(snapshot=snapshot, registry_entries=entries,
+                             registry_status=registry_status,
+                             availability=get_weekly_availability(), now=current)

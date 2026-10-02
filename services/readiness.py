@@ -7,6 +7,8 @@ Importable from CLI, tests, and future API.
 """
 from datetime import datetime
 
+from services.activity_matching import find_activity_for_workout
+
 
 def compute_readiness_breakdown(data):
     """Compute detailed readiness score with per-metric breakdown.
@@ -144,46 +146,16 @@ def compare_plan_vs_actual(plan, activities, today=None):
         day_name = w['day']
         wtype = w['type']
 
-        day_acts = [a for a in activities
-                    if a.get('date', '')[:10] == day_date and a.get('type', '').startswith('running')]
-
         status = ""
         details = ""
         is_today = (day_date == today_str)
         matched_activity = None
         match_method = 'unmatched'
 
-        requested_id = w.get('matched_activity_id')
-        if requested_id is not None:
-            matched_activity = next(
-                (a for a in activities if a.get('activity_id') is not None
-                 and str(a.get('activity_id')) == str(requested_id)),
-                None,
-            )
-            if matched_activity is not None:
-                match_method = 'id'
-
-        def choose_heuristic(candidates):
-            if not candidates:
-                return None, 'unmatched'
-            target_distance = w.get('distance_km')
-            target_name = (w.get('name') or '').strip().lower()
-            ranked = []
-            for candidate in candidates:
-                distance = candidate.get('distance_km')
-                distance_diff = abs(distance - target_distance) if isinstance(distance, (int, float)) and isinstance(target_distance, (int, float)) else 0
-                name = (candidate.get('name') or '').strip().lower()
-                name_score = 2 if name == target_name else 1 if target_name and target_name in name else 0
-                ranked.append((distance_diff, -name_score, candidate))
-            ranked.sort(key=lambda item: (item[0], item[1]))
-            best = ranked[0]
-            if sum((item[0], item[1]) == (best[0], best[1]) for item in ranked) != 1:
-                return None, 'ambiguous'
-            return best[2], 'heuristic'
-
         if wtype == 'rest':
             if matched_activity is None:
-                matched_activity, match_method = choose_heuristic(day_acts)
+                matched_activity, match_method = find_activity_for_workout(
+                    workout=w, activities=activities)
             if matched_activity:
                 status = "REST_VIOLATION"
                 details = f"Rest day, a zrobiono: {matched_activity['name']} ({matched_activity['distance_km']}km)"
@@ -193,7 +165,8 @@ def compare_plan_vs_actual(plan, activities, today=None):
                 match_method = 'unmatched'
         else:
             if matched_activity is None:
-                matched_activity, match_method = choose_heuristic(day_acts)
+                matched_activity, match_method = find_activity_for_workout(
+                    workout=w, activities=activities)
             if not matched_activity:
                 if day_date > today_str:
                     status = "SCHEDULED"

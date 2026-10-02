@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trener Biegowy — tydzień</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1d2939; background: #f5f7fa; }
+    body { margin: 0; padding: 28px 16px; } main { max-width: 700px; margin: auto; }
+    h1 { margin-bottom: 4px; } h2 { font-size: 1.1rem; margin: 0 0 8px; }
+    .muted { color: #52606d; } .day, .error, .notice { background: #fff; border-radius: 10px; padding: 16px; margin: 14px 0; box-shadow: 0 1px 3px #1018281a; }
+    .today { border: 3px solid #25855a; } .warning { background: #fff4cc; border-left: 5px solid #b7791f; padding: 12px; margin: 12px 0; }
+    .status { font-weight: 700; } .status.uncertain { color: #8a4b08; } .status.no_record { color: #52606d; } .status.matched { color: #17663e; }
+    ul { padding-left: 20px; margin: 8px 0; } li { margin: 6px 0; } .section { margin-top: 14px; }
+    code { background: #eef2f6; padding: 2px 5px; border-radius: 3px; } footer { margin: 28px 0 8px; color: #52606d; font-size: .9rem; }
+  </style>
+</head>
+<body><main>
+{% if error_message %}
+  <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }} Uruchom w terminalu: <code>{{ error_command }}</code></p></section>
+{% else %}
+  <header><h1>Tydzień</h1><p class="muted">{{ format_date(report.week_start) }} — {{ format_date(report.week_end) }}</p><p><a href="/">Wróć do widoku dnia</a></p></header>
+  <section class="notice">Zaplanowane treningi pochodzą z lokalnego rejestru. Ten widok nie sprawdza kalendarza Garmin Connect.</section>
+  {% for warning in report.warnings %}{% if warning in warning_labels %}<section class="warning">{{ warning_labels[warning] }}</section>{% endif %}{% endfor %}
+  {% for day in report.days %}
+  <section class="day {% if day.temporal_state == 'today' %}today{% endif %}">
+    <h2>{{ weekdays[day.weekday_index]|capitalize }}, {{ format_date(day.date) }}{% if day.temporal_state == 'today' %} — dzisiaj{% endif %}</h2>
+    <p class="status {{ day.status }}">{{ day_status_labels.get(day.status, '—') }}</p>
+    <p class="muted">Dostępność: {% if day.availability is none or not day.availability.configured %}Brak zadeklarowanej dostępności{% elif day.availability.available %}{{ day.availability.min_minutes }}–{{ day.availability.max_minutes }} min{% else %}Dzień odpoczynku{% endif %}</p>
+    <div class="section"><strong>Zapisane treningi</strong>{% if day.workouts %}<ul>{% for workout in day.workouts %}<li>{{ workout.name or '—' }} — {% if workout.status == 'matched' %}Znaleziono wykonanie{% elif workout.status == 'planned' %}Zaplanowane{% elif workout.status == 'no_record' %}Brak wykonania w lokalnych danych{% else %}Nie można jednoznacznie porównać{% endif %}{% if workout.match_method == 'ambiguous' %}. Nie można jednoznacznie przypisać wykonania.{% endif %}</li>{% endfor %}</ul>{% else %}<p>—</p>{% endif %}</div>
+    <div class="section"><strong>Aktywności</strong>{% if day.activities %}<ul>{% for activity in day.activities %}<li>{{ activity.started_at[11:16] or '—' }} — {{ activity.name or '—' }}{% if activity.distance_km is not none %}, {{ activity.distance_km }} km{% endif %}{% if activity.duration_min is not none %}, {{ activity.duration_min }} min{% endif %}{% if activity.sport.startswith('running') and activity.matched_workout_id is none %} — Bieg bez dopasowania do zapisanego planu{% endif %}</li>{% endfor %}</ul>{% else %}<p>—</p>{% endif %}</div>
+  </section>
+  {% endfor %}
+  <footer>To nie jest porada medyczna.</footer>
+{% endif %}
+</main></body></html>

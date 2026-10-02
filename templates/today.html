@@ -27,7 +27,7 @@
     <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }} Uruchom w terminalu: <code>{{ error_command }}</code></p></section>
   {% else %}
     {% if is_stale %}<section class="warning"><strong>Dane są nieaktualne.</strong> Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></section>{% endif %}
-    <header><h1>Dzisiaj</h1><p class="date">{{ formatted_date }}, {{ weekday }}</p>{% if not is_stale %}<p class="muted">Dane są aktualne.</p>{% endif %}</header>
+    <header><h1>Dzisiaj</h1><p class="date">{{ formatted_date }}, {{ weekday }}</p><p><a href="/week">Zobacz tydzień</a></p>{% if not is_stale %}<p class="muted">Dane są aktualne.</p>{% endif %}</header>
     <section class="card readiness {{ report.readiness.level }}"><div class="score">{{ readiness_score }}<span> / {{ readiness_max_score }}</span></div><p class="level">Gotowość: {{ readiness_label }}</p></section>
     <h2>Sygnały</h2>
     <section class="signals">

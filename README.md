@@ -54,7 +54,7 @@ Po przygotowaniu danych uruchom dashboard:
 uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Otwórz w przeglądarce [http://127.0.0.1:8000](http://127.0.0.1:8000). Serwer jest dostępny tylko z tego komputera. Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
+Otwórz w przeglądarce [http://127.0.0.1:8000](http://127.0.0.1:8000). Widok tygodnia jest dostępny pod adresem [http://127.0.0.1:8000/week](http://127.0.0.1:8000/week). Serwer jest dostępny tylko z tego komputera. Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
 
 ## Konfiguracja środowiska
 
