@@ -1,3 +1,5 @@
 # Development / testing dependencies
 pytest>=7.0
 httpx>=0.24
+# Used only by scripts/rescale_assets.py, not by the running application
+Pillow>=10
