@@ -1,20 +1,10 @@
 # Trener Biegowy AI
 
-Lokalne narzędzie do synchronizacji danych przez GarminDB, analizy gotowości i zarządzania treningami Garmin. Główny interfejs to CLI `trainer` (wersja 0.2.0); API uruchamia się niezależnie przez Uvicorn.
+Lokalne narzędzie do synchronizacji danych GarminDB, analizy gotowości i zarządzania treningami Garmin. Jedynym wspieranym entry pointem jest `python -m trainer` — na Linuxie, macOS i Windows.
 
-## Szybki start
+## Instalacja
 
-```powershell
-pip install -r requirements.txt
-Copy-Item runner_profile.example.json local/profile.json
-# ustaw zmienne z .env.example w środowisku systemowym
-python -m trainer sync --fresh
-python -m trainer analyze
-```
-
-`local/profile.json` jest prywatnym profilem runtime. Nie dodawaj go, danych Garmin, baz SQLite, plików FIT/TCX/GPX, tokenów ani danych zdrowotnych do repozytorium.
-
-## Linux
+**Linux / macOS**
 
 ```bash
 python3 -m venv .venv
@@ -22,69 +12,60 @@ source .venv/bin/activate
 pip install -r requirements.txt
 mkdir -p local
 cp runner_profile.example.json local/profile.json
-# opcjonalnie, gdy dane GarminDB są poza domyślnym ~/HealthData:
-export HEALTH_DATA_DIR="$HOME/HealthData"
-python -m trainer doctor
-python -m trainer sync --fresh
-python -m trainer analyze
 ```
 
-Na systemach rozróżniających wielkość liter GarminDB używa katalogu `DBs` w
-`HEALTH_DATA_DIR`. Doctor toleruje istniejący katalog `dbs`, ale zgłasza wtedy
-ostrzeżenie, aby można było poprawić nazwę katalogu.
-
-## Codzienny workflow
+**Windows PowerShell**
 
 ```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+New-Item -ItemType Directory -Force local
+Copy-Item runner_profile.example.json local/profile.json
+```
+
+Uzupełnij lokalnie `local/profile.json`. Pełne instrukcje: [Linux](docs/linux_setup.md) oraz [Windows](docs/windows_description.md).
+
+## Codzienna praca
+
+```bash
+python -m trainer setup
 python -m trainer sync
+python -m trainer today
 python -m trainer analyze
 python -m trainer analyze --ai
-```
-
-Przy pierwszym pobraniu lub przebudowie danych użyj `sync --fresh`. Wynik synchronizacji może być częściowy; przed wnioskiem treningowym sprawdź aktualność i kompletność snapshotu.
-
-## Komendy CLI
-
-```powershell
-python -m trainer --help
-python -m trainer --version
-python -m trainer sync [--fresh]
-python -m trainer analyze [--ai]
+python -m trainer zones --sync
+python -m trainer workouts new
 python -m trainer doctor
 python -m trainer privacy-check
-python -m trainer workouts usage [--delete]
 ```
 
-### Tworzenie treningów
+Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --fresh`. Dostępne są też podkomendy `sync`, `analyze`, `workouts`, `privacy-check` i `doctor`; sprawdź `python -m trainer --help` oraz pomoc wybranej podkomendy. Wynik synchronizacji może być częściowy — przed decyzją treningową sprawdź aktualność i kompletność snapshotu.
 
-```powershell
-python -m trainer workouts create easy "Łatwy 40 min" 40 2026-10-01
-python -m trainer workouts create tempo "Tempo" 45 5:40 5:55 2026-10-02
-python -m trainer workouts create intervals "Interwały" 6 180 120 4:45 5:00 2026-10-03
-python -m trainer workouts create long "Długie wybieganie" 90 2026-10-04
-python -m trainer workouts create strides "Przebieżki" 35 6 2026-10-05
-```
+## Konfiguracja środowiska
 
-Daty mają format `RRRR-MM-DD`. `create` tworzy trening na Garminie, a `workouts usage --delete` może usuwać nieużywane treningi na Garminie — przed uruchomieniem sprawdź argumenty i konto.
+Plik `.env` w katalogu głównym projektu jest wczytywany automatycznie i jest ignorowany przez Git. Rzeczywiste zmienne środowiskowe systemu mają pierwszeństwo przed wartościami z `.env`.
 
-## Konfiguracja, API i prywatność
+| Zmienna | Przeznaczenie |
+| --- | --- |
+| `HEALTH_DATA_DIR` | Katalog danych GarminDB, domyślnie `~/HealthData`; zawiera `DBs` lub `dbs`. |
+| `SNAPSHOT_TTL_SECONDS` | Maksymalny wiek lokalnego snapshotu danych. |
+| `GARMIN_EMAIL` | Adres konta Garmin używany przy uwierzytelnianiu. |
+| `GARMIN_PASSWORD` | Hasło konta Garmin używane przy uwierzytelnianiu. |
+| `AI_BASE_URL` | Adres bazowy opcjonalnego dostawcy AI. |
+| `AI_API_KEY` | Klucz API opcjonalnego dostawcy AI. |
+| `AI_MODEL` | Nazwa modelu AI do analizy. |
+| `AI_DATA_EXPORT_ENABLED` | Zezwolenie na eksport danych do integracji AI. |
 
-Nazwy zmiennych środowiskowych opisuje `.env.example`; wartości dostępowe przechowuj wyłącznie lokalnie. `HEALTH_DATA_DIR` wskazuje lokalny katalog danych GarminDB (z podkatalogiem `DBs`). Dane, bazy SQLite i tokeny nie trafiają do repozytorium. `python -m trainer doctor` sprawdza wyłącznie lokalną konfigurację i integralność baz w trybie tylko do odczytu — nie synchronizuje danych ani nie loguje się do Garmin. GarminDB jest backendem synchronizacji i lokalnych danych. Opcjonalne API uruchom osobno, np.:
+GarminDB może użyć tokenów `~/.GarminDb/garmin_tokens.json` i konfiguracji `~/.GarminDb/GarminConnectConfig.json` albo poświadczeń Garmin z powyższych zmiennych. Nie umieszczaj sekretów w plikach śledzonych przez Git.
 
-```powershell
-uvicorn api.main:app --reload
-```
+## Prywatność
+
+`local/` to prywatny stan runtime. Nie dodawaj do repozytorium danych Garmin, baz SQLite, plików FIT/TCX/GPX, tokenów, danych zdrowotnych ani `local/profile.json`. Ochronnie ignorowane są też legacyjne ścieżki `HealthData/`, `memory/`, główny `data_latest.json` oraz `training-plans/_garmin_workouts.jsonl`.
 
 Przed publikacją uruchom:
 
-```powershell
+```bash
 python -m trainer privacy-check
-python -m pytest tests/ -v
+python -m pytest
 ```
-
-Prywatne ścieżki legacy (`HealthData/`, `memory/`, główny `data_latest.json`, bazy i pliki aktywności oraz `training-plans/_garmin_workouts.jsonl`) nadal są ochronnie ignorowane przez Git.
-
-## Wspierany entry point
-
-Jedynym wspieranym entry pointem aplikacji jest `python -m trainer`. Używaj go
-w dokumentacji, automatyzacji i codziennej pracy zamiast rootowych skryptów.

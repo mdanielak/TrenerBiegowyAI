@@ -228,7 +228,8 @@ def main(use_ai=False, strict_ai=False):
             if not AI_API_KEY:
                 logger.error("AI_API_KEY not set")
                 print("  BLAD: AI_API_KEY nie ustawione. Ustaw zmienne srodowiskowe.")
-                print("  Przyklad: set AI_API_KEY=your_key")
+                from ..errors import env_hint
+                print(f"  Przykład: {env_hint('AI_API_KEY')}")
                 return 3 if strict_ai else 0
 
             logger.info("Initializing AI provider: model=%s, base_url=%s", AI_MODEL, AI_BASE_URL)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import traceback
 from datetime import date
 
 from . import __version__
@@ -29,7 +30,8 @@ def iso_date(value: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog='trainer', description='Narzędzia Trener Biegowy AI')
     parser.add_argument('--version', action='version', version=__version__)
-    commands = parser.add_subparsers(dest='command', required=True)
+    parser.add_argument('--debug', action='store_true', help='pokaż szczegóły błędu')
+    commands = parser.add_subparsers(dest='command')
     sync = commands.add_parser('sync', help='synchronizuje dane Garmin')
     sync.add_argument('--fresh', action='store_true', help='pełna synchronizacja')
     analyze = commands.add_parser('analyze', help='analizuje gotowość')
@@ -53,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
     add_kind('strides', [('base_minutes', positive_int), ('repeats', positive_int), ('date', iso_date)])
     commands.add_parser('privacy-check', help='sprawdza ścieżki prywatnych danych')
     commands.add_parser('doctor', help='sprawdza lokalną konfigurację bez synchronizacji')
+    commands.add_parser('setup', help='prowadzi przez pierwszą konfigurację')
+    commands.add_parser('today', help='pokazuje plan i gotowość na dziś')
+    zones = commands.add_parser('zones', help='pokazuje strefy tętna')
+    zones.add_argument('--sync', action='store_true', help='pobierz strefy z Garmin Connect')
+    workout_commands.add_parser('new', help='interaktywnie tworzy trening')
     return parser
 
 
@@ -69,24 +76,47 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.command == 'doctor':
         from .doctor import main as doctor
         return doctor()
+    if args.command == 'setup':
+        from .setup_wizard import main as setup
+        return setup()
+    if args.command == 'today':
+        from .commands.today import main as today
+        return today()
+    if args.command == 'zones':
+        from .commands.zones import main as zones
+        return zones(sync=args.sync)
+    if args.command == 'workouts' and args.workout_command == 'new':
+        from .commands.workout_new import main as workout_new
+        return workout_new()
     if args.workout_command == 'usage':
         from .commands.workout_usage import main as usage
         return usage(delete=args.delete) or 0
     from .workouts import create_workout
     values = vars(args).copy()
-    for key in ('command', 'workout_command', 'kind', 'name'):
+    for key in ('command', 'workout_command', 'kind', 'name', 'debug'):
         values.pop(key, None)
     create_workout(args.kind, args.name, **values)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.command is None:
+        parser.print_help()
+        print('\nZacznij od: python -m trainer setup')
+        return 2
     try:
         return dispatch(args)
-    except (ImportError, ModuleNotFoundError) as error:
-        print(f'BŁĄD: brak zależności: {error}', file=sys.stderr)
-        return 3
     except Exception as error:
-        print(f'BŁĄD wykonania: {error}', file=sys.stderr)
-        return 1
+        from .errors import describe_error
+        advice = describe_error(error)
+        print(f'BŁĄD: {advice.message}', file=sys.stderr)
+        # Zachowujemy zwięzły szczegół zgodny z wcześniejszym CLI; porada poniżej
+        # pozostaje bezpiecznie oczyszczona przez describe_error().
+        if advice.exit_code == 1:
+            print(f'BŁĄD wykonania: {error}', file=sys.stderr)
+        print(advice.hint, file=sys.stderr)
+        if args.debug:
+            traceback.print_exc()
+        return advice.exit_code

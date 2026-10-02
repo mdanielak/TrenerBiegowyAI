@@ -554,6 +554,19 @@ def create_workout(kind, name, **kwargs):
             kwargs['pace_from'], kwargs['pace_to'], date_str=kwargs['date']),
         'long': lambda: gw.long_run(name, kwargs['minutes'], kwargs['date']),
         'strides': lambda: gw.strides(name, kwargs['base_minutes'], kwargs['repeats'], kwargs['date']),
+        'hr_zone_run': lambda: gw.hr_zone_run(
+            name, kwargs['minutes'], kwargs['zone_number'], kwargs['date'],
+            warmup_min=kwargs.get('warmup_min', 6),
+            warmup_pace_faster=kwargs.get('warmup_pace_faster', '7:00'),
+            warmup_pace_slower=kwargs.get('warmup_pace_slower', '8:30')),
+        'easy_run_zoned': lambda: gw.easy_run_zoned(
+            name, kwargs['date'], kwargs['main_minutes'],
+            zone_number=kwargs.get('zone_number', 2), warmup_min=kwargs.get('warmup_min', 6),
+            warmup_pace_faster=kwargs.get('warmup_pace_faster', '7:00'),
+            warmup_pace_slower=kwargs.get('warmup_pace_slower', '8:30'),
+            strides=kwargs.get('strides', 0), stride_sec=kwargs.get('stride_seconds', 20),
+            stride_rest_sec=kwargs.get('stride_rest_seconds', 90),
+            cooldown_min=kwargs.get('cooldown_min', 0)),
     }
     return builders[kind]()
 

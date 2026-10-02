@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .env_file import load_env_file
+
 
 def _positive_int_env(name, default):
     """Read a positive integer environment setting, falling back safely."""
@@ -55,6 +57,7 @@ class AppSettings:
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ROOT = PROJECT_ROOT
 LOCAL_DIR = PROJECT_ROOT / "local"
+load_env_file(PROJECT_ROOT / ".env", override=False)
 SETTINGS = AppSettings(
     project_root=PROJECT_ROOT,
     local_dir=LOCAL_DIR,
