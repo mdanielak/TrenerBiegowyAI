@@ -27,6 +27,7 @@ class TodayReport:
     signals: dict
     availability: dict | None
     suggestion: str
+    snapshot_timestamp: str | None = None
 
 
 def _today_registry_entry(today: str):
@@ -57,6 +58,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         signals={"sleep_score": None, "hrv_status": None, "rhr": None, "stress_avg": None},
         availability=None,
         suggestion="rest",
+        snapshot_timestamp=None,
     )
     if empty.status != "ok":
         return empty
@@ -89,6 +91,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         signals=signals,
         availability=availability,
         suggestion=suggestion,
+        snapshot_timestamp=data.get("timestamp"),
     )
 
 

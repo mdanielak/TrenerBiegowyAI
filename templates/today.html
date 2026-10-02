@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trener Biegowy — dziś</title>
+  {% if sync_banner.refresh %}<meta http-equiv="refresh" content="15">{% endif %}
   <style>
     :root { color-scheme: light; font-family: system-ui, sans-serif; color: #1d2939; background: #f5f7fa; }
     body { margin: 0; padding: 28px 16px; }
@@ -24,10 +25,12 @@
 <body>
   <main>
   {% if error_message %}
-    <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }} Uruchom w terminalu: <code>{{ error_command }}</code></p></section>
+    <section class="error"><h1>Nie można pokazać danych</h1><p>{{ error_message }}{% if error_command %} Uruchom w terminalu: <code>{{ error_command }}</code>{% endif %}</p>{% if error_link %}<p><a href="{{ error_link }}">Wróć do widoku dnia</a></p>{% endif %}</section>
   {% else %}
     {% if is_stale %}<section class="warning"><strong>Dane są nieaktualne.</strong> Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></section>{% endif %}
-    <header><h1>Dzisiaj</h1><p class="date">{{ formatted_date }}, {{ weekday }}</p><p><a href="/week">Zobacz tydzień</a></p>{% if not is_stale %}<p class="muted">Dane są aktualne.</p>{% endif %}</header>
+    <header><h1>Dzisiaj</h1><p class="date">{{ formatted_date }}, {{ weekday }}</p><p><a href="/week">Zobacz tydzień</a></p>{% if not is_stale %}<p class="muted">Dane są aktualne.</p>{% endif %}<p class="muted">{{ last_sync_time }}</p></header>
+    {% if sync_banner.message %}<section class="warning"><strong>{{ sync_banner.message }}</strong>{% if sync_banner.details_url %} <a href="{{ sync_banner.details_url }}">Szczegóły</a>{% endif %}</section>{% endif %}
+    <form method="post" action="/actions/sync"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit"{% if sync_banner.disabled %} disabled{% endif %}>Zsynchronizuj dane</button></form>
     <section class="card readiness {{ report.readiness.level }}"><div class="score">{{ readiness_score }}<span> / {{ readiness_max_score }}</span></div><p class="level">Gotowość: {{ readiness_label }}</p></section>
     <h2>Sygnały</h2>
     <section class="signals">

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import socket
+import re
+from datetime import datetime, timedelta, timezone
+from threading import Event
 
 from fastapi.testclient import TestClient
 import pytest
 
-from api.main import create_app
+from api.main import _format_sync_time, create_app
 from services.data_extract import SnapshotStatus
 from services.today import TodayReport
 from services.week import DayAvailability, WeekActivity, WeekDayReport, WeekReport, WeekWorkout
+from services.jobs import JobStore
 
 
 _ORIGINAL_CONNECT = socket.socket.connect
@@ -66,6 +70,7 @@ def _report(status="ok", snapshot_status=SnapshotStatus.FRESH, **overrides):
         "signals": {"sleep_score": 85, "hrv_status": "BALANCED", "rhr": 48, "stress_avg": 22},
         "availability": {"available": True, "min_minutes": 30, "max_minutes": 60},
         "suggestion": "follow_plan",
+        "snapshot_timestamp": None,
     }
     values.update(overrides)
     return TodayReport(**values)
@@ -91,6 +96,20 @@ def _week_report(statuses=None, warnings=None):
 
 def _week_client(report):
     return TestClient(create_app(report_provider=lambda: _report(), week_report_provider=lambda: report))
+
+
+def _action_app(tmp_path, operation=lambda: None, now=None):
+    return create_app(report_provider=lambda: _report(), job_store=JobStore(tmp_path / "jobs"),
+                      lock_directory=tmp_path / "locks", sync_operation=operation,
+                      now_provider=(lambda: now) if now else datetime.now)
+
+
+def _csrf(client):
+    page = client.get("/")
+    match = re.search(r'name="csrf_token" value="([^"]+)"', page.text)
+    if match is None:
+        raise RuntimeError("Brak tokenu CSRF w formularzu testowym.")
+    return match.group(1)
 
 
 def test_health_is_minimal_liveness():
@@ -259,3 +278,351 @@ def test_week_shows_unconfigured_availability_ambiguous_message_and_links():
     assert "Nie można jednoznacznie przypisać wykonania." in week_response.text
     assert 'href="/"' in week_response.text
     assert 'href="/week"' in today_response.text
+
+
+def test_sync_action_uses_csrf_and_redirects_to_dashboard(tmp_path):
+    with TestClient(_action_app(tmp_path)) as client:
+        token = _csrf(client)
+        response = client.post("/actions/sync", data={"csrf_token": token},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+
+
+@pytest.mark.parametrize("token,headers", [
+    ("", {"Origin": "http://testserver"}),
+    ("wrong", {"Origin": "http://testserver"}),
+    ("wrong", {"Origin": "http://evil.example"}),
+])
+def test_sync_action_rejects_invalid_csrf_without_creating_job(tmp_path, token, headers):
+    with TestClient(_action_app(tmp_path)) as client:
+        _csrf(client)
+        response = client.post("/actions/sync", data={"csrf_token": token}, headers=headers)
+    assert response.status_code == 403
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Nie można potwierdzić, że żądanie pochodzi z tej strony." in response.text
+    assert 'href="/">Wróć do widoku dnia</a>' in response.text
+    assert '"detail"' not in response.text
+    assert JobStore(tmp_path / "jobs").list_jobs().jobs == []
+
+
+def test_job_page_states_and_refresh_policy(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               lock_directory=tmp_path / "locks", sync_operation=lambda: None)) as client:
+        job = store.submit("sync", {})
+        accepted = client.get(f"/jobs/{job.id}")
+        running = store.mark_running(job.id)
+        running_response = client.get(f"/jobs/{running.id}")
+        succeeded = store.mark_succeeded(job.id)
+        succeeded_response = client.get(f"/jobs/{succeeded.id}")
+        failed_job = store.mark_running(store.submit("other", {}).id)
+        failed = store.mark_failed(failed_job.id)
+        failed_response = client.get(f"/jobs/{failed.id}")
+        unknown_job = store.mark_running(store.submit("unknown", {}).id)
+        unknown = store.mark_abandoned_running_as_unknown()[0]
+        unknown_response = client.get(f"/jobs/{unknown.id}")
+    assert "Zadanie przyjęte, czeka na rozpoczęcie." in accepted.text
+    assert 'http-equiv="refresh" content="15"' in accepted.text and 'http-equiv="refresh" content="15"' in running_response.text
+    assert "Gotowe. Dane są zaktualizowane." in succeeded_response.text
+    assert 'http-equiv="refresh"' not in succeeded_response.text
+    assert "Nie udało się. Spróbuj ponownie." in failed_response.text
+    assert "Nie wiemy, czy operacja się dokończyła." in unknown_response.text
+    assert 'http-equiv="refresh"' not in failed_response.text
+    assert 'http-equiv="refresh"' not in unknown_response.text
+
+
+def test_job_unknown_identifier_is_not_a_file_path(tmp_path):
+    with TestClient(_action_app(tmp_path)) as client:
+        response = client.get("/jobs/../../outside")
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("job_id", ["%2E%2E", "x" * 19, "a" * 20 + "/../x"])
+def test_job_rejects_forged_identifiers(tmp_path, job_id):
+    with TestClient(_action_app(tmp_path)) as client:
+        response = client.get(f"/jobs/{job_id}")
+    assert response.status_code == 404
+
+
+def test_sync_cooldown_is_shown_without_second_job(tmp_path):
+    now = datetime.now(timezone.utc)
+    store = JobStore(tmp_path / "jobs")
+    job = store.mark_running(store.submit("sync", {"fresh": False}, now=now).id, now=now)
+    store.mark_succeeded(job.id, now=now)
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               lock_directory=tmp_path / "locks", sync_operation=lambda: None,
+                               now_provider=lambda: now)) as client:
+        token = _csrf(client)
+        response = client.post("/actions/sync", data={"csrf_token": token},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        page = client.get(response.headers["location"])
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert '"detail"' not in response.text
+    assert "Dane zsynchronizowano niedawno" in page.text
+    assert len(store.list_jobs().jobs) == 1
+
+
+def test_sync_failure_does_not_render_exception_text(tmp_path):
+    failed = Event()
+
+    def fail():
+        try:
+            raise RuntimeError("ROZPOZNAWALNY_SEKRET")
+        finally:
+            failed.set()
+
+    app = _action_app(tmp_path, fail)
+    with TestClient(app) as client:
+        token = _csrf(client)
+        response = client.post("/actions/sync", data={"csrf_token": token},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        assert failed.wait(timeout=5)
+        app.state.job_executor.shutdown(wait=True)
+        job = store = JobStore(tmp_path / "jobs").list_jobs().jobs[0]
+        page = client.get(f"/jobs/{job.id}")
+    assert "Nie udało się. Spróbuj ponownie." in page.text
+    assert "ROZPOZNAWALNY_SEKRET" not in page.text
+
+
+def _sync_job(store, status, now):
+    """Zapisz zadanie synchronizacji w zadanym stanie i czasie testowym."""
+    job = store.submit("sync", {"fresh": False}, now=now)
+    if status == "accepted":
+        return job
+    job = store.mark_running(job.id, now=now)
+    if status == "running":
+        return job
+    if status == "succeeded":
+        return store.mark_succeeded(job.id, now=now)
+    if status == "failed":
+        return store.mark_failed(job.id, now=now)
+    return store.mark_abandoned_running_as_unknown(now=now)[0]
+
+
+def test_dashboard_shows_running_sync_banner_refresh_and_disabled_button(tmp_path):
+    now = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
+    store = JobStore(tmp_path / "jobs")
+    _sync_job(store, "accepted", now)
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: now)) as client:
+        response = client.get("/")
+    assert "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama." in response.text
+    assert '<meta http-equiv="refresh" content="15">' in response.text
+    assert '<button type="submit" disabled>' in response.text
+
+
+def test_dashboard_quiet_state_has_no_banner_or_refresh(tmp_path):
+    with TestClient(_action_app(tmp_path)) as client:
+        response = client.get("/")
+    assert "Trwa synchronizacja danych" not in response.text
+    assert 'http-equiv="refresh"' not in response.text
+
+
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [("failed", "Ostatnia synchronizacja się nie udała."),
+     ("unknown", "Nie wiemy, czy ostatnia synchronizacja się dokończyła.")],
+)
+def test_dashboard_shows_recent_problem_with_details_without_refresh(tmp_path, status, message):
+    now = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
+    store = JobStore(tmp_path / "jobs")
+    job = _sync_job(store, status, now - timedelta(minutes=9))
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: now)) as client:
+        response = client.get("/")
+    assert message in response.text
+    assert f'href="/jobs/{job.id}">Szczegóły</a>' in response.text
+    assert 'http-equiv="refresh"' not in response.text
+
+
+def test_dashboard_hides_old_failed_sync_banner(tmp_path):
+    now = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
+    store = JobStore(tmp_path / "jobs")
+    _sync_job(store, "failed", now - timedelta(minutes=11))
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: now)) as client:
+        response = client.get("/")
+    assert "Ostatnia synchronizacja się nie udała." not in response.text
+
+
+def test_dashboard_shows_cooldown_from_recent_success(tmp_path):
+    now = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
+    store = JobStore(tmp_path / "jobs")
+    _sync_job(store, "succeeded", now - timedelta(seconds=30))
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: now)) as client:
+        response = client.get("/")
+    assert "Dane zsynchronizowano niedawno. Odczekaj chwilę przed kolejną próbą." in response.text
+
+
+@pytest.mark.parametrize(
+    ("status", "age", "message"),
+    [
+        ("succeeded", timedelta(seconds=30), "Dane zsynchronizowano niedawno. Odczekaj chwilę przed kolejną próbą."),
+        ("failed", timedelta(minutes=9), "Ostatnia synchronizacja się nie udała."),
+        ("unknown", timedelta(minutes=9), "Nie wiemy, czy ostatnia synchronizacja się dokończyła."),
+    ],
+)
+def test_dashboard_uses_utc_jobs_with_naive_local_clock(tmp_path, status, age, message):
+    """Rekord UTC musi być świeży dla zegara lokalnego bez informacji o strefie."""
+    local_now = datetime(2026, 10, 2, 14, 34)
+    job_time_utc = datetime(2026, 10, 2, 12, 34, tzinfo=timezone.utc) - age
+    store = JobStore(tmp_path / "jobs")
+    _sync_job(store, status, job_time_utc)
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: local_now)) as client:
+        response = client.get("/")
+    assert message in response.text
+
+
+@pytest.mark.parametrize(
+    ("status", "age", "message"),
+    [
+        ("failed", timedelta(minutes=11), "Ostatnia synchronizacja się nie udała."),
+        ("succeeded", timedelta(seconds=61), "Dane zsynchronizowano niedawno. Odczekaj chwilę przed kolejną próbą."),
+    ],
+)
+def test_dashboard_respects_utc_job_age_with_naive_local_clock(tmp_path, status, age, message):
+    """Granice świeżości zadań pozostają poprawne dla lokalnego zegara naive."""
+    local_now = datetime(2026, 10, 2, 14, 34)
+    job_time_utc = datetime(2026, 10, 2, 12, 34, tzinfo=timezone.utc) - age
+    store = JobStore(tmp_path / "jobs")
+    _sync_job(store, status, job_time_utc)
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               now_provider=lambda: local_now)) as client:
+        response = client.get("/")
+    assert message not in response.text
+
+
+def test_sync_conflict_redirects_to_dashboard_banner_without_json(tmp_path):
+    started = Event()
+    release = Event()
+
+    def operation():
+        started.set()
+        release.wait(timeout=5)
+
+    with TestClient(_action_app(tmp_path, operation)) as client:
+        token = _csrf(client)
+        first = client.post("/actions/sync", data={"csrf_token": token},
+                            headers={"Origin": "http://testserver"}, follow_redirects=False)
+        assert started.wait(timeout=5)
+        conflict = client.post("/actions/sync", data={"csrf_token": token},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        page = client.get(conflict.headers["location"])
+        release.set()
+    assert first.status_code == 303
+    assert conflict.status_code == 303
+    assert conflict.headers["location"] == "/"
+    assert '"detail"' not in conflict.text
+    assert "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama." in page.text
+
+
+def test_cooldown_redirect_keeps_last_sync_time(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    job = store.mark_running(store.submit("sync", {"fresh": False}).id)
+    store.mark_succeeded(job.id)
+    report = _report(snapshot_timestamp="2026-10-02T09:14:00+00:00")
+    with TestClient(create_app(report_provider=lambda: report, job_store=store,
+                               lock_directory=tmp_path / "locks", sync_operation=lambda: None)) as client:
+        token = _csrf(client)
+        response = client.post("/actions/sync", data={"csrf_token": token},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        page = client.get(response.headers["location"])
+    assert response.status_code == 303
+    assert "Zsynchronizowano" in page.text
+
+
+@pytest.mark.parametrize(
+    ("timestamp", "now", "expected"),
+    [
+        ("2026-10-02T09:14:00+00:00", datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Zsynchronizowano dziś o"),
+        ("2026-10-01T14:15:00+00:00", datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Zsynchronizowano wczoraj o"),
+        ("2026-09-30T14:15:00+00:00", datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Zsynchronizowano 2 dni temu o"),
+        ("2026-09-24T14:15:00+00:00", datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Zsynchronizowano 24 września o"),
+        ("nie-data", datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Nie wiadomo, kiedy ostatnio synchronizowano dane."),
+        (None, datetime(2026, 10, 2, 12, tzinfo=timezone.utc), "Nie wiadomo, kiedy ostatnio synchronizowano dane."),
+    ],
+)
+def test_format_sync_time_uses_human_rules(timestamp, now, expected):
+    assert _format_sync_time(timestamp, now).startswith(expected)
+
+
+def test_format_sync_time_uses_local_calendar_and_timezone():
+    local_now = datetime(2026, 10, 3, 0, 10).astimezone()
+    timestamp = (local_now - timedelta(minutes=20)).astimezone(timezone.utc).isoformat()
+    displayed = _format_sync_time(timestamp, local_now)
+    expected_clock = f"{(local_now - timedelta(minutes=20)).hour}:{(local_now - timedelta(minutes=20)).minute:02d}"
+    assert displayed == f"Zsynchronizowano wczoraj o {expected_clock}"
+    assert not displayed.endswith(f"0{(local_now - timedelta(minutes=20)).hour}:{(local_now - timedelta(minutes=20)).minute:02d}")
+
+
+def test_get_sync_action_is_not_available(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               lock_directory=tmp_path / "locks", sync_operation=lambda: None)) as client:
+        response = client.get("/actions/sync")
+    assert response.status_code == 405
+    assert store.list_jobs().jobs == []
+
+
+def test_running_job_becomes_unknown_at_startup_without_execution(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    job = store.mark_running(store.submit("sync", {"fresh": False}).id)
+    called = []
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
+                               lock_directory=tmp_path / "locks", sync_operation=lambda: called.append(True))):
+        pass
+    assert store.get(job.id).status == "unknown"
+    assert called == []
+
+
+def test_executor_is_shutdown_with_application(tmp_path):
+    app = _action_app(tmp_path)
+    with TestClient(app):
+        executor = app.state.job_executor
+    assert executor._shutdown is True
+
+
+def test_double_submission_reuses_one_job_and_one_execution(tmp_path):
+    called = []
+    started = Event()
+    release = Event()
+
+    def operation():
+        called.append(True)
+        started.set()
+        release.wait(timeout=5)
+
+    with TestClient(_action_app(tmp_path, operation)) as client:
+        token = _csrf(client)
+        first = client.post("/actions/sync", data={"csrf_token": token},
+                            headers={"Origin": "http://testserver"}, follow_redirects=False)
+        assert started.wait(timeout=5)
+        second = client.post("/actions/sync", data={"csrf_token": token},
+                             headers={"Origin": "http://testserver"}, follow_redirects=False)
+        release.set()
+    assert first.headers["location"] == second.headers["location"]
+    assert called == [True]
+
+
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [("missing", "Nie znaleziono lokalnego rejestru treningów"),
+     ("invalid", "Lokalny rejestr treningów jest nieczytelny")],
+)
+def test_week_shows_registry_problem_warning(tmp_path, status, message):
+    report = _week_report()
+    report.registry_status = status
+    with _week_client(report) as client:
+        response = client.get("/week")
+    assert message in response.text
+
+
+def test_week_hides_registry_problem_warning_when_registry_is_ok():
+    with _week_client(_week_report()) as client:
+        response = client.get("/week")
+    assert "Nie znaleziono lokalnego rejestru treningów" not in response.text
+    assert "Lokalny rejestr treningów jest nieczytelny" not in response.text

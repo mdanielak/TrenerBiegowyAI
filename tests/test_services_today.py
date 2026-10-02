@@ -67,3 +67,11 @@ def test_build_today_report_uses_none_for_missing_signals_and_keeps_stale_data(t
     assert report.signals == {
         "sleep_score": None, "hrv_status": None, "rhr": None, "stress_avg": None,
     }
+
+
+def test_build_today_report_keeps_snapshot_timestamp(tmp_path):
+    report = build_today_report(
+        snapshot=_snapshot(timestamp="2026-10-02T09:14:00+00:00"), planned=None,
+        availability={"available": False}, now=datetime(2026, 10, 2),
+    )
+    assert report.snapshot_timestamp == "2026-10-02T09:14:00+00:00"

@@ -14,8 +14,9 @@ from datetime import datetime, timedelta, timezone
 
 from services.data_extract import (
     GarminDBSyncError, SnapshotStatus, SyncStatus, extract, load_data_latest,
-    print_summary, read_snapshot_status, save_json, sync, sync_full,
+    print_summary, read_snapshot_status, save_json, sync, sync_full, synchronize_and_save,
 )
+from services.locking import acquire_lock
 from trainer.commands import sync as data_sync
 
 
@@ -187,31 +188,53 @@ class TestSnapshotStatus:
 class TestSyncFailure:
     def test_sync_failure_blocks_snapshot_save(self, monkeypatch):
         monkeypatch.setattr(data_sync, 'setup_logging', lambda: None)
-        monkeypatch.setattr(data_sync, 'sync', lambda: (_ for _ in ()).throw(GarminDBSyncError('timeout')))
-        extract_mock = MagicMock()
-        save_mock = MagicMock()
-        monkeypatch.setattr(data_sync, 'extract', extract_mock)
-        monkeypatch.setattr(data_sync, 'save_json', save_mock)
+        operation_mock = MagicMock(side_effect=GarminDBSyncError('timeout'))
+        monkeypatch.setattr(data_sync, 'synchronize_and_save', operation_mock)
         monkeypatch.setattr(sys, 'argv', ['data_sync.py'])
 
         with pytest.raises(GarminDBSyncError, match='timeout'):
             data_sync.main()
 
-        extract_mock.assert_not_called()
-        save_mock.assert_not_called()
+        operation_mock.assert_called_once_with(fresh=False)
 
     def test_partial_sync_status_is_saved_in_snapshot(self, monkeypatch):
-        monkeypatch.setattr(data_sync, 'setup_logging', lambda: None)
-        monkeypatch.setattr(data_sync, 'sync', lambda: SyncStatus.PARTIAL)
-        monkeypatch.setattr(data_sync, 'extract', lambda: {"timestamp": "2026-09-16T10:00:00"})
-        save_mock = MagicMock()
-        monkeypatch.setattr(data_sync, 'save_json', save_mock)
-        monkeypatch.setattr(data_sync, 'print_summary', lambda data: None)
-        monkeypatch.setattr(sys, 'argv', ['data_sync.py'])
+        from services import data_extract
 
-        data_sync.main()
+        monkeypatch.setattr(data_extract, 'sync', lambda: SyncStatus.PARTIAL)
+        monkeypatch.setattr(data_extract, 'extract', lambda: {"timestamp": "2026-09-16T10:00:00"})
+        save_mock = MagicMock()
+        monkeypatch.setattr(data_extract, 'save_json', save_mock)
+
+        synchronize_and_save()
 
         assert save_mock.call_args.args[0]['sync_status'] == "partial"
+
+
+class TestSynchronizeAndSave:
+    @pytest.mark.parametrize(("fresh", "expected"), [(False, "sync"), (True, "sync_full")])
+    def test_uses_proper_sync_variant(self, fresh, expected, monkeypatch):
+        from services import data_extract
+
+        calls = []
+        monkeypatch.setattr(data_extract, 'sync', lambda: calls.append("sync") or SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'sync_full', lambda: calls.append("sync_full") or SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'extract', lambda: calls.append("extract") or {"timestamp": "test"})
+        monkeypatch.setattr(data_extract, 'save_json', lambda data: calls.append(("save", data)))
+
+        data = synchronize_and_save(fresh=fresh)
+
+        assert calls[0] == expected
+        assert calls[1:] == ["extract", ("save", data)]
+
+    def test_does_not_acquire_a_second_lock(self, tmp_path, monkeypatch):
+        from services import data_extract
+
+        monkeypatch.setattr(data_extract, 'sync', lambda: SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'extract', lambda: {"timestamp": "test"})
+        monkeypatch.setattr(data_extract, 'save_json', lambda data: None)
+
+        with acquire_lock(name="sync", directory=tmp_path):
+            assert synchronize_and_save()["sync_status"] == "full"
 
 
 class TestGarminDBSubprocess:

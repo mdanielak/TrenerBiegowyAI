@@ -187,6 +187,20 @@ def sync_full():
     return SyncStatus.FULL
 
 
+def synchronize_and_save(*, fresh=False):
+    """Zsynchronizuj dane, zapisz snapshot i zwróć wyeksportowane dane.
+
+    Wywołujący odpowiada za założenie blokady synchronizacji.
+    """
+    sync_status = sync_full() if fresh else sync()
+    logger.info("Extracting data from databases")
+    data = extract()
+    sync_status = sync_status or SyncStatus.FULL
+    data["sync_status"] = sync_status.value if isinstance(sync_status, SyncStatus) else str(sync_status)
+    save_json(data)
+    return data
+
+
 def extract():
     """Extract all recent data from DBs and return dict."""
     logger.debug("Extracting data from databases")

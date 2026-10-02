@@ -21,6 +21,7 @@
 {% else %}
   <header><h1>Tydzień</h1><p class="muted">{{ format_date(report.week_start) }} — {{ format_date(report.week_end) }}</p><p><a href="/">Wróć do widoku dnia</a></p></header>
   <section class="notice">Zaplanowane treningi pochodzą z lokalnego rejestru. Ten widok nie sprawdza kalendarza Garmin Connect.</section>
+  {% if report.registry_status|default('ok') == 'missing' %}<section class="warning">Nie znaleziono lokalnego rejestru treningów, więc nie ma czego pokazać w planie.</section>{% elif report.registry_status|default('ok') == 'invalid' %}<section class="warning">Lokalny rejestr treningów jest nieczytelny. Plan może być niepełny.</section>{% endif %}
   {% for warning in report.warnings %}{% if warning in warning_labels %}<section class="warning">{{ warning_labels[warning] }}</section>{% endif %}{% endfor %}
   {% for day in report.days %}
   <section class="day {% if day.temporal_state == 'today' %}today{% endif %}">
