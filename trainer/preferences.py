@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import tempfile
+from datetime import date
 from pathlib import Path
 
 from .config import SETTINGS
@@ -19,6 +20,7 @@ def _default_preferences() -> dict:
         "days": {day: {"available": False, "min_minutes": 0, "max_minutes": 0} for day in _DAYS},
         "max_quality_sessions_per_week": 0,
         "notes": "",
+        "planned_pauses": [],
     }
 
 
@@ -98,3 +100,65 @@ def set_weekly_availability(day: str, available: bool, min_minutes: int = 0, max
     }
     save_preferences(preferences)
     return preferences["days"][day]
+
+
+def get_active_pause(target_date: str | date | None = None) -> dict | None:
+    """Sprawdź, czy na dany dzień przypada zaplanowana przerwa (np. zabieg, choroba)."""
+    if target_date is None:
+        target_date_str = date.today().isoformat()
+    elif isinstance(target_date, str):
+        target_date_str = target_date[:10]
+    elif hasattr(target_date, "isoformat"):
+        target_date_str = target_date.isoformat()[:10]
+    else:
+        target_date_str = str(target_date)[:10]
+
+    preferences = load_preferences()
+    for pause in preferences.get("planned_pauses", []):
+        if not isinstance(pause, dict):
+            continue
+        start = str(pause.get("start_date", ""))
+        end = str(pause.get("end_date", ""))
+        if start and end and start <= target_date_str <= end:
+            return pause
+    return None
+
+
+def add_planned_pause(start_date: str, end_date: str, reason: str, pause_type: str = "medical") -> dict:
+    """Dodaj planowaną przerwę treningową (np. zabieg, chorobę, wyjazd)."""
+    date.fromisoformat(start_date)
+    date.fromisoformat(end_date)
+    if start_date > end_date:
+        raise ValueError("Data początkowa nie może być późniejsza niż data końcowa.")
+    entry = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "reason": reason,
+        "type": pause_type,
+    }
+    preferences = load_preferences()
+    pauses = [p for p in preferences.get("planned_pauses", []) if isinstance(p, dict)]
+    pauses = [p for p in pauses if not (p.get("start_date") == start_date and p.get("end_date") == end_date)]
+    pauses.append(entry)
+    preferences["planned_pauses"] = sorted(pauses, key=lambda x: str(x.get("start_date", "")))
+    save_preferences(preferences)
+    return entry
+
+
+def remove_planned_pause(start_date: str, end_date: str) -> bool:
+    """Usuń zaplanowaną przerwę."""
+    preferences = load_preferences()
+    initial_len = len(preferences.get("planned_pauses", []))
+    pauses = [p for p in preferences.get("planned_pauses", [])
+              if not (isinstance(p, dict) and p.get("start_date") == start_date and p.get("end_date") == end_date)]
+    if len(pauses) == initial_len:
+        return False
+    preferences["planned_pauses"] = pauses
+    save_preferences(preferences)
+    return True
+
+
+def list_planned_pauses() -> list[dict]:
+    """Zwróć listę wszystkich zaplanowanych przerw."""
+    preferences = load_preferences()
+    return [p for p in preferences.get("planned_pauses", []) if isinstance(p, dict)]

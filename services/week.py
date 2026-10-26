@@ -9,7 +9,7 @@ from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.readiness import readiness_for_day
 from services.training_plan import week_bounds
 from services.workout_registry import list_workouts
-from trainer.preferences import get_weekly_availability
+from trainer.preferences import get_active_pause, get_weekly_availability
 
 _DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
@@ -20,6 +20,7 @@ class DayAvailability:
     min_minutes: int
     max_minutes: int
     configured: bool
+    pause_reason: str | None = None
 
 
 @dataclass
@@ -196,7 +197,14 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
             day_status = 'no_record'
         temporal = 'today' if date_text == today else 'past' if date_text < today else 'future'
         raw_availability = availability.get(_DAYS[index]) if isinstance(availability, dict) else None
-        days.append(WeekDayReport(date_text, index, temporal, _availability(raw_availability), day_status, [],
+        day_avail = _availability(raw_availability)
+        active_pause = get_active_pause(date_text)
+        if active_pause:
+            day_avail.available = False
+            day_avail.pause_reason = active_pause.get("reason")
+            if day_status == "no_plan":
+                day_status = "planned_pause"
+        days.append(WeekDayReport(date_text, index, temporal, day_avail, day_status, [],
                                   workouts, week_activities, readiness_for_day(data, date_text)))
     all_activities = [activity for day in days for activity in day.activities]
     distances = [activity.distance_km for activity in all_activities

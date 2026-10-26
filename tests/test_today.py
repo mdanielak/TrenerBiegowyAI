@@ -154,3 +154,12 @@ def test_newest_active_registry_workout_is_shown_for_same_date(monkeypatch, caps
     output = capsys.readouterr().out
     assert 'Plan z rejestru: Nowszy trening (tempo)' in output
     assert 'Starszy trening' not in output
+
+
+def test_today_with_active_pause(monkeypatch, capsys):
+    pause = {"start_date": "2026-10-02", "end_date": "2026-10-04", "reason": "Zabieg", "type": "medical"}
+    monkeypatch.setattr(today_service, "get_active_pause", lambda _: pause)
+    assert _run_today(monkeypatch, []) == 0
+    output = capsys.readouterr().out
+    assert "Planowana przerwa (medical): Zabieg" in output
+    assert "rekonwalescencja" in output

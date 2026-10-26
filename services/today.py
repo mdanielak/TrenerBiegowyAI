@@ -8,7 +8,7 @@ from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snaps
 from services.activity_matching import find_activity_for_workout
 from services.readiness import compute_readiness_breakdown, signal_trends
 from services.workout_registry import list_workouts
-from trainer.preferences import get_weekly_availability
+from trainer.preferences import get_active_pause, get_weekly_availability
 from trainer.profile_store import load_profile
 
 
@@ -32,6 +32,7 @@ class TodayReport:
     trends: dict = field(default_factory=dict)
     today_activities: list = field(default_factory=list)
     execution: dict | None = None
+    active_pause: dict | None = None
 
 
 def _today_registry_entries(today: str):
@@ -69,7 +70,7 @@ def _execution(*, workouts, today_activities, today):
     return execution
 
 
-def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now) -> TodayReport:
+def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now, active_pause: dict | None = None) -> TodayReport:
     """Zbuduj raport wyłącznie z przekazanych danych, bez efektów ubocznych."""
     today = now.date().isoformat()
     yesterday = now.date().fromordinal(now.date().toordinal() - 1).isoformat()
@@ -93,6 +94,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         trends={},
         today_activities=[],
         execution=None,
+        active_pause=active_pause,
     )
     if empty.status != "ok":
         return empty
@@ -118,7 +120,12 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         "rhr": health.get("rhr"),
         "stress_avg": health.get("stress_avg"),
     }
-    suggestion = "follow_plan" if planned and readiness["level"] != "not_ready" else "rest"
+    if active_pause is not None:
+        suggestion = "medical_rest"
+        if isinstance(availability, dict):
+            availability = {**availability, "available": False, "pause": active_pause}
+    else:
+        suggestion = "follow_plan" if planned and readiness["level"] != "not_ready" else "rest"
     return TodayReport(
         status="ok",
         date=today,
@@ -139,6 +146,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
             today_activities=today_activities,
             today=today,
         ),
+        active_pause=active_pause,
     )
 
 
@@ -156,9 +164,11 @@ def get_today_report(*, now=None) -> TodayReport:
 
     planned = _today_registry_entries(current.date().isoformat())
     availability = get_weekly_availability(_DAYS[current.weekday()])
+    active_pause = get_active_pause(current.date().isoformat())
     return build_today_report(
         snapshot=snapshot,
         planned=planned,
         availability=availability,
         now=current,
+        active_pause=active_pause,
     )

@@ -47,11 +47,20 @@ def main() -> int:
             print(f"  {str(item.get('date', ''))[11:16]} {_activity_line(item)}")
     print(f"Gotowość: {report.readiness['level']} ({report.readiness['score']}/{report.readiness['max_score']})")
     print(f"Sygnały: sen {report.signals['sleep_score'] if report.signals['sleep_score'] is not None else '?'}, HRV {report.signals['hrv_status'] if report.signals['hrv_status'] is not None else '?'}, RHR {report.signals['rhr'] if report.signals['rhr'] is not None else '?'}, stres {report.signals['stress_avg'] if report.signals['stress_avg'] is not None else '?'}")
-    if report.availability["available"]:
+    if report.active_pause:
+        print(f"Planowana przerwa ({report.active_pause.get('type', 'medyczna')}): {report.active_pause.get('reason')} ({report.active_pause.get('start_date')} – {report.active_pause.get('end_date')})")
+        print(f"Dostępność: dzień wyłączony z treningu ({report.active_pause.get('reason')})")
+    elif report.availability["available"]:
         print(f"Dostępność: dzień treningowy ({report.availability['min_minutes']}–{report.availability['max_minutes']} min)")
     else:
         print("Dostępność: dzień bez zaplanowanej dostępności")
-    suggestion = "realizuj zaplanowany trening spokojnie" if report.suggestion == "follow_plan" else "postaw na odpoczynek lub bardzo lekki ruch"
+    if report.suggestion == "medical_rest":
+        pause_desc = report.active_pause.get('reason') if report.active_pause else 'planowana przerwa'
+        suggestion = f"odpoczynek i rekonwalescencja ({pause_desc})"
+    elif report.suggestion == "follow_plan":
+        suggestion = "realizuj zaplanowany trening spokojnie"
+    else:
+        suggestion = "postaw na odpoczynek lub bardzo lekki ruch"
     print(f"Sugestia (heurystyka): {suggestion}.")
     print("To nie jest porada medyczna.")
     return 0

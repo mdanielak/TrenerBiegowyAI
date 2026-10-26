@@ -21,6 +21,7 @@ _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota
 _SUGGESTIONS = {
     "follow_plan": "realizuj zaplanowany trening spokojnie",
     "rest": "postaw na odpoczynek lub bardzo lekki ruch",
+    "medical_rest": "odpoczynek i rekonwalescencja",
 }
 _READINESS_LABELS = {
     "ready": "gotowy do treningu",
@@ -40,6 +41,7 @@ _MONTHS_GENITIVE = (
 )
 _WEEK_STATUS_LABELS = {
     "no_plan": "Brak zapisanego treningu",
+    "planned_pause": "Planowana przerwa (rekonwalescencja)",
     "activity_only": "Aktywności bez zapisanego treningu",
     "planned": "Zaplanowane",
     "matched": "Znaleziono wykonanie",

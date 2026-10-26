@@ -62,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
     profile = commands.add_parser('profile', help='pokazuje lokalny profil biegacza')
     profile.add_argument('--sync', action='store_true', help='pobierz profil z Garmin Connect')
     workout_commands.add_parser('new', help='interaktywnie tworzy trening')
+    pause = commands.add_parser('pause', help='zarządza planowanymi przerwami (zabiegi, rekonwalescencja)')
+    pause_sub = pause.add_subparsers(dest='pause_action')
+    p_add = pause_sub.add_parser('add', help='dodaj przerwę')
+    p_add.add_argument('start_date', type=iso_date, help='data początkowa RRRR-MM-DD')
+    p_add.add_argument('end_date', type=iso_date, help='data końcowa RRRR-MM-DD')
+    p_add.add_argument('reason', help='powód przerwy')
+    p_add.add_argument('--type', default='medical', choices=['medical', 'recovery', 'vacation'], help='typ przerwy')
+    p_rem = pause_sub.add_parser('remove', help='usuń przerwę')
+    p_rem.add_argument('start_date', type=iso_date, help='data początkowa RRRR-MM-DD')
+    p_rem.add_argument('end_date', type=iso_date, help='data końcowa RRRR-MM-DD')
     return parser
 
 
@@ -90,6 +100,14 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.command == 'profile':
         from .commands.profile import main as profile
         return profile(sync=args.sync)
+    if args.command == 'pause':
+        from .commands.pause import add_pause, list_pauses, remove_pause
+        action = getattr(args, 'pause_action', None)
+        if action == 'add':
+            return add_pause(args.start_date, args.end_date, args.reason, args.type)
+        if action == 'remove':
+            return remove_pause(args.start_date, args.end_date)
+        return list_pauses()
     if args.command == 'workouts' and args.workout_command == 'new':
         from .commands.workout_new import main as workout_new
         return workout_new()
