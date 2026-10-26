@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Lokalne API i dashboard Trenera Biegowego AI."""
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -582,6 +583,10 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
         description="Local running training dashboard",
         version="0.1.0",
         lifespan=lifespan,
+    )
+    static_dir = Path(__file__).resolve().parents[1] / "static"
+    if static_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static"
     )
 
     def csrf_token(request: Request):

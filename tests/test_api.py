@@ -1173,3 +1173,10 @@ def test_every_asset_referenced_by_templates_is_served():
     with _client(_report()) as client:
         missing = [r for r in literal if client.get(f"/assets/{r}").status_code != 200]
     assert missing == []
+
+
+def test_static_css_is_served():
+    with _client(_report()) as client:
+        response = client.get("/static/css/styles.css")
+    assert response.status_code == 200
+    assert "color-scheme" in response.text

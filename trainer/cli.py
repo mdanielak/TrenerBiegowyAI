@@ -104,7 +104,18 @@ def dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ensure_utf8_streams() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding='utf-8', errors='replace')
+            except Exception:
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _ensure_utf8_streams()
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command is None:

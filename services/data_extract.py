@@ -123,7 +123,7 @@ def download_today(timeout=300, cwd=None):
     logger.info("Downloading today's data (GarminDB --latest workaround)")
     try:
         r = subprocess.run([python, '-c', _DOWNLOAD_TODAY_SNIPPET],
-                           capture_output=True, text=True, timeout=timeout, cwd=cwd)
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=timeout, cwd=cwd)
     except subprocess.TimeoutExpired:
         logger.warning("Today's download timed out after %ds", timeout)
         return False
@@ -148,7 +148,7 @@ def sync():
     print("  Syncing...", end=" ", flush=True)
     t0 = time.time()
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_SYNC_TIMEOUT,
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=GARMINDB_SYNC_TIMEOUT,
                            cwd=log_dir)
     except subprocess.TimeoutExpired as e:
         elapsed = time.time() - t0
@@ -182,7 +182,7 @@ def sync_full():
     logger.info("Starting full sync (timeout: %ds)", GARMINDB_FRESH_TIMEOUT)
     print("Running full sync (this may take a while)...")
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=GARMINDB_FRESH_TIMEOUT,
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=GARMINDB_FRESH_TIMEOUT,
                            cwd=log_dir)
     except subprocess.TimeoutExpired as e:
         message = f"GarminDB full sync timed out after {GARMINDB_FRESH_TIMEOUT}s"

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trener-biegowy-ai"
+version = "0.2.0"
+description = "Lokalne narzedzie do synchronizacji danych GarminDB, analizy gotowosci i zarzadzania treningami Garmin."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Maciej" }
+]
+dependencies = [
+    "garmindb>=3.9,<4",
+    "garminconnect>=0.3.11",
+    "pydantic>=2.0",
+    "openai>=1.0",
+    "fastapi>=0.100",
+    "uvicorn>=0.20",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+    "httpx>=0.24",
+    "Pillow>=10",
+]
+
+[project.scripts]
+trainer = "trainer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["trainer*", "services*", "api*", "ai*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

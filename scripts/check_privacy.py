@@ -56,7 +56,7 @@ def find_private_paths(paths: Iterable[str]) -> list[tuple[str, str]]:
 
 def git_paths(*args: str) -> list[str]:
     result = subprocess.run(
-        ["git", *args], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        ["git", *args], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace"
     )
     if result.returncode:
         message = result.stderr.strip() or "git command failed"
