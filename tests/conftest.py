@@ -51,6 +51,13 @@ def _block_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(socket.socket, "connect_ex", blocked, raising=False)
     monkeypatch.setattr(socket, "create_connection", blocked, raising=False)
     monkeypatch.setattr(socket, "getaddrinfo", blocked, raising=False)
+    # curl_cffi uses native libcurl and bypasses Python's socket guards.
+    try:
+        from curl_cffi.requests import Session
+    except ImportError:
+        pass
+    else:
+        monkeypatch.setattr(Session, "request", blocked)
 
 
 @pytest.fixture(autouse=True)

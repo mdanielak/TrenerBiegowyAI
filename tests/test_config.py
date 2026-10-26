@@ -96,9 +96,26 @@ class TestEnvVars:
         from trainer.config import GARMIN_EMAIL
         assert isinstance(GARMIN_EMAIL, str)
 
-    def test_garmin_password_is_string(self):
-        from trainer.config import GARMIN_PASSWORD
-        assert isinstance(GARMIN_PASSWORD, str)
+    def test_garmin_password_is_not_configuration(self):
+        from trainer import config
+        assert not hasattr(config, 'GARMIN_PASSWORD')
+        assert not hasattr(config.SETTINGS, 'garmin_password')
+
+    def test_configuration_excludes_password_when_loading_env(self, monkeypatch):
+        import importlib
+        from trainer import config, env_file
+        calls = []
+        def load(path, **kwargs):
+            calls.append(kwargs)
+            return {}
+        with monkeypatch.context() as patched:
+            patched.setenv('GARMIN_PASSWORD', 'ignored-secret')
+            patched.setattr(env_file, 'load_env_file', load)
+            importlib.reload(config)
+            assert calls == [{'override': False, 'exclude': {'GARMIN_PASSWORD'}}]
+            assert not hasattr(config.SETTINGS, 'garmin_password')
+            assert 'ignored-secret' not in repr(config.SETTINGS)
+        importlib.reload(config)
 
     def test_ai_base_url_is_string(self):
         from trainer.config import AI_BASE_URL

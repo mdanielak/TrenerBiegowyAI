@@ -4,6 +4,12 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+<section class="card" style="margin-bottom: 24px">
+  <div class="card-head">
+    <h2>Integracje</h2>
+    <a class="btn" href="/settings/ai">API AI →</a>
+  </div>
+</section>
 {% if error_message %}
 
   <div class="page-head">
@@ -32,7 +38,7 @@
     <div class="banner info">
       {{ ico.info() }}
       <div class="banner-body">
-        <p class="banner-title">Tę stronę można tylko przeglądać.</p>
+        <p class="banner-title">Profil biegacza jest tutaj tylko do odczytu.</p>
         <p class="mid">
           Aby odświeżyć dane z zegarka, uruchom w terminalu: <code>python -m trainer profile --sync</code>.
           Strefy tętna zaktualizujesz przez <code>python -m trainer zones --sync</code>,
@@ -140,7 +146,7 @@
       </div>
     </section>
 
-    <footer>Te dane są zapisane tylko na tym komputerze i nie są nikomu wysyłane.</footer>
+    <footer>Profil jest zapisany lokalnie. Użycie funkcji AI z włączoną zgodą może wysłać dane do skonfigurowanego dostawcy.</footer>
 
   </div>
 

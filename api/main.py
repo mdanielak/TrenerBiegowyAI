@@ -26,6 +26,10 @@ from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
 from services.workout_scoring import planned_duration_min, score_execution
+from ai.connection_test import AIConnectionTestError, check_connection
+from trainer.ai_settings import (
+    ENV_PATH, read_ai_settings, resolve_test_key, save_ai_settings, validate_ai_settings,
+)
 from trainer.logging_config import setup_logging
 from trainer.profile_store import load_profile
 
@@ -552,6 +556,7 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
                 review_operation: Callable[..., dict] | None = None,
                 review_loader: Callable[..., Optional[dict]] = load_review,
                 job_store: JobStore | None = None, lock_directory=None,
+               ai_env_path: Path = ENV_PATH,
                 now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
 
@@ -740,37 +745,110 @@ def create_app(*, report_provider: Callable[[], TodayReport] = get_today_report,
             headers={"Cache-Control": "no-store"},
         )
 
-    @app.get("/settings", response_class=HTMLResponse)
-    def settings(request: Request):
+    def ai_settings_page(request: Request, *, ai_error=None, status_code=200,
+                         form_values=None, test_success=False, key_discarded=False):
+        token = csrf_token(request)
+        context = {"active_nav": "settings", "csrf_token": token,
+                   "ai_error": ai_error, "ai_test_success": test_success,
+                   "ai_key_discarded": key_discarded, "ai_env_path": str(ai_env_path.resolve()),
+                   "ai_saved": request.method == "GET" and request.query_params.get("saved") == "1"}
+        try:
+            context["ai_settings"] = read_ai_settings(ai_env_path)
+            if form_values is not None:
+                context["ai_settings"].update(form_values)
+        except (OSError, UnicodeError):
+            context["ai_error"] = "Nie można odczytać pliku .env. Sprawdź uprawnienia i kodowanie UTF-8."
+            status_code = 503
+        return attach_csrf(_TEMPLATES.TemplateResponse(
+            request=request, name="settings_ai.html", context=context,
+            status_code=status_code, headers={"Cache-Control": "no-store"},
+        ), token)
+
+    def settings_page(request: Request, *, status_code=200):
+        token = csrf_token(request)
+        context = {"active_nav": "settings"}
         try:
             profile = profile_provider()
         except FileNotFoundError:
-            return _TEMPLATES.TemplateResponse(
-                request=request, name="settings.html",
-                context={"error_message": "Nie znaleziono lokalnego profilu biegacza.",
-                         "error_command": "python -m trainer setup", "active_nav": "settings"},
-                status_code=404, headers={"Cache-Control": "no-store"},
-            )
+            context.update(error_message="Nie znaleziono lokalnego profilu biegacza.",
+                           error_command="python -m trainer setup")
+            if status_code == 200:
+                status_code = 404
         except Exception:
             logger.error("Could not read runner profile")
-            return _TEMPLATES.TemplateResponse(
-                request=request, name="settings.html",
-                context={"error_message": "Nie można odczytać lokalnego profilu biegacza.",
-                         "error_command": "python -m trainer setup", "active_nav": "settings"},
-                status_code=503, headers={"Cache-Control": "no-store"},
+            context.update(error_message="Nie można odczytać lokalnego profilu biegacza.",
+                           error_command="python -m trainer setup")
+            if status_code == 200:
+                status_code = 503
+        else:
+            context.update(
+                runner_rows=_profile_rows(profile, _PROFILE_RUNNER_FIELDS),
+                heart_rows=_profile_rows(profile, _PROFILE_HEART_FIELDS),
+                goal_rows=_profile_rows(profile, _PROFILE_GOAL_FIELDS),
+                zone_rows=_hr_zone_rows(profile),
+                zones_source=profile.get("hr_zones_source") or None,
             )
-        return _TEMPLATES.TemplateResponse(
-            request=request, name="settings.html",
-            context={
-                "runner_rows": _profile_rows(profile, _PROFILE_RUNNER_FIELDS),
-                "heart_rows": _profile_rows(profile, _PROFILE_HEART_FIELDS),
-                "goal_rows": _profile_rows(profile, _PROFILE_GOAL_FIELDS),
-                "zone_rows": _hr_zone_rows(profile),
-                "zones_source": profile.get("hr_zones_source") or None,
-                "active_nav": "settings",
-            },
-            headers={"Cache-Control": "no-store"},
-        )
+        return attach_csrf(_TEMPLATES.TemplateResponse(
+            request=request, name="settings.html", context=context,
+            status_code=status_code, headers={"Cache-Control": "no-store"},
+        ), token)
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings(request: Request):
+        return settings_page(request)
+
+    @app.get("/settings/ai", response_class=HTMLResponse)
+    def ai_settings(request: Request):
+        return ai_settings_page(request)
+
+    @app.post("/settings/ai/test", response_class=HTMLResponse)
+    def test_ai_connection(request: Request, csrf_token: str = Form(default=""),
+                           base_url: str = Form(default=""), model: str = Form(default=""),
+                           api_key: str = Form(default=""), export_enabled: str = Form(default=""),
+                           clear_key: str = Form(default="")):
+        if not csrf_valid(request, csrf_token):
+            return ai_settings_page(request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403)
+        # Sekret nigdy nie trafia do kontekstu szablonu, także po błędzie testu.
+        form_values = {"base_url": base_url, "model": model,
+                       "export_enabled": export_enabled == "true", "clear_key": clear_key == "true"}
+        result = {"form_values": form_values, "key_discarded": bool(api_key)}
+        try:
+            base_url, model = validate_ai_settings(
+                base_url=base_url, model=model, api_key=api_key, clear_key=clear_key == "true")
+            key = resolve_test_key(ai_env_path, base_url=base_url, api_key=api_key, clear_key=clear_key == "true")
+            # Zapobiegaj równoległym testom i wielokrotnemu naliczaniu opłat.
+            with acquire_lock(name="ai-connection-test", directory=lock_directory):
+                check_connection(base_url=base_url, model=model, api_key=key)
+        except ValueError as exc:
+            return ai_settings_page(request, ai_error=str(exc), status_code=400, **result)
+        except AIConnectionTestError as exc:
+            return ai_settings_page(request, ai_error=str(exc), status_code=502, **result)
+        except LockBusyError:
+            return ai_settings_page(request, ai_error="Test już trwa. Poczekaj na wynik.", status_code=409, **result)
+        except (OSError, UnicodeError):
+            return ai_settings_page(request, ai_error="Nie można odczytać konfiguracji lub utworzyć blokady testu.", status_code=503, **result)
+        return ai_settings_page(request, test_success=True, **result)
+
+    @app.post("/settings/ai", response_class=HTMLResponse)
+    def update_ai_settings(request: Request, csrf_token: str = Form(default=""),
+                           base_url: str = Form(default=""), model: str = Form(default=""),
+                           api_key: str = Form(default=""),
+                           export_enabled: str = Form(default=""),
+                           clear_key: str = Form(default="")):
+        if not csrf_valid(request, csrf_token):
+            return ai_settings_page(request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403)
+        try:
+            with acquire_lock(name="env.ai-settings", directory=ai_env_path.parent):
+                save_ai_settings(ai_env_path, base_url=base_url, model=model, api_key=api_key,
+                                 export_enabled=export_enabled == "true", clear_key=clear_key == "true")
+        except ValueError as exc:
+            return ai_settings_page(request, ai_error=str(exc), status_code=400)
+        except LockBusyError:
+            return ai_settings_page(request, ai_error="Zapis już trwa. Spróbuj ponownie.", status_code=409)
+        except (OSError, UnicodeError):
+            return ai_settings_page(request, ai_error="Nie można zapisać pliku .env. Sprawdź uprawnienia i kodowanie UTF-8.", status_code=503)
+        return RedirectResponse(url="/settings/ai?saved=1", status_code=303,
+                                headers={"Cache-Control": "no-store"})
 
     @app.post("/actions/sync")
     def submit_sync(request: Request, csrf_token: str = Form(default="")):

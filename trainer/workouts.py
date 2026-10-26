@@ -28,7 +28,7 @@ from datetime import date
 from garminconnect.workout import (
     RunningWorkout, WorkoutSegment, ExecutableStep, StepType, TargetType,
 )
-from .config import GARMIN_EMAIL, GARMIN_PASSWORD
+from .config import GARMIN_EMAIL
 from .garmin_auth import ensure_token
 from services.workout_registry import record_added, record_deleted, record_updated, find_workout
 
@@ -64,18 +64,20 @@ class GarminWorkout:
 
     def __init__(self, email=None, password=None):
         self.email = email or GARMIN_EMAIL
-        self.password = password or GARMIN_PASSWORD
+        self.password = password
         self.api = None
 
     def login(self):
         """Log in to Garmin Connect.
 
-        Tries the saved OAuth token store (~/.GarminDb/garmin_tokens.json) first.
-        If it is missing or no longer valid, falls back to GARMIN_EMAIL/
-        GARMIN_PASSWORD and writes a fresh token for later runs. Raises
-        GarminAuthError when neither a token nor a password is available.
+        Uses ~/.GarminDb/garmin_tokens.json first. A password may only be
+        supplied explicitly for interactive login, never via configuration.
+        Missing/invalid tokens otherwise require login through trainer setup.
         """
-        self.api = ensure_token(self.email, self.password)
+        try:
+            self.api = ensure_token(self.email, self.password)
+        finally:
+            self.password = None
         logger.info("Garmin Connect login successful")
         return self
 

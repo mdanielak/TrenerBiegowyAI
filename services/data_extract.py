@@ -56,17 +56,24 @@ def _find_python():
 
 
 def _find_garmindb_cli():
-    """Find garmindb_cli.py in local tools, GarminDB, then PATH."""
+    """Find garmindb_cli.py in local tools, GarminDB, interpreter directory, then PATH."""
     local_script = os.path.join(PROJECT_ROOT, 'local', 'tools', 'garmindb_cli.py')
     if os.path.isfile(local_script):
         return local_script
     legacy_script = os.path.join(PROJECT_ROOT, 'GarminDB', 'scripts', 'garmindb_cli.py')
     if os.path.isfile(legacy_script):
         return legacy_script
+    # Check next to current Python interpreter (e.g. .venv/bin or Scripts/)
+    py_dir = os.path.dirname(sys.executable)
+    for candidate in ('garmindb_cli.py', 'garmindb_cli'):
+        candidate_path = os.path.join(py_dir, candidate)
+        if os.path.isfile(candidate_path):
+            return candidate_path
     import shutil
-    on_path = shutil.which('garmindb_cli')
-    if on_path:
-        return on_path
+    for name in ('garmindb_cli.py', 'garmindb_cli'):
+        on_path = shutil.which(name)
+        if on_path:
+            return on_path
     raise FileNotFoundError(
         "garmindb_cli.py not found. Ensure garmindb is installed: pip install garmindb"
     )
@@ -166,6 +173,8 @@ def sync():
 
 def sync_full():
     """Run garmindb CLI full sync (first time / rebuild)."""
+    ensure_garmindb_config(GARMIN_EMAIL)
+    ensure_token()
     python = _find_python()
     script = _find_garmindb_cli()
     log_dir = _garmindb_log_dir()

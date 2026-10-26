@@ -37,6 +37,11 @@ def _load_runner_profile(local_path=RUNNER_PROFILE_LOCAL, example_path=RUNNER_PR
         raise FileNotFoundError("Runner profile not found; add local/profile.json") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid runner profile JSON: {path.name}") from exc
+    if path != example_path and not profile:
+        try:
+            return _validate_runner_profile(json.loads(example_path.read_text(encoding="utf-8")))
+        except Exception:
+            pass
     return _validate_runner_profile(profile)
 
 

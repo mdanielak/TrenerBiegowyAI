@@ -30,6 +30,28 @@ def test_write_env_round_trips_special_values(tmp_path, monkeypatch):
     assert load_env_file(path, override=True) == values
 
 
+def test_write_env_removes_all_legacy_garmin_passwords(tmp_path):
+    path = tmp_path / '.env'
+    path.write_text('# comment\nGARMIN_PASSWORD=old\nexport GARMIN_PASSWORD = older\nAI_API_KEY=keep\n')
+    _write_env(path, {'GARMIN_PASSWORD': 'never-save', 'GARMIN_EMAIL': 'runner@example.com'})
+    text = path.read_text()
+    assert 'GARMIN_PASSWORD' not in text
+    assert 'never-save' not in text
+    assert '# comment\nAI_API_KEY=keep\n' in text
+    assert 'GARMIN_EMAIL=runner@example.com' in text
+    if os.name == 'posix':
+        assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_load_env_excludes_legacy_password(tmp_path, monkeypatch):
+    path = tmp_path / '.env'
+    path.write_text('GARMIN_PASSWORD=unused\nGARMIN_EMAIL=runner@example.com\n')
+    monkeypatch.delenv('GARMIN_PASSWORD', raising=False)
+    monkeypatch.delenv('GARMIN_EMAIL', raising=False)
+    assert load_env_file(path, exclude={'GARMIN_PASSWORD'}) == {'GARMIN_EMAIL': 'runner@example.com'}
+    assert 'GARMIN_PASSWORD' not in os.environ
+
+
 def test_write_env_skips_empty_values(tmp_path):
     path = tmp_path / '.env'
     path.write_text('KEEP=old\n', encoding='utf8')
@@ -94,12 +116,23 @@ def _redirect_stores(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_store, 'SETTINGS', settings)
     monkeypatch.setattr(preferences, 'SETTINGS', settings)
     monkeypatch.setattr(setup_wizard, 'PROJECT_ROOT', tmp_path)
-    monkeypatch.setattr(setup_wizard, 'ensure_token', lambda email, password: object())
+    monkeypatch.setattr(setup_wizard, 'has_token', lambda: False)
+    monkeypatch.setattr(setup_wizard, 'ensure_token', lambda email, password, **kwargs: object())
     monkeypatch.setattr(setup_wizard, 'ensure_garmindb_config', lambda email: False)
 
 
-def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize('token_state', ['missing', 'valid', 'expired'])
+def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp_path, capsys, token_state):
     _redirect_stores(monkeypatch, tmp_path)
+    monkeypatch.setattr(setup_wizard, 'has_token', lambda: token_state != 'missing')
+    attempts = []
+    def login(email, password, **kwargs):
+        attempts.append(password)
+        if token_state == 'expired' and password is None:
+            raise setup_wizard.GarminAuthError('Zaloguj ponownie', retry_credentials=True)
+        return object()
+    monkeypatch.setattr(setup_wizard, 'ensure_token', login)
+    (tmp_path / '.env').write_text('GARMIN_PASSWORD=legacy-secret\nKEEP=value\n')
     monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
     answers = _answers([
         (r'E-mail', 'runner@example.com'),
@@ -136,7 +169,11 @@ def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp
     assert profile['hr_max'] == 190 and profile['lactate_threshold_hr'] == 170
     assert preferences.load_preferences()['max_quality_sessions_per_week'] == 2
     env = (tmp_path / '.env').read_text(encoding='utf8')
-    assert 'sekret#haslo' in env and 'tajny-klucz' in env
+    assert 'sekret#haslo' not in env and 'GARMIN_PASSWORD' not in env
+    assert 'tajny-klucz' in env and 'KEEP=value' in env
+    assert 'legacy-secret' not in env
+    assert attempts == {'missing': ['sekret#haslo'], 'valid': [None],
+                        'expired': [None, 'sekret#haslo']}[token_state]
     output = capsys.readouterr().out
     assert 'sekret#haslo' not in output and 'tajny-klucz' not in output
 
@@ -251,9 +288,9 @@ def test_weekly_rejection_asks_minutes_once_per_available_day(monkeypatch, tmp_p
 def test_wizard_retries_password_then_allows_manual_mode(monkeypatch, tmp_path):
     _redirect_stores(monkeypatch, tmp_path)
     attempts = []
-    def rejected(email, password):
+    def rejected(email, password, **kwargs):
         attempts.append(password)
-        raise setup_wizard.GarminAuthError('błędne hasło')
+        raise setup_wizard.GarminAuthError('błędne hasło', retry_credentials=True)
     monkeypatch.setattr(setup_wizard, 'ensure_token', rejected)
     answers = _answers([
         (r'E-mail', 'runner@example.com'),
@@ -272,6 +309,40 @@ def test_wizard_retries_password_then_allows_manual_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
     assert setup_wizard.main() == 0
     assert attempts == ['pierwsze', 'drugie', 'drugie']
+
+
+@pytest.mark.parametrize('message', ['HTTP 429', 'Błąd połączenia SSO'])
+def test_wizard_stops_on_noncredential_error(monkeypatch, tmp_path, capsys, message):
+    _redirect_stores(monkeypatch, tmp_path)
+    monkeypatch.setattr(setup_wizard, 'has_token', lambda: False)
+    monkeypatch.setattr(setup_wizard.sys, 'stdin', _Tty())
+    attempts = []
+    def rejected(email, password, *, prompt_mfa):
+        assert callable(prompt_mfa)
+        attempts.append(password)
+        raise setup_wizard.GarminAuthError(message)
+    monkeypatch.setattr(setup_wizard, 'ensure_token', rejected)
+    monkeypatch.setattr(builtins, 'input', _answers([
+        (r'E-mail', 'runner@example.com'), (r'Katalog', str(tmp_path)),
+        (r'Kontynuować z ręcznym', 'n'),
+    ]))
+    secrets = []
+    def getpass(prompt):
+        secrets.append(prompt)
+        return ' secret '
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', getpass)
+    assert setup_wizard.main() == 1
+    assert attempts == [' secret ']
+    assert len(secrets) == 1
+    output = capsys.readouterr().out
+    assert 'Logowanie Garmin zakończone niepowodzeniem:' in output
+    assert message in output
+    assert ' secret ' not in output
+
+
+def test_ask_secret_preserves_whitespace(monkeypatch):
+    monkeypatch.setattr(setup_wizard.getpass, 'getpass', lambda prompt: ' secret ')
+    assert setup_wizard._ask('Hasło Garmin', secret=True) == ' secret '
 
 
 def test_ask_secret_uses_getpass_not_input(monkeypatch):

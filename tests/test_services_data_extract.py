@@ -277,6 +277,30 @@ class TestGarminDBSubprocess:
         assert sync_full() is SyncStatus.FULL
         assert calls[0]['cwd'] == tmp_path / 'logs'
 
+    @pytest.mark.parametrize('operation', ['sync', 'sync_full', 'download_today'])
+    def test_sync_without_token_requires_login_before_subprocess(self, monkeypatch, operation):
+        from services import data_extract
+        from trainer.garmin_auth import GarminAuthError
+        def missing_token():
+            raise GarminAuthError('Zaloguj ponownie: python -m trainer setup')
+        run = MagicMock()
+        monkeypatch.setattr(data_extract, 'ensure_token', missing_token)
+        monkeypatch.setattr(data_extract.subprocess, 'run', run)
+        with pytest.raises(GarminAuthError, match='python -m trainer setup'):
+            getattr(data_extract, operation)()
+        run.assert_not_called()
+
+    def test_find_garmindb_cli_finds_in_python_dir(self, monkeypatch, tmp_path):
+        from services import data_extract
+        fake_bin = tmp_path / 'bin'
+        fake_bin.mkdir()
+        fake_cli = fake_bin / 'garmindb_cli.py'
+        fake_cli.write_text('#!/usr/bin/env python')
+        monkeypatch.setattr(data_extract, 'PROJECT_ROOT', tmp_path / 'proj')
+        monkeypatch.setattr(data_extract.sys, 'executable', str(fake_bin / 'python'))
+        assert data_extract._find_garmindb_cli() == str(fake_cli)
+
+
 
 class TestPrintSummary:
     def test_print_summary_runs_without_error(self, capsys):

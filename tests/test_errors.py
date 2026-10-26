@@ -10,6 +10,15 @@ def test_missing_dependency_has_stable_advice():
     assert "pip install -r requirements.txt" in advice.hint
 
 
+def test_missing_dependency_includes_venv_hint_when_outside_venv(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys, "prefix", "/usr")
+    monkeypatch.setattr(sys, "base_prefix", "/usr")
+    advice = describe_error(ModuleNotFoundError("brak"))
+    assert "source .venv/bin/activate" in advice.hint or "Activate.ps1" in advice.hint
+
+
+
 def test_profile_and_database_errors_are_classified():
     assert describe_error(FileNotFoundError("local/profile.json")).exit_code == 5
     assert describe_error(sqlite3.OperationalError("locked")).exit_code == 7
@@ -25,11 +34,12 @@ def test_json_error_and_secret_are_safe():
 def test_garmin_auth_error_is_not_reported_as_unexpected():
     from trainer.garmin_auth import GarminAuthError
 
-    advice = describe_error(GarminAuthError("Brakuje hasła Garmin (GARMIN_PASSWORD)."))
+    advice = describe_error(GarminAuthError(""))
     assert advice.exit_code == 8
     assert "nieoczekiwany" not in advice.message.lower()
     assert "Garmin Connect" in advice.message
-    assert "GARMIN_PASSWORD" in advice.hint
+    assert "python -m trainer setup" in advice.hint
+    assert "GARMIN_PASSWORD" not in advice.hint
 
 
 def test_env_hint_matches_current_platform():

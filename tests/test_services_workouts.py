@@ -78,20 +78,17 @@ class TestGarminWorkoutInit:
         assert gw.password == "pass123"
 
     @patch('trainer.workouts.GARMIN_EMAIL', 'env@test.com')
-    @patch('trainer.workouts.GARMIN_PASSWORD', 'envpass')
+    @patch.dict(os.environ, {'GARMIN_PASSWORD': 'envpass'})
     def test_init_from_env(self):
         gw = GarminWorkout()
         assert gw.email == "env@test.com"
-        assert gw.password == "envpass"
+        assert gw.password is None
 
-    # Czyszczenie os.environ nic tu nie daje: GARMIN_EMAIL i GARMIN_PASSWORD są
-    # stałymi modułu związanymi przy imporcie, więc podmieniamy je wprost.
     @patch('trainer.workouts.GARMIN_EMAIL', '')
-    @patch('trainer.workouts.GARMIN_PASSWORD', '')
     def test_init_no_credentials(self):
         gw = GarminWorkout()
         assert gw.email == ""
-        assert gw.password == ""
+        assert gw.password is None
 
 
 class TestLogin:
@@ -136,14 +133,23 @@ class TestLogin:
         client.assert_called_with("test@test.com", "pass")
         client.return_value.login.assert_called_once_with(str(garmin_auth.token_path()))
         assert result is gw
+        assert gw.password is None
 
-    def test_login_without_token_and_without_password_raises(self):
-        """Brak tokena i brak hasła to jasny błąd, nie cicha degradacja."""
-        monkeypatched = patch.multiple(garmin_auth, GARMIN_EMAIL="", GARMIN_PASSWORD="")
-        with monkeypatched:
-            gw = GarminWorkout(email=None, password=None)
-            with pytest.raises(garmin_auth.GarminAuthError, match="GARMIN_PASSWORD"):
-                gw.login()
+    def test_login_failure_releases_explicit_password(self, client):
+        client.return_value.login.side_effect = garmin_auth.GarminConnectAuthenticationError('rejected')
+        gw = GarminWorkout(email='test@test.com', password='unused-secret')
+        with pytest.raises(garmin_auth.GarminAuthError):
+            gw.login()
+        assert gw.password is None
+
+    def test_login_without_token_and_without_password_raises(self, client, monkeypatch):
+        """Nie używaj rzeczywistych danych załadowanych z .env przy imporcie."""
+        for module in ('trainer.workouts', 'trainer.garmin_auth'):
+            monkeypatch.setattr(f'{module}.GARMIN_EMAIL', '')
+        gw = GarminWorkout(email=None, password=None)
+        with pytest.raises(garmin_auth.GarminAuthError, match="python -m trainer setup"):
+            gw.login()
+        client.assert_not_called()
 
 
 class TestWorkoutBuilders:

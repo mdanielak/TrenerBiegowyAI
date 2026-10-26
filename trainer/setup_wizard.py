@@ -25,7 +25,7 @@ _DAYS = (("mon", "Pon"), ("tue", "Wt"), ("wed", "Śr"), ("thu", "Czw"),
 def _ask(label, default="", secret=False):
     shown = "****" if secret and default else default
     prompt = f"{label}" + (f" [{shown}]" if shown else "") + ": "
-    value = (getpass.getpass(prompt) if secret else input(prompt)).strip()
+    value = getpass.getpass(prompt) if secret else input(prompt).strip()
     return value if value else default
 
 
@@ -90,12 +90,13 @@ def _yes_no(label, default=False):
 
 
 def _write_env(path: Path, values: dict[str, str]):
-    """Uaktualnij tylko podane klucze, zachowując komentarze i obce wpisy."""
+    """Uaktualnij ustawienia, zachowaj obce wpisy i usuń stare hasło Garmin."""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
     except FileNotFoundError:
         lines = []
-    values = {key: str(value) for key, value in values.items() if value != ""}
+    values = {key: str(value) for key, value in values.items()
+              if value != "" and key != "GARMIN_PASSWORD"}
     def serialize(key: str, value: str) -> str:
         if "\n" in value or "\r" in value:
             raise ValueError(f"Wartość zmiennej {key} nie może zawierać znaku nowej linii.")
@@ -109,6 +110,8 @@ def _write_env(path: Path, values: dict[str, str]):
     for line in lines:
         stripped = line.strip()
         key = stripped.split("=", 1)[0].removeprefix("export ").strip() if "=" in stripped else ""
+        if key == "GARMIN_PASSWORD":
+            continue
         if key in values:
             if key not in seen:
                 result.append(f"{key}={serialize(key, values[key])}")
@@ -195,8 +198,8 @@ def main() -> int:
         email = _ask("E-mail Garmin", current_env["GARMIN_EMAIL"])
         had_token = has_token()
         if had_token:
-            print("Znaleziono zapisany token Garmin — możesz zostawić hasło puste.")
-            password = _ask("Hasło Garmin (puste = użyj tokenu)", "", secret=True)
+            print("Znaleziono zapisany token Garmin — najpierw spróbuję użyć go bez hasła.")
+            password = None
         else:
             print("Nie masz jeszcze zapisanego tokenu, więc hasło jest teraz potrzebne.")
             print("Posłuży do jednorazowego zalogowania i zapisania tokenu na przyszłość.")
@@ -210,17 +213,25 @@ def main() -> int:
             profile_store.save_profile(profile)
         snapshot = {}
         api = None
+        def _mfa_prompt() -> str:
+            print("\nGarmin wymaga weryfikacji dwuetapowej (MFA / kod SMS lub e-mail).")
+            return input("Wpisz kod weryfikacyjny: ").strip()
+
         for attempt in range(3):
             try:
-                api = ensure_token(email, password)
+                print("Logowanie Garmin trwa — może potrwać kilka minut. "
+                      "Ostrzeżenia mobile/widget nie są jeszcze wynikiem końcowym.", flush=True)
+                api = ensure_token(email, password, prompt_mfa=_mfa_prompt)
                 ensure_garmindb_config(email)
-                print("Zalogowano zapisanym tokenem Garmin." if had_token
-                      else "Token Garmin został zapisany; kolejne uruchomienia nie będą wymagać hasła.")
+                print("Zalogowano do Garmin. Zapisane tokeny będą używane i odnawiane bez hasła.")
                 break
             except GarminAuthError as exc:
-                print(f"Nie udało się zalogować do Garmin Connect: {exc}")
+                print(f"Logowanie Garmin zakończone niepowodzeniem: {exc}")
+                if not exc.retry_credentials:
+                    break
                 if attempt < 2:
                     password = _ask("Hasło Garmin — spróbuj ponownie", "", secret=True)
+        password = None  # Nie przechowuj hasła podczas dalszej konfiguracji.
         if api is not None:
             try:
                 snapshot = fetch_snapshot(api)
@@ -279,7 +290,6 @@ def main() -> int:
         preferences.save_preferences(prefs)
         _print_weekly_summary(preferences.get_weekly_availability())
         env = {"GARMIN_EMAIL": email, "HEALTH_DATA_DIR": health}
-        if password: env["GARMIN_PASSWORD"] = password
         if _yes_no("Włączyć opcjonalne AI? Dane treningowe zostaną wysłane do zewnętrznego dostawcy.", False):
             env["AI_BASE_URL"] = _ask("AI_BASE_URL", os.environ.get("AI_BASE_URL", "https://api.openai.com/v1"))
             env["AI_MODEL"] = _ask("AI_MODEL", os.environ.get("AI_MODEL", "gpt-4o"))

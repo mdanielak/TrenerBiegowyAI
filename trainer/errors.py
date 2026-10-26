@@ -41,7 +41,11 @@ def describe_error(exc: BaseException) -> ErrorAdvice:
     text = _safe_text(exc)
     lower = text.lower()
     if isinstance(exc, (ModuleNotFoundError, ImportError)):
-        return ErrorAdvice("Brakuje wymaganej zależności Pythona.", "Uruchom: pip install -r requirements.txt", 3)
+        hint = "Uruchom: pip install -r requirements.txt"
+        if sys.prefix == getattr(sys, "base_prefix", sys.prefix):
+            activate = ".\\.venv\\Scripts\\Activate.ps1" if sys.platform == "win32" else "source .venv/bin/activate"
+            hint = f"Aktywuj środowisko ({activate}) i uruchom: pip install -r requirements.txt"
+        return ErrorAdvice("Brakuje wymaganej zależności Pythona.", hint, 3)
     if isinstance(exc, FileNotFoundError) and "garmindb_cli" in lower:
         return ErrorAdvice("Nie znaleziono programu GarminDB.", "Zainstaluj GarminDB zgodnie z requirements.txt.", 4)
     if isinstance(exc, FileNotFoundError) and "profile.json" in lower:
@@ -58,7 +62,7 @@ def describe_error(exc: BaseException) -> ErrorAdvice:
     if type(exc).__name__ == "GarminAuthError":
         return ErrorAdvice(
             "Nie udało się zalogować do Garmin Connect.",
-            text or "Ustaw GARMIN_PASSWORD w pliku .env, a potem uruchom: python -m trainer setup",
+            text or "Zaloguj ponownie: python -m trainer setup. Hasło jest podawane tylko interaktywnie.",
             8,
         )
     return ErrorAdvice("Wystąpił nieoczekiwany błąd.", f"Szczegóły: {text or type(exc).__name__}", 1)

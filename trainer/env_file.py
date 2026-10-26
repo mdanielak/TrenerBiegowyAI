@@ -10,12 +10,8 @@ _KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TRAILING_COMMENT_RE = re.compile(r"\s+#.*$")
 
 
-def load_env_file(path=None, override=False) -> dict[str, str]:
-    """Wczytaj wartości ``KEY=VALUE`` z pliku i zwróć zastosowane pary.
-
-    Zmienne już obecne w środowisku systemowym mają pierwszeństwo, chyba że
-    jawnie podano ``override=True``.
-    """
+def read_env_file(path=None) -> dict[str, str]:
+    """Odczytaj plik bez modyfikowania środowiska procesu."""
     env_path = Path(path) if path is not None else Path(".env")
     try:
         lines = env_path.read_text(encoding="utf-8-sig").splitlines()
@@ -47,6 +43,16 @@ def load_env_file(path=None, override=False) -> dict[str, str]:
         else:
             value = _TRAILING_COMMENT_RE.sub("", value).rstrip()
 
+        applied[key] = value
+    return applied
+
+
+def load_env_file(path=None, override=False, *, exclude=()) -> dict[str, str]:
+    """Wczytaj .env; istniejące zmienne systemowe mają pierwszeństwo."""
+    applied = {}
+    for key, value in read_env_file(path).items():
+        if key in exclude:
+            continue
         if override or key not in os.environ:
             os.environ[key] = value
             applied[key] = value

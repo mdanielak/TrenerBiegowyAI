@@ -1,0 +1,63 @@
+{% extends "_base.html" %}
+{% block title %}Trener Biegowy — API AI{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p><a href="/settings">← Ustawienia</a></p>
+    <h1>API AI</h1>
+    <p class="page-sub">Połączenie z dostawcą AI i zgoda na eksport danych</p>
+  </div>
+</div>
+<section class="card" aria-labelledby="ai-heading">
+  <div class="card-head"><h2 id="ai-heading">Konfiguracja połączenia</h2></div>
+  <div style="padding: 20px">
+    {% if ai_error %}<div class="banner bad" role="alert">{{ ai_error }}</div>{% endif %}
+    {% if ai_test_success %}
+      <div class="banner info" role="status">Połączenie działa — wybrany model odpowiedział. Test nie zapisał ustawień.</div>
+    {% endif %}
+    {% if ai_key_discarded %}
+      <p>Wpisany klucz nie jest odsyłany do przeglądarki. Wpisz go ponownie, jeśli chcesz go zapisać lub powtórzyć test.</p>
+    {% endif %}
+    {% if ai_saved and not ai_error %}
+      <div class="banner info" role="status">Zapisano w .env. Zatrzymaj serwer (Ctrl+C) i uruchom ponownie start.sh lub start.bat, aby zastosować zmiany.</div>
+    {% endif %}
+    {% if ai_settings %}
+    <p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany wymagają restartu serwera.
+       Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p>
+    <form method="post" action="/settings/ai" class="stack" style="margin-top: 16px" id="ai-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Adres API (AI_BASE_URL)<br>
+        <input type="url" name="base_url" value="{{ ai_settings.base_url }}" required maxlength="4096" style="width: 100%; padding: 10px" placeholder="https://api.openai.com/v1">
+      </label>
+      <label>Model (AI_MODEL)<br>
+        <input type="text" name="model" value="{{ ai_settings.model }}" required maxlength="4096" style="width: 100%; padding: 10px" placeholder="Nazwa modelu u dostawcy">
+      </label>
+      <label>Klucz API (AI_API_KEY) — {{ 'ustawiony' if ai_settings.key_present else 'brak' }}<br>
+        <input type="password" name="api_key" autocomplete="new-password" maxlength="4096" style="width: 100%; padding: 10px" placeholder="Puste pole zachowuje dotychczasowy klucz">
+      </label>
+      <label><input type="checkbox" name="clear_key" value="true" {% if ai_settings.clear_key %}checked{% endif %}> Usuń klucz z pliku .env</label>
+      <label><input type="checkbox" name="export_enabled" value="true" {% if ai_settings.export_enabled %}checked{% endif %}>
+        Zezwalam na wysyłanie danych treningowych i zdrowotnych do wskazanego dostawcy AI (AI_DATA_EXPORT_ENABLED).
+      </label>
+      <p>Test używa aktualnych pól formularza, a przy pustym kluczu — zapisanego klucza dla tego samego serwera (domena, protokół i port).
+         Zmiana ścieżki, np. /v1 na /v2, zachowuje klucz także przy zapisie. Puste pole nie oznacza, że klucz został usunięty.
+         Wysyła tylko komunikat „Connection test. Reply only OK.”, bez profilu ani treningów, również przy wyłączonym eksporcie danych.
+         Może naliczyć niewielką opłatę u dostawcy. Test nie zapisuje ustawień.</p>
+      <p>Klucz jest przechowywany jawnie w lokalnym pliku .env — nie udostępniaj tego pliku.</p>
+      <div>
+        <button type="submit" formaction="/settings/ai/test" class="btn">Testuj połączenie</button>
+        <button type="submit" class="btn primary">Zapisz ustawienia AI</button>
+      </div>
+      <p id="ai-progress" role="status" hidden>Testowanie połączenia… czekam na odpowiedź API.</p>
+    </form>
+    <script>
+      document.getElementById('ai-form').addEventListener('submit', function (event) {
+        if (event.submitter && event.submitter.getAttribute('formaction') === '/settings/ai/test') {
+          document.getElementById('ai-progress').hidden = false;
+        }
+      });
+    </script>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

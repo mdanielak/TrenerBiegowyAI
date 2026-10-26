@@ -24,9 +24,9 @@ export HEALTH_DATA_DIR="$HOME/HealthData"
 
 Katalog musi zawierać podkatalog `DBs` albo `dbs`. Linux rozróżnia wielkość liter, dlatego przy nowej migracji używaj nazwy `DBs`.
 
-Plik `.env` w głównym katalogu projektu jest wczytywany automatycznie i nie jest śledzony przez Git. Wartości ustawione w rzeczywistym środowisku systemowym mają pierwszeństwo przed `.env`. Możesz w nim lokalnie ustawić między innymi `HEALTH_DATA_DIR`, `GARMIN_EMAIL`, `GARMIN_PASSWORD` oraz ustawienia AI.
+Plik `.env` w głównym katalogu projektu jest wczytywany automatycznie i nie jest śledzony przez Git. Wartości ustawione w rzeczywistym środowisku systemowym mają pierwszeństwo przed `.env`. Możesz w nim lokalnie ustawić między innymi `HEALTH_DATA_DIR`, `GARMIN_EMAIL` oraz ustawienia AI. Hasła Garmin nie zapisuj w pliku — podaje się je tylko interaktywnie w `python -m trainer setup`.
 
-GarminDB może uwierzytelnić się tokenami w `~/.GarminDb/garmin_tokens.json` i konfiguracją `~/.GarminDb/GarminConnectConfig.json` albo poświadczeniami `GARMIN_EMAIL` i `GARMIN_PASSWORD`. Po przejściu z Windows zalecane jest ponowne logowanie na Linuxie; nie kopiuj tokenów ani haseł na pendrive.
+Aplikacja używa tokenów w `~/.GarminDb/garmin_tokens.json` i konfiguracji `~/.GarminDb/GarminConnectConfig.json` bez hasła. Gdy tokenu nie da się odnowić, zaloguj ponownie przez `python -m trainer setup`. Stary wpis `GARMIN_PASSWORD` w `.env` jest ignorowany; usuń go ręcznie lub zatwierdź zapis ustawień w kreatorze. Po przejściu z Windows zalecane jest ponowne logowanie na Linuxie; nie kopiuj tokenów ani haseł na pendrive.
 
 ## Migracja HealthData z nośnika
 
@@ -51,7 +51,7 @@ python -m trainer doctor
 | Brak katalogu `DBs`/`dbs` | Wskaż główny katalog HealthData, nie samą bazę; użyj `--source` z właściwą ścieżką. |
 | Ostrzeżenie o `dbs` | Na Linuxie zmigruj dane do `DBs`, aby uniknąć problemów z wielkością liter. |
 | `doctor` nie widzi danych | Ustaw i wyeksportuj `HEALTH_DATA_DIR`, potem otwórz nową powłokę. |
-| Błąd logowania Garmin | Zaloguj się ponownie na Linuxie albo ustaw lokalnie `GARMIN_EMAIL` i `GARMIN_PASSWORD`. |
+| Błąd logowania Garmin | Uruchom `python -m trainer setup` i podaj hasło interaktywnie; nie zapisuj go w `.env`. |
 | Brak miejsca na dysku | Skrypt pokazuje wolne miejsce przed kopiowaniem; wybierz większy katalog docelowy przez `--target`. |
 | Brak modułu Pythona | Aktywuj `.venv` i ponownie uruchom `python -m pip install -r requirements.txt`. |
 

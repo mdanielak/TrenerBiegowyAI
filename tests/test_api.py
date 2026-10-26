@@ -752,6 +752,143 @@ def _settings_client(profile=None, provider=None):
                                  profile_provider=provider or (lambda: _profile() if profile is None else profile)))
 
 
+def test_ai_settings_form_saves_file_without_exposing_key(tmp_path):
+    path = tmp_path / ".env"
+    path.write_text('AI_API_KEY=old-secret\nGARMIN_PASSWORD=untouched\n')
+    app = create_app(profile_provider=lambda: {}, ai_env_path=path)
+    with TestClient(app) as client:
+        page = client.get('/settings/ai')
+        assert 'old-secret' not in page.text
+        assert 'untouched' not in page.text
+        assert str(path.resolve()) in page.text
+        assert page.headers['cache-control'] == 'no-store'
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = client.post('/settings/ai', data={
+            'csrf_token': token, 'base_url': 'http://localhost:11434/v1',
+            'model': 'local-model', 'api_key': 'new-secret', 'export_enabled': 'true',
+        }, headers={'Origin': 'http://testserver'})
+        assert response.status_code == 200
+        assert 'Zapisano w .env' in response.text
+        assert 'new-secret' not in response.text
+        from trainer.env_file import read_env_file
+        values = read_env_file(path)
+        assert values['AI_API_KEY'] == 'new-secret'
+        assert values['AI_DATA_EXPORT_ENABLED'] == 'true'
+        assert values['GARMIN_PASSWORD'] == 'untouched'
+
+
+@pytest.mark.parametrize('origin,valid_token', [('', True), ('http://evil.example', True), ('http://testserver', False)])
+def test_ai_settings_rejects_csrf(tmp_path, origin, valid_token):
+    path = tmp_path / '.env'
+    path.write_text('AI_API_KEY=secret\n')
+    with TestClient(create_app(profile_provider=lambda: {}, ai_env_path=path)) as client:
+        page = client.get('/settings/ai')
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = client.post('/settings/ai', data={
+            'csrf_token': token if valid_token else 'bad', 'api_key': 'replacement',
+        }, headers={'Origin': origin})
+        assert response.status_code == 403
+        assert path.read_text() == 'AI_API_KEY=secret\n'
+
+
+def test_ai_settings_available_without_profile_and_invalid_input_is_safe(tmp_path):
+    def missing():
+        raise FileNotFoundError
+    path = tmp_path / '.env'
+    with TestClient(create_app(profile_provider=missing, ai_env_path=path)) as client:
+        page = client.get('/settings/ai')
+        assert 'action="/settings/ai"' in page.text
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = client.post('/settings/ai', data={
+            'csrf_token': token, 'base_url': 'javascript:bad', 'model': 'test', 'api_key': 'secret-input',
+        }, headers={'Origin': 'http://testserver'})
+        assert response.status_code == 400
+        assert 'secret-input' not in response.text
+        assert not path.exists()
+
+
+def test_settings_links_to_ai_subpage_without_form(tmp_path):
+    with TestClient(create_app(profile_provider=lambda: {}, ai_env_path=tmp_path / '.env')) as client:
+        page = client.get('/settings')
+        assert 'href="/settings/ai"' in page.text
+        assert 'name="api_key"' not in page.text
+        assert 'AI_BASE_URL' not in page.text
+        subpage = client.get('/settings/ai')
+        assert subpage.status_code == 200
+        assert 'Testuj połączenie' in subpage.text
+        assert 'href="/settings"' in subpage.text
+
+
+@pytest.mark.parametrize('key', ['', 'new-key'])
+@pytest.mark.parametrize('base_url', ['https://api.example/v1', 'https://api.example/v2'])
+def test_ai_connection_uses_form_and_never_saves(tmp_path, monkeypatch, key, base_url):
+    path = tmp_path / '.env'
+    original = 'AI_BASE_URL=https://api.example/v1\nAI_API_KEY=saved-key\nAI_MODEL=old\n'
+    path.write_text(original)
+    calls = []
+    monkeypatch.setattr('api.main.check_connection', lambda **kw: calls.append(kw))
+    with TestClient(create_app(ai_env_path=path, lock_directory=tmp_path)) as client:
+        page = client.get('/settings/ai')
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = client.post('/settings/ai/test', data={
+            'csrf_token': token, 'base_url': base_url,
+            'model': 'unsaved-model', 'api_key': key,
+        }, headers={'Origin': 'http://testserver'})
+        assert response.status_code == 200
+        assert 'Połączenie działa' in response.text
+        assert 'value="unsaved-model"' in response.text
+        assert 'saved-key' not in response.text
+        assert 'new-key' not in response.text
+        assert response.headers['cache-control'] == 'no-store'
+    assert calls == [dict(base_url=base_url, api_key=key or 'saved-key', model='unsaved-model')]
+    assert path.read_text() == original
+
+
+@pytest.mark.parametrize('case,status', [('csrf', 403), ('url', 400), ('clear', 400), ('model', 400)])
+def test_ai_connection_rejects_unsafe_requests_without_calling_provider(tmp_path, monkeypatch, case, status):
+    path = tmp_path / '.env'
+    path.write_text('AI_BASE_URL=https://api.example/v1\nAI_API_KEY=saved-key\n')
+    calls = []
+    monkeypatch.setattr('api.main.check_connection', lambda **kw: calls.append(kw))
+    with TestClient(create_app(ai_env_path=path, lock_directory=tmp_path)) as client:
+        page = client.get('/settings/ai')
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        data = dict(csrf_token=token, base_url='https://api.example/v1', model='model')
+        if case == 'csrf':
+            data['csrf_token'] = 'bad'
+        elif case == 'url':
+            data['base_url'] = 'https://different.example/v1'
+        elif case == 'clear':
+            data['clear_key'] = 'true'
+        else:
+            data['model'] = ''
+        response = client.post('/settings/ai/test', data=data, headers={'Origin': 'http://testserver'})
+        assert response.status_code == status
+        assert 'saved-key' not in response.text
+    assert not calls
+
+
+def test_ai_connection_failure_preserves_nonsecret_form(tmp_path, monkeypatch):
+    from ai.connection_test import AIConnectionTestError
+    def fail(**kw):
+        raise AIConnectionTestError('API odrzuciło klucz.')
+    monkeypatch.setattr('api.main.check_connection', fail)
+    path = tmp_path / '.env'
+    with TestClient(create_app(ai_env_path=path, lock_directory=tmp_path)) as client:
+        page = client.get('/settings/ai')
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = client.post('/settings/ai/test', data={
+            'csrf_token': token, 'base_url': 'https://new.example/v1',
+            'model': 'new-model', 'api_key': 'secret-new-key', 'export_enabled': 'true',
+        }, headers={'Origin': 'http://testserver'})
+        assert response.status_code == 502
+        assert 'API odrzuciło klucz.' in response.text
+        assert 'value="new-model"' in response.text
+        assert 'secret-new-key' not in response.text
+        assert 'Wpisz go ponownie' in response.text
+    assert not path.exists()
+
+
 def test_settings_renders_profile_values_and_zones():
     with _settings_client() as client:
         response = client.get("/settings")
