@@ -107,7 +107,7 @@ def test_zero_default_availability_is_unconfigured():
 
 def test_week_summary_includes_activity_totals_heart_rate_and_workout_counts():
     report = _report(
-        [_entry(1, distance_km=5.0, duration_min=30.0, hr_target='<150', hr_zone='Z2'),
+        [_entry(1, spec={'kind': 'hr_zone_run', 'duration_min': 30, 'zone_number': 2}),
          _entry(2, name='Niedopasowany')],
         [_activity(10, distance_km=5.5, duration_min=31.0, avg_hr=140),
          _activity(11, name='Spacer', type='walking/generic', distance_km=2.0,
@@ -115,13 +115,34 @@ def test_week_summary_includes_activity_totals_heart_rate_and_workout_counts():
     )
     workout = _day(report, '2026-12-28').workouts[0]
 
-    assert (workout.planned_distance_km, workout.planned_duration_min, workout.hr_target, workout.hr_zone) == (
-        5.0, 30.0, '<150', 'Z2')
+    assert (workout.planned_duration_min, workout.hr_zone) == (30, 'Z2')
     assert report.summary is not None
     assert (report.summary.total_distance_km, report.summary.total_duration_min,
             report.summary.average_hr, report.summary.completed_workouts,
             report.summary.planned_workouts) == (7.5, 51.0, 130, 1, 2)
     assert _day(report, '2026-12-28').activities[0].avg_hr == 140
+
+
+def test_week_shows_planned_duration_and_zone_from_the_registry_spec():
+    report = _report([_entry(1, spec={'kind': 'hr_zone_run', 'duration_min': 40, 'zone_number': 2})])
+
+    workout = _day(report, '2026-12-28').workouts[0]
+    assert (workout.planned_duration_min, workout.hr_zone) == (40, 'Z2')
+
+
+def test_week_counts_interval_time_from_warmup_work_rest_and_cooldown():
+    report = _report([_entry(1, spec={'kind': 'threshold_intervals', 'num_intervals': 3,
+                                      'work_sec': 360, 'rest_sec': 120,
+                                      'warmup_min': 10, 'cooldown_min': 8})])
+
+    assert _day(report, '2026-12-28').workouts[0].planned_duration_min == 40
+
+
+def test_week_without_numbers_in_the_spec_keeps_the_block_empty():
+    report = _report([_entry(1, spec={})])
+
+    workout = _day(report, '2026-12-28').workouts[0]
+    assert (workout.planned_duration_min, workout.hr_zone) == (None, None)
 
 
 def test_week_summary_without_heart_rate_keeps_average_as_none():

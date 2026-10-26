@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 
 from services.activity_matching import assign_activities
 from services.data_extract import SnapshotStatus, read_snapshot_status
+from services.plan import zone_number
 from services.readiness import readiness_for_day
 from services.training_plan import week_bounds
 from services.workout_registry import list_workouts
+from services.workout_scoring import planned_duration_min
 from trainer.preferences import get_active_pause, get_weekly_availability
 
 _DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -33,9 +35,7 @@ class WeekWorkout:
     matched_activity_id: int | None
     match_method: str
     warnings: list[str]
-    planned_distance_km: float | None = None
-    planned_duration_min: float | None = None
-    hr_target: str | None = None
+    planned_duration_min: int | None = None
     hr_zone: str | None = None
 
 
@@ -173,10 +173,23 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
                 status = 'planned'
             else:
                 status = 'no_record'
+            spec = entry.get('spec') if isinstance(entry.get('spec'), dict) else {}
+            try:
+                duration = planned_duration_min(spec)
+            except (TypeError, ValueError):
+                duration = None
+            zone = zone_number(spec.get('zone_number'))
             workouts.append(WeekWorkout(
-                entry.get('workout_id'), entry.get('schedule_id'), entry.get('name') or '', _sport(entry),
-                status, matched_id, method, [], entry.get('distance_km'), entry.get('duration_min'),
-                entry.get('hr_target'), entry.get('hr_zone'),
+                workout_id=entry.get('workout_id'),
+                schedule_id=entry.get('schedule_id'),
+                name=entry.get('name') or '',
+                sport=_sport(entry),
+                status=status,
+                matched_activity_id=matched_id,
+                match_method=method,
+                warnings=[],
+                planned_duration_min=duration,
+                hr_zone=f"Z{zone}" if zone else None,
             ))
         week_activities = [WeekActivity(
             activity.get('activity_id'), str(activity.get('date', '')), activity.get('type') or '',

@@ -43,6 +43,12 @@ def planned_duration_min(spec: dict) -> int | None:
         intervals_min = (num_intervals * work_sec + (num_intervals - 1) * (spec.get("rest_sec") or 0)) / 60
         return round((spec.get("warmup_min") or 0) + (spec.get("cooldown_min") or 0) + intervals_min)
 
+    if kind == "tempo_run":
+        tempo_min = spec.get("tempo_min")
+        if tempo_min is None:
+            return None
+        return round((spec.get("warmup_min") or 0) + tempo_min + (spec.get("cooldown_min") or 0))
+
     return None
 
 

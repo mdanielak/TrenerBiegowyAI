@@ -288,6 +288,17 @@ def test_week_shows_unconfigured_availability_ambiguous_message_and_links():
     assert 'href="/week"' in today_response.text
 
 
+def test_week_shows_planned_duration_and_zone_in_the_day_block():
+    report = _week_report()
+    report.days[0].workouts = [WeekWorkout(1, None, "Latwy 40 min - Z2", "running", "planned",
+                                            None, "unmatched", [],
+                                            planned_duration_min=40, hr_zone="Z2")]
+    with _week_client(report) as client:
+        response = client.get("/week")
+    assert "40 min" in response.text
+    assert 'class="zone-chip z2"' in response.text
+
+
 def test_sync_action_uses_csrf_and_redirects_to_dashboard(tmp_path):
     with TestClient(_action_app(tmp_path)) as client:
         token = _csrf(client)
@@ -952,6 +963,12 @@ def test_settings_marks_navigation_entry_as_current():
     with _settings_client() as client:
         response = client.get("/settings")
     assert 'href="/settings" aria-current="page"' in response.text
+
+
+def test_settings_shows_integrations_card_below_the_page_title():
+    with _settings_client() as client:
+        response = client.get("/settings")
+    assert response.text.index("<h1>Ustawienia</h1>") < response.text.index("<h2>Integracje</h2>")
 
 
 def _execution(**overrides):

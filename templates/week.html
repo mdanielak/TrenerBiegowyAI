@@ -160,11 +160,12 @@
                 <img class="asset day-block-icon" src="/assets/07_ui_icons/plan.png" width="64" height="64" alt="">
                 <span class="day-block-label"><span>Plan</span></span>
                 <span class="day-block-title">{{ workout.name or '—' }}</span>
-                <span class="day-block-meta">
-                  {% if workout.planned_distance_km is not none %}{{ workout.planned_distance_km }} km{% endif %}
-                  {% if workout.planned_duration_min is not none %}{{ workout.planned_duration_min|round|int }} min{% endif %}
-                  {% if workout.hr_zone %}{{ workout.hr_zone }}{% elif workout.hr_target %}{{ workout.hr_target }}{% endif %}
-                </span>
+                {% if workout.planned_duration_min is not none %}
+                  <span class="day-block-meta">{{ workout.planned_duration_min|round|int }} min</span>
+                {% endif %}
+                {% if workout.hr_zone %}
+                  <span class="day-block-meta"><span class="zone-chip {{ workout.hr_zone|lower }}">{{ workout.hr_zone }}</span></span>
+                {% endif %}
                 {% if workout.match_method == 'ambiguous' %}
                   <span class="day-block-meta">Nie można jednoznacznie przypisać wykonania.</span>
                 {% endif %}

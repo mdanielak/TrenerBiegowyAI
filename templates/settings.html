@@ -4,12 +4,6 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
-<section class="card" style="margin-bottom: 24px">
-  <div class="card-head">
-    <h2>Integracje</h2>
-    <a class="btn" href="/settings/ai">API AI →</a>
-  </div>
-</section>
 {% if error_message %}
 
   <div class="page-head">
@@ -34,6 +28,13 @@
   </div>
 
   <div class="stack">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Integracje</h2>
+        <a class="btn" href="/settings/ai">API AI →</a>
+      </div>
+    </section>
 
     <div class="banner info">
       {{ ico.info() }}

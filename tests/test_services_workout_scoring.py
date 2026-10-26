@@ -109,6 +109,15 @@ def test_planned_duration_for_unknown_kind_is_unknown():
     assert planned_duration_min({"kind": "unknown"}) is None
 
 
+def test_planned_duration_for_tempo_run_counts_warmup_and_cooldown():
+    assert planned_duration_min({'kind': 'tempo_run', 'tempo_min': 20,
+                                  'warmup_min': 10, 'cooldown_min': 10}) == 40
+
+
+def test_planned_duration_for_tempo_run_without_tempo_is_unknown():
+    assert planned_duration_min({'kind': 'tempo_run', 'warmup_min': 10}) is None
+
+
 def test_score_uses_calculated_easy_run_zoned_duration():
     planned = {"spec": {"kind": "easy_run_zoned", "zone_number": 2, "warmup_min": 6,
                          "main_min": 28, "cooldown_min": 4, "strides": 4,
