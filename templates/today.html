@@ -127,9 +127,12 @@
     <section class="card">
       <div class="card-head">
         <h2>{{ ico.runner(26) }}<span>Trening na dziś</span></h2>
-        {% if workout %}
-          <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
-        {% endif %}
+        <span class="row">
+          {% if workout %}
+            <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
+          {% endif %}
+          {% if plan_workout %}<a href="/plan">Plan tygodnia</a>{% endif %}
+        </span>
       </div>
 
       {% if not workout %}
@@ -240,6 +243,72 @@
 
         </div>
       {% endif %}
+
+      {% if plan_workout and (not workout or plan_workout.name != workout.name) %}
+        <div class="list-item">
+          <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png" width="28" height="28" alt=""></span>
+          <span class="item-body">
+            <span class="item-title">{{ plan_workout.name }}</span>
+            <span class="item-meta">
+              <span>Z planu AI</span>
+              {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min }} min</span>{% endif %}
+              {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km }} km</span>{% endif %}
+              {% if plan_workout.hr_zone %}<span>{{ plan_workout.hr_zone }}</span>{% endif %}
+              {% if plan_workout.pace_target %}<span>{{ plan_workout.pace_target }}</span>{% endif %}
+            </span>
+          </span>
+          <span class="item-side">
+            <a href="/plan">Plan tygodnia</a>
+          </span>
+        </div>
+        {% if plan_workout.garmin_upload %}
+          <p class="mid">Ten trening jest już na zegarku.</p>
+        {% else %}
+          <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.bulb(26) }}<span>Co dziś zrobić</span></h2>
+      </div>
+      {% if ai_recommendation %}
+        <div class="suggestion">
+          <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+          <div>
+            <p class="suggestion-title">{{ ai_recommendation.readiness_label }}</p>
+            <p class="suggestion-text">{{ ai_recommendation.recommendation }}</p>
+            {% if ai_recommendation.reasoning_summary %}
+              <p class="mid">{{ ai_recommendation.reasoning_summary }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% for warning in ai_recommendation.warnings %}
+          <div class="banner warn">
+            {{ ico.info() }}
+            <div class="banner-body">
+              <p class="banner-title">{{ warning }}</p>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="spread" style="align-items: flex-start">
+          <div class="suggestion" style="flex: 1 1 auto">
+            <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+            <div>
+              <p class="suggestion-title">Co dziś zrobić</p>
+              <p class="suggestion-text">{{ suggestion|capitalize }}.</p>
+            </div>
+          </div>
+          <form method="post" action="/actions/recommendation">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn-secondary">
+              {{ ico.bulb(18) }}<span>Zapytaj AI, co dziś zrobić</span>
+            </button>
+          </form>
+        </div>
+      {% endif %}
     </section>
 
     <div class="grid grid-2">
@@ -293,16 +362,8 @@
           <img class="asset" src="/assets/09_illustrations/running.png" width="176" height="138" alt="">
           <p>Wczoraj nie zarejestrowano żadnej aktywności.</p>
         </div>
-      {% endif %}
+{% endif %}
       </section>
-    </div>
-
-    <div class="suggestion">
-      <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
-      <div>
-        <p class="suggestion-title">Co dziś zrobić</p>
-        <p class="suggestion-text">{{ suggestion|capitalize }}.</p>
-      </div>
     </div>
 
     <footer>To nie jest porada medyczna. Decyzję o treningu podejmujesz sam.</footer>

@@ -27,9 +27,9 @@
         <img class="asset" src="/assets/01_navigation/home.png" width="34" height="34" alt=""><span>Strona główna</span>
       </a>
 
-      <span class="nav-item disabled" aria-disabled="true">
+      <a class="nav-item{% if active_nav == 'plan' %} active{% endif %}" href="/plan"{% if active_nav == 'plan' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/plan.png" width="34" height="34" alt=""><span>Plan treningowy</span>
-      </span>
+      </a>
 
       <a class="nav-item{% if active_nav == 'week' %} active{% endif %}" href="/week"{% if active_nav == 'week' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/calendar.png" width="34" height="34" alt=""><span>Kalendarz</span>

@@ -410,6 +410,14 @@
 
   .week-nav { display: flex; align-items: center; gap: 8px; }
 
+  /* Siatka planu: rodzaj treningu i gotowość obok siebie. */
+  .day-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* Słupki zaplanowanego czasu w tygodniu. */
+  .chart-bar { fill: var(--accent); }
+  .chart-bar.rest { fill: var(--border-strong); }
+  .chart-bar-value { fill: var(--fg-mid); font-size: 11px; font-weight: 600; }
+
   /* ===================== wykres liniowy ===================== */
 
   .chart { width: 100%; height: auto; display: block; overflow: visible; }

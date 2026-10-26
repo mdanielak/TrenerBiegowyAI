@@ -33,9 +33,11 @@ from api.formatters import (
     _format_minutes,
     _format_score,
     _format_sync_time,
+    _plan_workout_view,
     _raise_report_error,
     _readiness_chart,
     _readiness_pill,
+    _recommendation_view,
     _report_error,
     _ring_geometry,
     _signal_cards,
@@ -52,6 +54,7 @@ def get_dashboard_router(
     week_report_provider: Callable[[], WeekReport],
     profile_provider: Callable[[], dict],
     review_loader: Callable[..., Optional[dict]],
+    recommendation_loader: Callable[..., Optional[dict]],
     store: JobStore,
     now_provider: Callable[[], datetime],
     templates: Jinja2Templates,
@@ -89,6 +92,10 @@ def get_dashboard_router(
         token = csrf_token(request)
         now = now_provider()
         banner = _sync_banner(store, now)
+        try:
+            recommendation = recommendation_loader(date=report.date)
+        except OSError:
+            recommendation = None
         return attach_csrf(
             templates.TemplateResponse(
                 request=request,
@@ -112,6 +119,8 @@ def get_dashboard_router(
                     "signal_cards": _signal_cards(report),
                     "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
                     "workout": _workout_section(report, profile_provider, review_loader),
+                    "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None)),
+                    "ai_recommendation": _recommendation_view(recommendation),
                     "active_nav": "today",
                 },
                 headers={"Cache-Control": "no-store"},

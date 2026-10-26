@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from api.formatters import _PLAN_KIND_ICONS
 from api.main import _SIGNAL_META
 from services.assets import build_manifest
 
@@ -31,7 +32,12 @@ STATIC_ASSET_TAG = re.compile(
 DYNAMIC_SIGNAL_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/\{\{ *card\.asset *\}\}" width="(\d+)"'
 )
+DYNAMIC_PLAN_ICON_TAG = re.compile(
+    r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
+)
 ANY_ASSET_TAG = re.compile(r'<img class="asset[^"]*"[^>]*>')
+# Ikony rodzaju treningu wstawia model widoku planu, więc szablon podaje tylko rozmiar.
+PLAN_ICON_DISPLAY = 64
 
 
 def png_size(path: Path) -> tuple[int, int]:
@@ -76,6 +82,11 @@ def signal_references() -> list[str]:
     return sorted({meta["asset"] for meta in _SIGNAL_META.values() if meta.get("asset")})
 
 
+def plan_icon_references() -> list[str]:
+    """Zwraca referencje ikon rodzaju treningu wstawianych w siatce planu."""
+    return sorted({reference.removeprefix("/assets/") for reference in _PLAN_KIND_ICONS.values()})
+
+
 def display_sizes() -> dict[str, int]:
     """Zwraca największy rozmiar wyświetlania dla każdej używanej grafiki."""
     sizes: dict[str, int] = {}
@@ -84,6 +95,8 @@ def display_sizes() -> dict[str, int]:
     signal_size = signal_asset_size()
     for reference in signal_references():
         sizes[reference] = max(sizes.get(reference, 0), signal_size)
+    for reference in plan_icon_references():
+        sizes[reference] = max(sizes.get(reference, 0), PLAN_ICON_DISPLAY)
     return sizes
 
 
@@ -93,9 +106,15 @@ def test_templates_expose_expected_number_of_asset_tags() -> None:
         len(ANY_ASSET_TAG.findall(template.read_text(encoding="utf-8")))
         for template in template_files()
     )
-    matched = len(static_references()) + len(DYNAMIC_SIGNAL_TAG.findall(
-        (TEMPLATES_DIR / "today.html").read_text(encoding="utf-8")
-    ))
+    matched = (
+        len(static_references())
+        + len(DYNAMIC_SIGNAL_TAG.findall(
+            (TEMPLATES_DIR / "today.html").read_text(encoding="utf-8")
+        ))
+        + len(DYNAMIC_PLAN_ICON_TAG.findall(
+            (TEMPLATES_DIR / "plan.html").read_text(encoding="utf-8")
+        ))
+    )
 
     assert all_tags >= MIN_EXPECTED_TAGS, (
         f"Znaleziono tylko {all_tags} tagów grafik, oczekiwano co najmniej {MIN_EXPECTED_TAGS}."
@@ -126,6 +145,15 @@ def test_signal_references_are_served_by_manifest() -> None:
     missing = [reference for reference in signal_references() if reference not in manifest]
 
     assert not missing, "Grafiki sygnałów nieobecne w manifeście: " + ", ".join(missing)
+
+
+def test_plan_icons_are_served_by_manifest() -> None:
+    """Ikony rodzaju treningu wstawia Jinja, więc szablon ich nie weryfikuje."""
+    manifest = build_manifest(ASSETS_DIR)
+
+    missing = [reference for reference in plan_icon_references() if reference not in manifest]
+
+    assert not missing, "Grafiki ikon planu nieobecne w manifeście: " + ", ".join(missing)
 
 
 def test_declared_proportions_match_files() -> None:

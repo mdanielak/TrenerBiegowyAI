@@ -2,6 +2,34 @@
 
 Lokalne narzędzie do synchronizacji danych GarminDB, analizy gotowości i zarządzania treningami Garmin. Jedynym wspieranym entry pointem jest `python -m trainer` — na Linuxie, macOS i Windows.
 
+## Uruchom dashboard (frontend)
+
+Dashboard to lokalny serwer FastAPI z szablonami Jinja; dane bierze wyłącznie z tego komputera.
+
+**Windows** — kliknij dwukrotnie `start.bat` (albo w PowerShell `.\start.bat`). Skrypt sam znajdzie interpreter: `.venv\Scripts\python.exe`, a gdy go nie ma, `python` albo `py` z zainstalowanym `uvicorn`.
+
+**Linux / macOS** — `./start.sh` (wymaga `.venv`, patrz Instalacja).
+
+**Ręcznie, w dowolnym systemie:**
+
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8001
+```
+
+Po uruchomieniu otwórz **http://127.0.0.1:8001**:
+
+| Adres | Widok |
+| --- | --- |
+| `/` | strona główna: gotowość, sygnały, trening na dziś, rekomendacja AI |
+| `/plan` | plan tygodniowy: cel, obciążenie tygodnia, dzień po dniu, uwagi |
+| `/week` | kalendarz treningów z rejestru Garmina |
+| `/analysis` | rozkład pomiarów, z których liczona jest gotowość |
+| `/settings` | profil biegacza, tętno i forma, strefy tętna, cele oraz integracje (API AI) |
+
+Serwer działa tylko na `127.0.0.1` — nie ma go w sieci. Zatrzymanie: `Ctrl+C` w oknie terminala.
+
+Dashboard wymaga środowiska z `requirements.txt` oraz danych w katalogu `local/` — jeśli strona zgłasza brak profilu albo snapshotu, najpierw `python -m trainer setup` i `python -m trainer sync`.
+
 ## Instalacja
 
 **Linux / macOS**
@@ -32,6 +60,8 @@ Następnie uruchom `python -m trainer setup`. Kreator pobiera dane fizjologiczne
 python -m trainer setup
 python -m trainer sync
 python -m trainer today
+python -m trainer plan
+python -m trainer plan --show
 python -m trainer analyze
 python -m trainer analyze --ai
 python -m trainer zones --sync
@@ -46,16 +76,23 @@ python -m trainer privacy-check
 
 Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --fresh`. Dostępne są też podkomendy `sync`, `analyze`, `workouts`, `privacy-check` i `doctor`; sprawdź `python -m trainer --help` oraz pomoc wybranej podkomendy. Wynik synchronizacji może być częściowy — przed decyzją treningową sprawdź aktualność i kompletność snapshotu.
 
+### Plan tygodniowy
+
+`python -m trainer plan` układa plan na bieżący tydzień (pon–niedz): AI dostaje profil, dostępność dni, przerwy, ostatnie biegi i gotowość, a twarde reguły — dni wolne, okna minut, limit treningów jakościowych — egzekwuje lokalny kod. Plan zapisuje się w `training-plans/{YYYY-MM}/{d}-{d}.json` obok bliźniaczego pliku CSV.
+
+- `python -m trainer plan --show` wypisuje zapisany plan bez wywołania AI.
+- `python -m trainer plan --push` wysyła zapisany plan na zegarek (wymaga działającego logowania do Garmina).
+- `python -m trainer plan --week 2026-10-26` wybiera tydzień zawierający podaną datę.
+
+Generowanie planu wymaga włączonej zgody na eksport danych do AI (`AI_DATA_EXPORT_ENABLED=true` wraz z kluczem API). Ten sam plan można ułożyć i wysłać na zegarek z dashboardu.
+
 ## Lokalny dashboard
 
-Po przygotowaniu środowiska `.venv` i danych uruchom dashboard:
+Dashboard uruchamiasz skryptem `start.bat` (Windows) albo `./start.sh` (Linux / macOS) — pełna instrukcja jest na górze tego pliku. Skrypty korzystają z `.venv` właściwego dla danego systemu, nie wymagają jego aktywowania i nie wykonują synchronizacji.
 
-- **Linux / macOS:** `./start.sh`
-- **Windows:** kliknij dwukrotnie `start.bat` lub uruchom `.\start.bat` w PowerShell.
+Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
 
-Skrypty korzystają z `.venv` właściwego dla danego systemu, nie wymagają jego aktywowania i nie wykonują synchronizacji. Zatrzymanie serwera: `Ctrl+C`.
-
-Otwórz w przeglądarce [http://127.0.0.1:8001](http://127.0.0.1:8001). Widok tygodnia jest dostępny pod adresem [http://127.0.0.1:8001/week](http://127.0.0.1:8001/week). Serwer jest dostępny tylko z tego komputera. Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
+Na stronie planu przycisk „Ułóż plan” uruchamia układanie tygodnia w tle, a „Wyślij do Garmina” tworzy treningi na zegarku. Nawigacja „Poprzedni tydzień / Ten tydzień / Następny tydzień” przełącza wyświetlany tydzień; na stronie widać gotowość zmierzoną przez zegarek w danym dniu, zaplanowany czas w tygodniu i obciążenie poprzedniego tygodnia z zegarka. Na stronie głównej przycisk „Zapytaj AI, co dziś zrobić” zapisuje rekomendację dzienną na tym komputerze.
 
 ## Konfiguracja środowiska
 
@@ -102,7 +139,7 @@ Tokeny również są sekretami: zapewniają dostęp do konta. Biblioteka zapisuj
 
 ## Prywatność
 
-`local/` to prywatny stan runtime. Nie dodawaj do repozytorium danych Garmin, baz SQLite, plików FIT/TCX/GPX, tokenów, danych zdrowotnych ani `local/profile.json`. Ochronnie ignorowane są też legacyjne ścieżki `HealthData/`, `memory/`, główny `data_latest.json` oraz `training-plans/_garmin_workouts.jsonl`.
+`local/` to prywatny stan runtime. Nie dodawaj do repozytorium danych Garmin, baz SQLite, plików FIT/TCX/GPX, tokenów, danych zdrowotnych ani `local/profile.json`. Ochronnie ignorowane są też legacyjne ścieżki `HealthData/`, `memory/`, główny `data_latest.json` oraz `training-plans/_garmin_workouts.jsonl`. Wygenerowane plany tygodniowe (`training-plans/{YYYY-MM}/`) zawierają dane biegacza, więc również są ignorowane — śledzona pozostaje tylko strategia długoterminowa w `training-plans/long-term/`.
 
 Przed publikacją uruchom:
 

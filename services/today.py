@@ -7,6 +7,7 @@ from datetime import datetime
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
 from services.readiness import compute_readiness_breakdown, signal_trends
+from services.training_plan import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
 from trainer.profile_store import load_profile
@@ -33,6 +34,7 @@ class TodayReport:
     today_activities: list = field(default_factory=list)
     execution: dict | None = None
     active_pause: dict | None = None
+    plan_workout: dict | None = None
 
 
 def _today_registry_entries(today: str):
@@ -70,7 +72,8 @@ def _execution(*, workouts, today_activities, today):
     return execution
 
 
-def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now, active_pause: dict | None = None) -> TodayReport:
+def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now,
+                       active_pause: dict | None = None, plan_workout: dict | None = None) -> TodayReport:
     """Zbuduj raport wyłącznie z przekazanych danych, bez efektów ubocznych."""
     today = now.date().isoformat()
     yesterday = now.date().fromordinal(now.date().toordinal() - 1).isoformat()
@@ -95,6 +98,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         today_activities=[],
         execution=None,
         active_pause=active_pause,
+        plan_workout=plan_workout,
     )
     if empty.status != "ok":
         return empty
@@ -147,7 +151,22 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
             today=today,
         ),
         active_pause=active_pause,
+        plan_workout=plan_workout,
     )
+
+
+def _today_plan_workout(current):
+    """Trening z zapisanego planu AI na dziś; rejestr Garmina to osobne źródło."""
+    try:
+        plan = find_current_plan(current)
+    except (OSError, ValueError):
+        return None
+    if not plan:
+        return None
+    try:
+        return get_today_workout_from_plan(plan, current)
+    except (KeyError, TypeError):
+        return None
 
 
 def get_today_report(*, now=None) -> TodayReport:
@@ -171,4 +190,5 @@ def get_today_report(*, now=None) -> TodayReport:
         availability=availability,
         now=current,
         active_pause=active_pause,
+        plan_workout=_today_plan_workout(current),
     )

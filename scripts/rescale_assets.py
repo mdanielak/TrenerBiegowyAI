@@ -38,6 +38,9 @@ STATIC_ASSET_TAG = re.compile(
 DYNAMIC_SIGNAL_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/\{\{ *card\.asset *\}\}" width="(\d+)"'
 )
+DYNAMIC_PLAN_ICON_TAG = re.compile(
+    r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
+)
 ANY_ASSET_TAG = re.compile(r'<img class="asset[^"]*"[^>]*>')
 
 
@@ -54,6 +57,14 @@ def signal_references() -> list[str]:
     from api.main import _SIGNAL_META
 
     return sorted({meta["asset"] for meta in _SIGNAL_META.values() if meta.get("asset")})
+
+
+def plan_icon_references() -> list[str]:
+    """Return the training kind icons that Jinja inserts in the plan grid."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from api.formatters import _PLAN_KIND_ICONS
+
+    return sorted({reference.removeprefix("/assets/") for reference in _PLAN_KIND_ICONS.values()})
 
 
 def collect_targets() -> tuple[dict[str, int], list[str]]:
@@ -80,6 +91,17 @@ def collect_targets() -> tuple[dict[str, int], list[str]]:
     else:
         warnings.append(
             "no dynamic signal tag found in today.html, health signal images were skipped"
+        )
+
+    plan = (TEMPLATES_DIR / "plan.html").read_text(encoding="utf-8")
+    plan_sizes = [int(size) for size in DYNAMIC_PLAN_ICON_TAG.findall(plan)]
+    recognised += len(plan_sizes)
+    if plan_sizes:
+        for reference in plan_icon_references():
+            targets[reference] = max(targets.get(reference, 0), max(plan_sizes))
+    else:
+        warnings.append(
+            "no dynamic plan icon tag found in plan.html, training kind icons were skipped"
         )
 
     if recognised != total:

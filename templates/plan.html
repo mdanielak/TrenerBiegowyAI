@@ -1,0 +1,273 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — plan{% endblock %}
+
+{% block head_extra %}{% if plan_banner.refresh %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+
+{% if error_message %}
+  <div class="banner bad">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p>{{ error_message }}</p>
+      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<div class="page-head spread">
+  <div>
+    <h1>Plan treningowy</h1>
+    <p class="page-sub">{{ format_date(week_start) }} – {{ format_date(week_end) }}</p>
+    <div class="week-nav" style="margin-top: 12px">
+      <a class="btn btn-secondary" href="/plan?week={{ prev_week }}">Poprzedni tydzień</a>
+      {% if week_start != current_week %}
+        <a class="btn btn-secondary" href="/plan?week={{ current_week }}">Ten tydzień</a>
+      {% endif %}
+      <a class="btn btn-secondary" href="/plan?week={{ next_week }}">Następny tydzień</a>
+    </div>
+  </div>
+  <div class="week-nav">
+    <form method="post" action="/actions/plan">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="week_start" value="{{ week_start }}">
+      <button type="submit"{% if not ai_ready %} disabled{% endif %}>
+        {{ ico.calendar(18) }}<span>Ułóż plan</span>
+      </button>
+    </form>
+    {% if plan %}
+      <form method="post" action="/actions/plan/push">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="week_start" value="{{ week_start }}">
+        <button type="submit" class="btn-secondary">
+          {{ ico.watch(18) }}<span>Wyślij do Garmina</span>
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="stack">
+
+  {% if snapshot_stale %}
+    <div class="banner warn">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">{{ snapshot_warning }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if plan_banner.message %}
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">{{ plan_banner.message }}</p>
+        {% if plan_banner.details_url %}<p><a href="{{ plan_banner.details_url }}">Szczegóły</a></p>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if push_banner and push_banner.message %}
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">{{ push_banner.message }}</p>
+        {% if push_banner.details_url %}<p><a href="{{ push_banner.details_url }}">Szczegóły</a></p>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not ai_ready %}
+    <div class="banner warn">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">Generowanie planu wymaga włączenia wysyłania danych do AI — Ustawienia → API AI</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not plan %}
+
+    <section class="card">
+      <div class="empty-art">
+        <img class="asset" src="/assets/09_illustrations/training_plan.png" width="176" height="139" alt="">
+        <p>Nie ma jeszcze planu na ten tydzień.</p>
+      </div>
+    </section>
+
+  {% else %}
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.bulb(26) }}<span>Cel tygodnia</span></h2>
+      </div>
+      <div class="suggestion">
+        <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+        <div>
+          <p class="suggestion-title">{{ plan.focus or 'Plan tygodniowy' }}</p>
+          <p class="suggestion-text">{{ plan.summary or '—' }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.bar_chart(26) }}<span>Podsumowanie</span></h2>
+      </div>
+      <div class="grid grid-4">
+        <div class="tile">
+          <span class="tile-head">
+            <span class="icon-box sm info"><img class="asset" src="/assets/07_ui_icons/plan.png" width="20" height="20" alt=""></span>
+            <span class="tile-label"><span>Treningi</span></span>
+          </span>
+          <span class="tile-value">{{ plan.totals.sessions }}<span class="tile-unit">w tygodniu</span></span>
+          <span class="tile-foot">Dni z treningiem w tym planie</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-head">
+            <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+            <span class="tile-label"><span>Objętość</span></span>
+          </span>
+          <span class="tile-value">
+            {% if plan.totals.distance_km is not none %}{{ plan.totals.distance_km|round(1) }}<span class="tile-unit">km</span>
+            {%- else %}—{% endif %}
+          </span>
+          <span class="tile-foot">Suma dystansu z planu</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-head">
+            <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+            <span class="tile-label"><span>Czas</span></span>
+          </span>
+          <span class="tile-value">
+            {% if plan.totals.duration_min is not none %}{{ plan.totals.duration_min }}<span class="tile-unit">min</span>
+            {%- else %}—{% endif %}
+          </span>
+          <span class="tile-foot">Suma czasu treningów</span>
+        </div>
+
+        <div class="tile">
+          <span class="tile-head">
+            <span class="icon-box sm info">{{ ico.bolt(20) }}</span>
+            <span class="tile-label"><span>Treningi jakościowe</span></span>
+          </span>
+          <span class="tile-value">{{ plan.totals.quality_sessions }}<span class="tile-unit">z 1</span></span>
+          <span class="tile-foot">Limit z ustawień treningowych</span>
+        </div>
+      </div>
+
+      {% if load_chart %}
+        <svg class="chart" viewBox="0 0 {{ load_chart.width }} {{ load_chart.height }}" role="img"
+             aria-label="Zaplanowany czas treningowy dzień po dniu.">
+          {% for bar in load_chart.bars %}
+            <rect class="chart-bar{% if bar.is_rest or not bar.minutes %} rest{% endif %}"
+                  x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" rx="6"/>
+            {% if bar.minutes %}
+              <text class="chart-bar-value" x="{{ bar.x + bar.width // 2 }}" y="{{ bar.y - 6 }}" text-anchor="middle">{{ bar.minutes }}</text>
+            {% endif %}
+            <text class="chart-axis" x="{{ bar.x + bar.width // 2 }}" y="{{ load_chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
+          {% endfor %}
+        </svg>
+        <p class="tile-foot">Zaplanowany czas na dzień.</p>
+      {% else %}
+        <span class="tile-value">—</span>
+        <p class="tile-foot">Zaplanowany czas na dzień.</p>
+      {% endif %}
+
+      {% if plan_generated_at %}
+        <p class="mid">Plan ułożony {{ plan_generated_at }}.</p>
+      {% endif %}
+      {% if plan.previous %}
+        <p class="mid">Poprzedni tydzień z zegarka: {{ plan.previous.total_km }} km, {{ plan.previous.sessions }} treningów.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.calendar(26) }}<span>Dzień po dniu</span></h2>
+      </div>
+
+      <div class="week">
+        {% for plan_day in plan.days %}
+          <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}"
+               role="group" aria-label="{{ plan_day.weekday|capitalize }}, {{ format_date(plan_day.date) }}">
+            <div class="day-head">
+              <span class="day-name">{{ plan_day.weekday_short }}</span>
+              <span class="day-num">{{ plan_day.date[8:10]|int }}</span>
+              {% if plan_day.is_today %}<span class="day-today-tag">dzisiaj</span>{% endif %}
+            </div>
+
+            <div class="day-pills">
+              <span class="pill {{ plan_day.kind_pill }}">{{ plan_day.kind_label }}</span>
+              {% if plan_day.readiness %}
+                <span class="pill {{ plan_day.readiness.variant }}">{{ plan_day.readiness.score }} z {{ plan_day.readiness.max_score }}</span>
+              {% endif %}
+            </div>
+
+            <div class="day-block">
+              {% if plan_day.icon %}
+                <img class="asset day-block-icon" src="{{ plan_day.icon }}" width="64" height="64" alt="">
+              {% endif %}
+              <span class="day-block-title">{{ plan_day.name or '—' }}</span>
+              <span class="day-block-meta">
+                {% if plan_day.duration_min is not none %}{{ plan_day.duration_min }} min{% endif %}
+                {% if plan_day.distance_km is not none %}{{ plan_day.distance_km }} km{% endif %}
+              </span>
+              {% if plan_day.hr_zone or plan_day.pace_target %}
+                <span class="day-block-meta">
+                  {% if plan_day.hr_zone %}<span class="zone-chip {{ plan_day.hr_zone|lower }}">{{ plan_day.hr_zone }}</span>{% endif %}
+                  {% if plan_day.pace_target %}{{ plan_day.pace_target }}{% endif %}
+                </span>
+              {% endif %}
+              {% if plan_day.garmin_upload %}
+                <span class="day-block-meta">Wysłano na zegarek</span>
+              {% endif %}
+              {% if plan_day.available and plan_day.max_minutes %}
+                <span class="day-block-meta">Wolne {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="tile-foot">Gotowość zmierzona w {{ plan.measured_days }} z 7 dni.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.clipboard(26) }}<span>Uwagi do planu</span></h2>
+      </div>
+      <div class="list">
+        {% for plan_day in plan.days if plan_day.description or plan_day.notes %}
+          <div class="list-item">
+            <span class="item-icon">{{ ico.calendar(18) }}</span>
+            <span class="item-body">
+              <span class="item-title">{{ plan_day.name or '—' }}</span>
+              <span class="item-meta">
+                <span>{{ plan_day.weekday }}, {{ format_date(plan_day.date) }}</span>
+              </span>
+              {% if plan_day.description %}<span class="item-meta">{{ plan_day.description }}</span>{% endif %}
+              {% if plan_day.notes %}<span class="item-meta">{{ plan_day.notes }}</span>{% endif %}
+            </span>
+            {% if plan_day.hr_target %}
+              <span class="item-side">
+                <span class="item-strong">{{ plan_day.hr_target }}</span>
+                <span class="item-meta" style="justify-content: flex-end">strefa tętna</span>
+              </span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+  {% endif %}
+
+  <footer>To nie jest porada medyczna. Decyzję o treningu podejmujesz sam.</footer>
+
+</div>
+
+{% endblock %}

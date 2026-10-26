@@ -18,12 +18,15 @@ from fastapi.templating import Jinja2Templates
 from ai.connection_test import check_connection  # Re-exported for tests/api
 from services.actions import synchronize_data
 from services.assets import build_manifest
+from services.data_extract import read_snapshot_status
 from services.jobs import JobStore
+from services.recommendations import load_recommendation
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
 from trainer.ai_settings import ENV_PATH
 from trainer.logging_config import setup_logging
+from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
 
 from api.formatters import (  # Re-exported
@@ -37,10 +40,32 @@ from api.formatters import (  # Re-exported
 from api.routers.actions import get_actions_router
 from api.routers.assets import get_assets_router
 from api.routers.dashboard import get_dashboard_router
+from api.routers.plans import get_plans_router
 from api.routers.settings import get_settings_router
 
 logger = logging.getLogger(__name__)
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
+
+
+def load_plan_for_week(monday_iso: str) -> dict | None:
+    """Wczytaj zapisany plan tygodnia zawierającego podany poniedziałek."""
+    from services.plan import load_week_plan as loader
+
+    try:
+        anchor = datetime.fromisoformat(monday_iso)
+    except ValueError:
+        return None
+    return loader(anchor)
+
+
+def ai_settings_view(ai_env_path: Path) -> dict:
+    """Publiczny widok konfiguracji AI; nigdy nie zwraca klucza."""
+    from trainer.ai_settings import read_ai_settings as reader
+
+    try:
+        return reader(ai_env_path)
+    except (OSError, UnicodeError):
+        return {}
 
 
 def create_app(
@@ -55,6 +80,14 @@ def create_app(
     lock_directory=None,
     ai_env_path: Path = ENV_PATH,
     now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    plan_operation: Callable[..., dict] | None = None,
+    plan_push_operation: Callable[..., dict] | None = None,
+    recommendation_operation: Callable[..., dict] | None = None,
+    recommendation_loader: Callable[..., Optional[dict]] = load_recommendation,
+    plan_provider: Callable[[str], Optional[dict]] = load_plan_for_week,
+    availability_provider: Callable[[], dict] = get_weekly_availability,
+    ai_settings_provider: Callable[[], dict] | None = None,
+    snapshot_provider: Callable[[], object] = read_snapshot_status,
 ) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(Path("local/jobs"))
@@ -109,11 +142,26 @@ def create_app(
             week_report_provider=week_report_provider,
             profile_provider=profile_provider,
             review_loader=review_loader,
+            recommendation_loader=recommendation_loader,
             store=store,
             now_provider=now_provider,
             templates=_TEMPLATES,
             attach_csrf=attach_csrf,
             csrf_token=csrf_token,
+        )
+    )
+    app.include_router(
+        get_plans_router(
+            plan_provider=plan_provider,
+            profile_provider=profile_provider,
+            ai_settings_provider=ai_settings_provider or (lambda: ai_settings_view(ai_env_path)),
+            availability_provider=availability_provider,
+            store=store,
+            now_provider=now_provider,
+            templates=_TEMPLATES,
+            attach_csrf=attach_csrf,
+            csrf_token=csrf_token,
+            snapshot_provider=snapshot_provider,
         )
     )
     app.include_router(
@@ -138,6 +186,11 @@ def create_app(
             lock_directory=lock_directory,
             templates=_TEMPLATES,
             csrf_valid=csrf_valid,
+            plan_operation=plan_operation,
+            plan_push_operation=plan_push_operation,
+            recommendation_operation=recommendation_operation,
+            ai_settings_provider=ai_settings_provider or (lambda: ai_settings_view(ai_env_path)),
+            now_provider=now_provider,
         )
     )
 
