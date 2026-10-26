@@ -22,9 +22,15 @@ _ACTIVE_STATUSES = frozenset({"accepted", "running"})
 _SAFE_OPERATION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{20,}$")
 _GENERIC_FAILURE = "Operacja nie powiodła się."
+PLAN_AI_DISABLED_MESSAGE = "Generowanie planu wymaga włączenia wysyłania danych do AI."
+PLAN_NO_PLAN_MESSAGE = "Najpierw ułóż plan na ten tydzień."
+GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego logowania."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
     _GENERIC_FAILURE,
     "Operacja już trwa. Spróbuj ponownie za chwilę.",
+    PLAN_AI_DISABLED_MESSAGE,
+    PLAN_NO_PLAN_MESSAGE,
+    GARMIN_LOGIN_REQUIRED_MESSAGE,
 })
 
 

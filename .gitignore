@@ -67,6 +67,9 @@ desktop.ini
 *.crt
 runner_profile.local.json
 
+# Generated weekly training plans hold private volume, zones and dates
+training-plans/[0-9][0-9][0-9][0-9]-[0-9][0-9]/
+
 # Local Garmin upload registry and agent memory
 training-plans/_garmin_workouts.jsonl
 training-plans/_garmin_workouts*.jsonl

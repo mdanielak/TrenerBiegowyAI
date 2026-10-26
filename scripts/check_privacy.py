@@ -31,6 +31,8 @@ def privacy_reason(path: str) -> str | None:
         return "legacy private runtime data"
     if "memory" in parts:
         return "agent memory"
+    if "training-plans" in parts and any(re.fullmatch(r"\d{4}-\d{2}", part) for part in parts):
+        return "athlete training plan"
     if any(part in {"healthdata", "garminDb".lower(), ".garmindb"} for part in parts):
         return "Garmin private data"
     if name.startswith("_garmin_workouts") and name.endswith(".jsonl"):

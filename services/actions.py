@@ -1,11 +1,21 @@
 """Wykonawcy mutujących operacji uruchamianych jako zadania w tle."""
 from __future__ import annotations
 
-from services.jobs import JobStore
+from datetime import datetime
+
+from services.jobs import (
+    GARMIN_LOGIN_REQUIRED_MESSAGE,
+    JobStore,
+    PLAN_AI_DISABLED_MESSAGE,
+    PLAN_NO_PLAN_MESSAGE,
+)
 from services.locking import LockBusyError, acquire_lock
+from services.plan import as_datetime
 
 
 SYNC_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
+SNAPSHOT_MISSING_MESSAGE = "Brakuje lokalnego snapshotu danych. Uruchom: python -m trainer sync"
+PLAN_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
 
 
 def synchronize_data(*, fresh=False):
@@ -99,6 +109,195 @@ def run_review_job(*, store, job_id, review_key, operation, lock_directory=None)
             operation(review_key=review_key)
     except LockBusyError:
         return store.mark_failed(job_id, message=REVIEW_BUSY_MESSAGE)
+    except ValueError as exc:
+        return store.mark_failed(job_id, message=str(exc))
+    except Exception:
+        return store.mark_failed(job_id)
+    return store.mark_succeeded(job_id)
+
+
+# --- Plan tygodniowy ---------------------------------------------------------
+
+
+def _require_ai_consent():
+    """Sprawdź bramkę zgody na wysyłanie danych do AI."""
+    from trainer import config
+
+    if not config.AI_DATA_EXPORT_ENABLED or not config.AI_API_KEY:
+        raise ValueError(PLAN_AI_DISABLED_MESSAGE)
+
+
+def generate_week_plan(*, week_start=None, provider_factory=None, save=None, today=None) -> dict:
+    """Ułóż tydzień treningowy przez AI, popraw go regułami i zapisz."""
+    from services import plan as plan_service
+    from services.data_extract import SnapshotStatus, read_snapshot_status
+    from trainer.preferences import load_preferences
+    from trainer.profile_store import load_profile
+
+    snapshot = read_snapshot_status()
+    if snapshot.status is SnapshotStatus.MISSING:
+        raise ValueError(SNAPSHOT_MISSING_MESSAGE)
+
+    _require_ai_consent()
+
+    current = as_datetime(today) or datetime.now()
+    anchor = as_datetime(week_start) or current
+    profile = load_profile()
+    preferences = load_preferences()
+    context = plan_service.build_plan_context(
+        snapshot_data=snapshot.data,
+        profile=profile,
+        preferences=preferences,
+        today=current,
+        week_start=anchor,
+        snapshot_status=snapshot.status.value,
+        snapshot_timestamp=(snapshot.data or {}).get("timestamp"),
+    )
+
+    if provider_factory is None:
+        from ai.openai_compatible import OpenAICompatibleProvider
+        from trainer import config
+        provider = OpenAICompatibleProvider(config.AI_BASE_URL, config.AI_API_KEY, config.AI_MODEL)
+    else:
+        provider = provider_factory()
+
+    from ai.plan_generation import generate_week_plan as generate_response
+    response = generate_response(provider, context)
+
+    normalized = plan_service.normalize_plan(response, context=context)
+    if save is None:
+        save = plan_service.save_plan
+    save(normalized)
+    return normalized
+
+
+def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None, lock_directory=None):
+    """Wykonaj układanie planu pod blokadą i zapisz stan zadania."""
+    store.mark_running(job_id)
+    try:
+        with acquire_lock(name="plan", directory=lock_directory):
+            operation(week_start=week_start)
+    except LockBusyError:
+        return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
+    except ValueError as exc:
+        return store.mark_failed(job_id, message=str(exc))
+    except Exception:
+        return store.mark_failed(job_id)
+    return store.mark_succeeded(job_id)
+
+
+def _garmin_workout_creator():
+    """Zwróż fabrykę treningów działającą na jednej sesji Garmina."""
+    from trainer.workouts import GarminWorkout, build_workout
+
+    state = {"session": None}
+
+    def create(kind, name, **kwargs):
+        if state["session"] is None:
+            state["session"] = GarminWorkout().login()
+        return build_workout(state["session"], kind, name, **kwargs)
+
+    return create
+
+
+def push_plan_to_garmin(*, week_start=None, workout_factory=None) -> dict:
+    """Wyślij zapisany plan na zegarek; każdy udany trening zapisujesz od razu."""
+    from services import plan as plan_service
+
+    anchor = as_datetime(week_start) or datetime.now()
+    plan = plan_service.load_week_plan(anchor)
+    if plan is None:
+        raise ValueError(PLAN_NO_PLAN_MESSAGE)
+
+    create = workout_factory if workout_factory is not None else _garmin_workout_creator()
+
+    created = []
+    skipped = 0
+    for workout in plan.get("workouts", []):
+        if workout.get("garmin_upload"):
+            skipped += 1
+            continue
+        mapped = plan_service.plan_workout_to_garmin(workout)
+        if mapped is None:
+            skipped += 1
+            continue
+        kind, kwargs = mapped
+        workout_id = create(kind, workout.get("name") or "Trening", **kwargs)
+        workout["garmin_upload"] = True
+        workout["garmin_workout_id"] = workout_id
+        created.append(workout_id)
+        plan_service.save_plan(plan)
+    return {"created": created, "skipped": skipped}
+
+
+def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_start=None,
+                      lock_directory=None):
+    """Wykonaj wysyłkę planu do Garmina pod blokadą i zapisz stan zadania."""
+    store.mark_running(job_id)
+    try:
+        with acquire_lock(name="plan-push", directory=lock_directory):
+            operation(week_start=week_start)
+    except LockBusyError:
+        return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
+    except ValueError as exc:
+        return store.mark_failed(job_id, message=str(exc))
+    except Exception as exc:
+        if type(exc).__name__ == "GarminAuthError":
+            return store.mark_failed(job_id, message=GARMIN_LOGIN_REQUIRED_MESSAGE)
+        return store.mark_failed(job_id)
+    return store.mark_succeeded(job_id)
+
+
+def generate_daily_recommendation(*, provider_factory=None, save=None, today=None) -> dict:
+    """Policz rekomendację AI na dziś i zapisz ją lokalnie."""
+    from ai.context import build_training_context
+    from services import plan as plan_service
+    from services.data_extract import SnapshotStatus, read_snapshot_status
+    from services.recommendations import save_recommendation
+
+    snapshot = read_snapshot_status()
+    if snapshot.status is SnapshotStatus.MISSING:
+        raise ValueError(SNAPSHOT_MISSING_MESSAGE)
+
+    _require_ai_consent()
+
+    current = as_datetime(today) or datetime.now()
+    plan = plan_service.load_week_plan(current)
+    context = build_training_context(snapshot.data, plan=plan, today=current)
+
+    if provider_factory is None:
+        from ai.openai_compatible import OpenAICompatibleProvider
+        from trainer import config
+        provider = OpenAICompatibleProvider(config.AI_BASE_URL, config.AI_API_KEY, config.AI_MODEL)
+    else:
+        provider = provider_factory()
+
+    from ai.recommendation import get_daily_recommendation
+    recommendation = get_daily_recommendation(provider, context)
+
+    result = {
+        "readiness": recommendation.readiness,
+        "recommendation": recommendation.recommendation,
+        "planned_workout": recommendation.planned_workout,
+        "adjustment_needed": recommendation.adjustment_needed,
+        "reasoning_summary": recommendation.reasoning_summary,
+        "warnings": list(recommendation.warnings or []),
+    }
+    if save is None:
+        save = save_recommendation
+    save(date=current.date().isoformat(), recommendation=result)
+    return result
+
+
+def run_recommendation_job(*, store, job_id, operation=generate_daily_recommendation,
+                           lock_directory=None):
+    """Wykonaj rekomendację dzienną pod blokadą i zapisz stan zadania."""
+    store.mark_running(job_id)
+    try:
+        with acquire_lock(name="recommendation", directory=lock_directory):
+            operation()
+    except LockBusyError:
+        return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
     except Exception:

@@ -16,6 +16,7 @@ class PrivacyPathMatchingTests(unittest.TestCase):
             "training-plans/_garmin_workouts.jsonl": "Garmin workout registry",
             "data_latest.json": "legacy private runtime data",
             "memory/history.json": "agent memory",
+            "training-plans/2026-10/26-1.json": "athlete training plan",
         }
         for path, expected in cases.items():
             with self.subTest(path=path):

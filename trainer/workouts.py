@@ -588,9 +588,12 @@ def _iso_date(value):
     return value
 
 
-def create_workout(kind, name, **kwargs):
-    """Zaloguj się i utwórz trening opisany przez jawne argumenty."""
-    gw = GarminWorkout().login()
+def build_workout(gw, kind, name, **kwargs) -> int:
+    """Zbuduj trening na gotowej instancji GarminWorkout i zwróć jego identyfikator.
+
+    Nie loguje do Garmina — dzięki temu cały plan tygodnia powstaje w jednej
+    sesji zamiast osobnego logowania dla każdego treningu.
+    """
     builders = {
         'easy': lambda: gw.easy_run(name, kwargs['minutes'], kwargs['date']),
         'tempo': lambda: gw.tempo_run(name, kwargs['minutes'], kwargs['pace_from'],
@@ -615,6 +618,11 @@ def create_workout(kind, name, **kwargs):
             cooldown_min=kwargs.get('cooldown_min', 0)),
     }
     return builders[kind]()
+
+
+def create_workout(kind, name, **kwargs):
+    """Zaloguj się i utwórz trening opisany przez jawne argumenty."""
+    return build_workout(GarminWorkout().login(), kind, name, **kwargs)
 
 
 def legacy_main(argv=None):
