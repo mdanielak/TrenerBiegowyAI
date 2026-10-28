@@ -85,3 +85,6 @@ GarminDB/.vscode/
 GarminDB/Jupyter/.ipynb_checkpoints/
 GarminDB/__pycache__/
 GarminDB/garmindb/__pycache__/
+
+# Generated code graph (graphify) — local analysis output
+graphify-out/

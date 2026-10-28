@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import tomllib
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -45,6 +46,15 @@ from api.routers.settings import get_settings_router
 
 logger = logging.getLogger(__name__)
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
+
+
+def _app_version() -> str:
+    """Wersja aplikacji z `pyproject.toml` — jedno źródło prawdy dla CLI i API."""
+    try:
+        with (Path(__file__).resolve().parents[1] / "pyproject.toml").open("rb") as handle:
+            return tomllib.load(handle)["project"]["version"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return "unknown"
 
 
 def load_plan_for_week(monday_iso: str) -> dict | None:
@@ -110,7 +120,7 @@ def create_app(
     app = FastAPI(
         title="Trener Biegowy AI",
         description="Local running training dashboard",
-        version="0.1.0",
+        version=_app_version(),
         lifespan=lifespan,
     )
 

@@ -16,6 +16,13 @@ Struktura:
 - 10_sports_weather — sport i pogoda
 - source_sheets — oryginalne plansze źródłowe
 
+Dodatkowe assety (v2):
+- readiness — osobne wskaźniki gotowości 1–10 + wariant brak danych
+- branding — osobne warianty logo i znaku aplikacji
+- `_sheet_readiness_full.png`, `_sheet_branding_full.png` — pełne arkusze źródłowe
+
+Pliki v2 to wycięcia z wygenerowanych plansz assetów i również mają przezroczyste tło.
+
 ## Pliki
 
 - `00_mockups/01_dzisiaj.png` — 1536×1024px
