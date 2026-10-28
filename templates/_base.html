@@ -43,16 +43,19 @@
         <img class="asset" src="/assets/01_navigation/analysis.png" width="34" height="34" alt=""><span>Analiza</span>
       </a>
 
-      <span class="nav-item disabled" aria-disabled="true">
-        <img class="asset" src="/assets/01_navigation/watch.png" width="34" height="34" alt=""><span>Sprzęt</span>
-      </span>
+      <a class="nav-item{% if active_nav == 'journal' %} active{% endif %}" href="/journal"{% if active_nav == 'journal' %} aria-current="page"{% endif %}>
+        <img class="asset" src="/assets/07_ui_icons/plan.png" width="34" height="34" alt=""><span>Dziennik</span>
+      </a>
+
+      <a class="nav-item{% if active_nav == 'goal' %} active{% endif %}" href="/goal"{% if active_nav == 'goal' %} aria-current="page"{% endif %}>
+        <img class="asset" src="/assets/03_activity/trail_run.png" width="34" height="34" alt=""><span>Cel</span>
+      </a>
 
       <a class="nav-item{% if active_nav == 'settings' %} active{% endif %}" href="/settings"{% if active_nav == 'settings' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/settings.png" width="34" height="34" alt=""><span>Ustawienia</span>
       </a>
     </nav>
 
-    <p class="nav-note">Przygaszone pozycje jeszcze nie działają. Dodamy je w kolejnych wersjach.</p>
   </aside>
 
   <main class="main">

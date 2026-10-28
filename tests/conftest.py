@@ -91,3 +91,11 @@ def testclient_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
         return server, client
 
     monkeypatch.setattr(socket, "socketpair", socketpair)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_journal(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Testy nigdy nie czytają ani nie piszą prawdziwego local/journal.jsonl."""
+    path = tmp_path_factory.mktemp("journal") / "journal.jsonl"
+    monkeypatch.setattr("services.journal.JOURNAL_PATH", path)
+    monkeypatch.setattr("api.main.JOURNAL_PATH", path, raising=False)

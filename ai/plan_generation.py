@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from ai.context import journal_lines
+from services.strategy import STRATEGY_PATH
 from trainer.config import IMPORTANT_PROMPT, PROJECT_ROOT
 
 
@@ -107,7 +109,10 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 8. Nie stosuj wartości domyślnych w miejscu nieznanych danych. Brak wartości oznacz `null`.
 9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu.
 10. Wszystkie teksty, także `name`, pisz poprawną polszczyzną z polskimi znakami
-   (np. "Łatwy 40 min – Z2", nie "Latwy 40 min - Z2"), nawet jeśli wcześniejsze treningi ich nie mają."""
+   (np. "Łatwy 40 min – Z2", nie "Latwy 40 min - Z2"), nawet jeśli wcześniejsze treningi ich nie mają.
+11. Ból zgłoszony w sekcji DZIENNIK ma pierwszeństwo przed metrykami: przez kolejne dni nie planuj
+   akcentu ani długiego biegu, a przy narastającym bólu zaleć przerwę i konsultację ze specjalistą.
+12. Sekcja TRENDY pokazuje kierunek z wielu tygodni; pojedynczy dzień nie powinien go przeważać."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
 Zwróć obiekt JSON o dokładnie takich kluczach:
@@ -140,7 +145,7 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
 
 def build_system_prompt(*, important_prompt_path=IMPORTANT_PROMPT,
                         rules_path=PROJECT_ROOT / "docs" / "TRAINING_RULES.md",
-                        strategy_path=PROJECT_ROOT / "training-plans" / "long-term" / "half-marathon-2027.md") -> str:
+                        strategy_path=STRATEGY_PATH) -> str:
     """Zbuduj prompt systemowy: ważne zasady, reguły treningu i strategia długoterminowa."""
     sections = []
 
@@ -201,6 +206,28 @@ def _readiness_rows(readiness_history) -> list[str]:
         score = entry.get("score")
         points = "brak" if score is None else f"{_value(score)} z 10"
         rows.append(f"- {_value(entry.get('date'))}: {points}, poziom {_value(entry.get('level'))}")
+    return rows
+
+
+_TREND_LABELS = {"readiness": ("gotowość", "/10"), "rhr": ("tętno spoczynkowe", " bpm"),
+                 "hrv": ("HRV ostatniej nocy", " ms"), "sleep": ("ocena snu", "/100")}
+_DIRECTIONS = {"up": "wyżej", "down": "niżej", "flat": "bez zmian"}
+
+
+def _trend_rows(trends) -> list[str]:
+    metrics = (trends or {}).get("metrics") or {}
+    rows = []
+    for key, (label, unit) in _TREND_LABELS.items():
+        metric = metrics.get(key) or {}
+        if metric.get("recent") is None or metric.get("average") is None:
+            rows.append(f"- {label}: brak pomiarów")
+            continue
+        rows.append(f"- {label}: {_value(metric['recent'])}{unit} wobec {_value(metric['average'])}{unit} "
+                    f"({_DIRECTIONS.get(metric.get('direction'), 'brak')})")
+    weekly = (trends or {}).get("weekly_km") or []
+    # Średnik, bo liczby mają przecinek dziesiętny.
+    rows.append("- km w ostatnich pełnych tygodniach (od najstarszego): "
+                + ("; ".join(_value(km) for km in weekly) or "brak"))
     return rows
 
 
@@ -271,6 +298,14 @@ def build_plan_message(context: dict) -> str:
     if alert:
         lines.append(f"- ALERT HRV: HRV niskie od {_value(alert.get('days'))} dni, "
                      f"statusy {_value(alert.get('statuses'))}")
+    lines.append("")
+
+    lines.append("TRENDY (średnia z 7 dni wobec 12 tygodni)")
+    lines.extend(_trend_rows(context.get("trends")))
+    lines.append("")
+
+    lines.append("DZIENNIK (ostatnie 7 dni)")
+    lines.extend(journal_lines(context.get("journal")))
     lines.append("")
 
     lines.append("ZAKRES DAT")

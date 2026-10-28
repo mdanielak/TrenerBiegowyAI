@@ -1,0 +1,114 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — dziennik{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+
+  <div class="page-head">
+    <div>
+      <h1>Dziennik</h1>
+      <p class="page-sub">Jak się czujesz, jak ciężki był trening i czy coś boli. Wpisy zostają na tym komputerze.</p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    {% if error_message %}
+      <div class="banner bad" role="alert">
+        {{ ico.info() }}
+        <div class="banner-body"><p class="banner-title">{{ error_message }}</p></div>
+      </div>
+    {% endif %}
+    {% if saved %}
+      <div class="banner info" role="status">
+        {{ ico.check() }}
+        <div class="banner-body"><p class="banner-title">Zapisano wpis.</p></div>
+      </div>
+    {% endif %}
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.clipboard(26) }}<span>Nowy wpis</span></h2>
+      </div>
+      <form method="post" action="/journal" class="stack form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <label class="field">Dzień
+          <input class="text-input" type="date" name="date" value="{{ form.date }}" min="{{ earliest }}" max="{{ today }}" required>
+        </label>
+
+        <fieldset class="field-group">
+          <legend>Jak się czujesz?</legend>
+          {% for key, label in feelings.items() %}
+            <label class="choice"><input type="radio" name="feeling" value="{{ key }}"{% if form.feeling == key %} checked{% endif %} required> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+
+        <label class="field">Wysiłek ostatniego treningu (RPE 1–10, opcjonalnie)
+          <input class="text-input narrow" type="number" name="rpe" min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">
+        </label>
+
+        <fieldset class="field-group">
+          <legend>Ból — zaznacz, jeśli coś boli</legend>
+          {% for key, label in pain_areas.items() %}
+            <label class="choice"><input type="checkbox" name="pain" value="{{ key }}"{% if key in (form.pain or []) %} checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+
+        <label class="field">Opis bólu (opcjonalnie)
+          <input class="text-input" type="text" name="pain_note" maxlength="120" value="{{ form.pain_note or '' }}" placeholder="np. lekko przy zbieganiu">
+        </label>
+
+        <label class="field">Notatka (opcjonalnie)
+          <textarea class="text-input" name="note" maxlength="300" rows="3" placeholder="Sen, stres, cokolwiek ważnego tego dnia">{{ form.note or '' }}</textarea>
+        </label>
+
+        <div class="row">
+          <button type="submit" class="btn">{{ ico.check(18) }}<span>Zapisz wpis</span></button>
+          <span class="tile-foot">Ponowny wpis z tego samego dnia zastępuje poprzedni.</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.calendar(26) }}<span>Ostatnie 14 dni</span></h2>
+      </div>
+      {% if entries %}
+        <div class="list">
+          {% for entry in entries %}
+            <div class="list-item">
+              <span class="item-body">
+                <span class="item-title">{{ entry.date_label }}</span>
+                <span class="item-meta">
+                  <span>samopoczucie: {{ entry.feeling_label }}</span>
+                  <span>RPE: {{ entry.rpe if entry.rpe is not none else '—' }}</span>
+                  {% if entry.note %}<span>{{ entry.note }}</span>{% endif %}
+                </span>
+              </span>
+              <span class="item-side">
+                {% if entry.pain_labels %}
+                  <span class="pill bad">ból: {{ entry.pain_labels|join(', ') }}</span>
+                  {% if entry.pain_note %}<span class="item-meta">{{ entry.pain_note }}</span>{% endif %}
+                {% else %}
+                  <span class="pill ok">bez bólu</span>
+                {% endif %}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-art compact">
+          <img class="asset" src="/assets/07_ui_icons/plan.png" width="64" height="64" alt="">
+          <p>Nie ma jeszcze wpisów. Pierwszy wpis zajmuje kilka sekund.</p>
+        </div>
+      {% endif %}
+      <p class="tile-foot">Gdy wysyłanie danych do AI jest włączone, podsumowanie ostatnich 7 dni (samopoczucie, RPE, ból, krótkie notatki) trafia do układania planu i rekomendacji dziennej.</p>
+    </section>
+
+    <footer>To nie jest porada medyczna. Przy narastającym bólu przerwij trening i skonsultuj się ze specjalistą.</footer>
+
+  </div>
+
+{% endblock %}

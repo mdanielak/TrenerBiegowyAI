@@ -1,0 +1,127 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — cel{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+{% if error_message %}
+
+  <div class="page-head">
+    <h1>Nie można pokazać celu</h1>
+  </div>
+  <div class="banner bad">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p>{{ error_message }}</p>
+      {% if error_hint %}<p class="mid">Sprawdź: <code>{{ error_hint }}</code></p>{% endif %}
+      <p><a href="/">Wróć do widoku dnia</a></p>
+    </div>
+  </div>
+
+{% else %}
+
+  <div class="page-head">
+    <div>
+      <h1>{{ goal.title or 'Cel długoterminowy' }}</h1>
+      <p class="page-sub">
+        {% if goal.target_label %}Start {{ goal.target_label }}{% endif %}
+        {% if goal.days_left is not none and goal.days_left >= 0 %} · za {{ goal.days_left }} {{ goal.days_word }}{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <div class="grid grid-4">
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+          <span class="tile-label"><span>Czas docelowy</span></span>
+        </span>
+        <span class="tile-value">{{ goal.target_time or '—' }}</span>
+        <span class="tile-foot">Z profilu biegacza</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.runner(20) }}</span>
+          <span class="tile-label"><span>Wymagane tempo</span></span>
+        </span>
+        <span class="tile-value">{% if goal.target_pace %}{{ goal.target_pace }}<span class="tile-unit">/km</span>{% else %}—{% endif %}</span>
+        <span class="tile-foot">Średnio na 21,1 km</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.check(20) }}</span>
+          <span class="tile-label"><span>Obecny rekord</span></span>
+        </span>
+        <span class="tile-value">{{ goal.record or '—' }}</span>
+        <span class="tile-foot">Półmaraton</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.calendar(20) }}</span>
+          <span class="tile-label"><span>Bieżąca faza</span></span>
+        </span>
+        <span class="tile-value goal-phase">{{ goal.current or '—' }}</span>
+        <span class="tile-foot">{% if goal.week_number %}Tydzień {{ goal.week_number }} z {{ goal.total_weeks }}{% else %}Poza fazami strategii{% endif %}</span>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.calendar(26) }}<span>Fazy przygotowań</span></h2>
+      </div>
+      {% set track = goal.timeline %}
+      {% if track %}
+        <svg class="chart metric-chart" viewBox="0 0 {{ track.width }} {{ track.height }}" role="img"
+             aria-label="Fazy strategii na osi czasu{% if goal.current %}; teraz: {{ goal.current }}{% endif %}.">
+          {% for segment in track.segments %}
+            <rect class="phase-seg {{ segment.state }}" x="{{ segment.x }}" y="{{ track.y }}" width="{{ segment.width }}" height="{{ track.bar }}" rx="5"/>
+            <text class="phase-num {{ segment.state }}" x="{{ segment.center }}" y="{{ track.text_y }}" text-anchor="middle">{{ segment.number }}</text>
+          {% endfor %}
+          {% if track.marker is not none %}
+            <line class="phase-marker" x1="{{ track.marker }}" x2="{{ track.marker }}" y1="2" y2="{{ track.y + track.bar + 8 }}"/>
+          {% endif %}
+        </svg>
+      {% endif %}
+      <div class="list">
+        {% for phase in goal.phases %}
+          <div class="list-item">
+            <span class="zone-chip lead {{ 'z2' if phase.is_current else '' }}">{{ phase.number }}</span>
+            <span class="item-body">
+              <span class="item-title">{{ phase.name }}</span>
+              <span class="item-meta"><span>{{ phase.dates }}</span></span>
+            </span>
+            <span class="item-side">
+              {% if phase.is_current %}<span class="pill info">jesteś tu · tydzień {{ goal.week_number }} z {{ goal.total_weeks }}</span>
+              {% elif phase.is_past %}<span class="pill neutral">za Tobą</span>{% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.check(26) }}<span>Kryteria gotowości</span></h2>
+      </div>
+      <div class="list">
+        {% for criterion in goal.criteria %}
+          <div class="list-item">
+            <span class="item-body">
+              <span class="item-title">{{ criterion.label }}</span>
+              <span class="item-meta"><span>cel: {{ criterion.target }}</span><span>{{ criterion.actual }}</span></span>
+            </span>
+            <span class="item-side"><span class="pill {{ criterion.state }}">{{ criterion.state_label }}</span></span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="tile-foot">Kryteria są przybliżone: snapshot zawiera całe aktywności bez splitów, więc „test 10 km” to najszybszy bieg o długości około 10 km z ostatnich 120 dni.</p>
+    </section>
+
+    <footer>To nie jest porada medyczna. Strategia pochodzi z pliku <code>training-plans/long-term/half-marathon-2027.md</code>.</footer>
+
+  </div>
+
+{% endif %}
+{% endblock %}

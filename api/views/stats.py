@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from api.views.common import _MONTHS_GENITIVE, _format_number
+from services.stats import trend_direction
 
 _CHART_WIDTH = 760
 # Wykres tygodni zajmuje całą kartę, więc szerszy viewBox trzyma etykiety przy ok. 11 px.
@@ -14,8 +15,6 @@ _PAD_LEFT = 36
 _PAD_RIGHT = 14
 _PAD_TOP = 18
 _PAD_BOTTOM = 28
-# Różnica ostatnich 7 dni od średniej mniejsza niż ten ułamek to „bez zmian”.
-_FLAT_THRESHOLD = 0.03
 
 _METRIC_META = {
     "readiness": {"label": "Gotowość", "unit": "/10", "domain": (0, 10), "asset": "02_health_status/readiness.png",
@@ -52,14 +51,24 @@ def _weekly_chart(weekly) -> dict | None:
         return None
     inner_width, inner_height = _inner(_WEEKLY_WIDTH)
     baseline = _PAD_TOP + inner_height
-    peak = max(week.distance_km for week in weekly)
+    # Skala obejmuje też górną granicę zakresu fazy, żeby pas strategii się mieścił.
+    peak = max([week.distance_km for week in weekly] + [week.phase_km[1] for week in weekly if week.phase_km])
     slot = inner_width / len(weekly)
+
+    def y_of(km):
+        return round(baseline - inner_height * km / peak, 2)
+
     bar_width = round(min(slot * 0.62, 56), 2)
     bars = []
     for index, week in enumerate(weekly):
         height = round(inner_height * week.distance_km / peak, 2) if week.distance_km else 0
         center = _PAD_LEFT + slot * index + slot / 2
+        band = None
+        if week.phase_km:
+            band = {"x": round(center - slot * 0.42, 2), "width": round(slot * 0.84, 2),
+                    "y": y_of(week.phase_km[1]), "height": round(y_of(week.phase_km[0]) - y_of(week.phase_km[1]), 2)}
         bars.append({
+            "band": band,
             "x": round(center - bar_width / 2, 2),
             "center": round(center, 2),
             "y": round(baseline - height, 2),
@@ -78,7 +87,66 @@ def _weekly_chart(weekly) -> dict | None:
         "grid_start": _PAD_LEFT,
         "grid_end": _WEEKLY_WIDTH - _PAD_RIGHT,
         "bars": bars,
+        "has_bands": any(bar["band"] for bar in bars),
     }
+
+
+def _range_text(values, unit="km") -> str:
+    return f"{values[0]}–{values[1]} {unit}"
+
+
+def _versus(value, target) -> str:
+    """Słowny opis wartości wobec zakresu; kolor nigdy nie niesie tego sam."""
+    if value < target[0]:
+        return "poniżej zakresu"
+    if value > target[1]:
+        return "powyżej zakresu"
+    return "w zakresie"
+
+
+def _phase_view(report) -> dict | None:
+    """Bieżąca faza strategii i ostatni pełny tydzień na jej tle."""
+    strategy = report.strategy
+    phase = strategy.phase_for(report.end) if strategy else None
+    if phase is None:
+        return None
+    week_number = (report.end - phase.start).days // 7 + 1
+    total_weeks = (phase.end - phase.start).days // 7 + 1
+    completed = [week for week in report.weekly if not week.is_current]
+    last = completed[-1] if completed else None
+    rows = []
+    if last is not None and phase.km:
+        rows.append({"label": "Kilometry w ostatnim pełnym tygodniu", "value": last.distance_km, "unit": "km",
+                     "target": _range_text(phase.km), "status": _versus(last.distance_km, phase.km)})
+    if last is not None and phase.long_km:
+        rows.append({"label": "Najdłuższy bieg w tym tygodniu", "value": last.longest_km, "unit": "km",
+                     "target": _range_text(phase.long_km), "status": _versus(last.longest_km, phase.long_km)})
+    return {
+        "name": phase.name,
+        "dates": f"{phase.start.day}.{phase.start.month:02d}–{phase.end.day}.{phase.end.month:02d}.{phase.end.year}",
+        "week_number": week_number,
+        "total_weeks": total_weeks,
+        "km": _range_text(phase.km) if phase.km else None,
+        "long_km": _range_text(phase.long_km) if phase.long_km else None,
+        "rows": rows,
+    }
+
+
+def _plan_rows(weekly) -> list[dict]:
+    """Zaplanowane minuty obok przebiegniętych, najnowszy tydzień pierwszy."""
+    rows = []
+    for week in reversed(weekly):
+        if week.planned_min is None:
+            continue
+        share = round(100 * week.duration_min / week.planned_min) if week.planned_min else None
+        rows.append({
+            "label": _short_date(week.monday.isoformat()),
+            "planned": week.planned_min,
+            "done": week.duration_min,
+            "share": share,
+            "is_current": week.is_current,
+        })
+    return rows
 
 
 def _axis_bounds(values, domain=None) -> tuple[float, float]:
@@ -144,13 +212,12 @@ def _line_chart(trend, domain=None) -> dict | None:
 
 def _trend_tone(trend) -> dict:
     """Porównaj ostatnie 7 dni ze średnią zakresu. Kolor zawsze z opisem słownym."""
-    if trend.average is None or trend.recent_average is None:
+    direction = trend_direction(trend)
+    if direction is None:
         return {"direction": None, "tone": "flat", "label": "za mało pomiarów do porównania"}
-    difference = trend.recent_average - trend.average
-    if abs(difference) <= abs(trend.average) * _FLAT_THRESHOLD:
+    if direction == "flat":
         return {"direction": "flat", "tone": "flat", "label": "bez wyraźnej zmiany"}
-    direction = "up" if difference > 0 else "down"
-    favorable = (difference > 0) == trend.higher_is_better
+    favorable = (direction == "up") == trend.higher_is_better
     return {
         "direction": direction,
         "tone": "favorable" if favorable else "unfavorable",
@@ -194,5 +261,7 @@ def _stats_view(report) -> dict:
         "average_km": (round(sum(week.distance_km for week in completed) / len(completed), 1)
                        if completed else None),
         "weekly_chart": _weekly_chart(report.weekly),
+        "phase": _phase_view(report),
+        "plan_rows": _plan_rows(report.weekly),
         "metrics": _metric_views(report.metrics),
     }

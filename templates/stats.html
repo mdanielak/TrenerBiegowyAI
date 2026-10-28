@@ -91,6 +91,9 @@
         <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
              aria-label="Kilometry biegowe w kolejnych tygodniach.">
           <line class="chart-grid" x1="{{ chart.grid_start }}" x2="{{ chart.grid_end }}" y1="{{ chart.baseline }}" y2="{{ chart.baseline }}"/>
+          {% for bar in chart.bars if bar.band %}
+            <rect class="chart-band" x="{{ bar.band.x }}" y="{{ bar.band.y }}" width="{{ bar.band.width }}" height="{{ bar.band.height }}" rx="4"/>
+          {% endfor %}
           {% for bar in chart.bars %}
             <rect class="chart-bar{% if bar.is_current %} current{% endif %}"
                   x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" rx="6"/>
@@ -100,12 +103,61 @@
             <text class="chart-axis" x="{{ bar.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
           {% endfor %}
         </svg>
-        <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.</p>
+        <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.{% if chart.has_bands %} Zielony pas to zakres kilometrów z fazy strategii.{% endif %}</p>
       {% else %}
         <div class="empty-art compact">
           <img class="asset" src="/assets/09_illustrations/running.png" width="92" height="72" alt="">
           <p>W tym zakresie nie ma zapisanych biegów.</p>
         </div>
+      {% endif %}
+    </section>
+
+    {% if stats.phase %}
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ ico.calendar(26) }}<span>Faza strategii: {{ stats.phase.name }}</span></h2>
+          <a href="/goal">Cel i kryteria</a>
+        </div>
+        <p class="mid card-lead">{{ stats.phase.dates }} · tydzień {{ stats.phase.week_number }} z {{ stats.phase.total_weeks }}{% if stats.phase.km %} · zwykle {{ stats.phase.km }} tygodniowo{% endif %}{% if stats.phase.long_km %} · najdłuższy bieg {{ stats.phase.long_km }}{% endif %}</p>
+        <div class="list">
+          {% for row in stats.phase.rows %}
+            <div class="list-item">
+              <span class="item-body">
+                <span class="item-title">{{ row.label }}</span>
+                <span class="item-meta"><span>cel fazy: {{ row.target }}</span></span>
+              </span>
+              <span class="item-side">
+                <span class="item-strong">{{ row.value|num }} {{ row.unit }}</span>
+                <span class="pill {{ 'ok' if row.status == 'w zakresie' else 'warn' }}">{{ row.status }}</span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.clipboard(26) }}<span>Plan a wykonanie</span></h2>
+      </div>
+      {% if stats.plan_rows %}
+        <div class="list">
+          {% for row in stats.plan_rows %}
+            <div class="list-item">
+              <span class="item-body">
+                <span class="item-title">Tydzień od {{ row.label }}{% if row.is_current %} (w toku){% endif %}</span>
+                <span class="item-meta"><span>plan {{ row.planned }} min</span><span>wykonano {{ row.done }} min</span></span>
+              </span>
+              <span class="item-side">
+                <span class="item-strong">{% if row.share is not none %}{{ row.share }}%{% else %}—{% endif %}</span>
+                <span class="item-meta">planu</span>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+        <p class="tile-foot">Wykonanie to czas biegów z zegarka w danym tygodniu, niezależnie od tego, czy trafił w zaplanowany dzień.</p>
+      {% else %}
+        <p class="mid">W tym zakresie nie ma zapisanych planów tygodniowych.</p>
       {% endif %}
     </section>
 

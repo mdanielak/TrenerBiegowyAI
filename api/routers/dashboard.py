@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from services.data_extract import SnapshotStatus
+from services.journal import entries_by_day
 from services.jobs import JobStore
 from services.today import TodayReport
 from services.week import WeekReport
@@ -59,6 +60,7 @@ def get_dashboard_router(
     attach_csrf: Callable,
     csrf_token: Callable,
     app_version: str,
+    journal_path,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -120,6 +122,7 @@ def get_dashboard_router(
                     "workout": _workout_section(report, profile_provider, review_loader),
                     "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None)),
                     "ai_recommendation": _recommendation_view(recommendation),
+                    "journal_missing": report.date not in entries_by_day(path=journal_path),
                     "active_nav": "today",
                 },
                 headers={"Cache-Control": "no-store"},

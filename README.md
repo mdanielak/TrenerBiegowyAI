@@ -23,7 +23,10 @@ Po uruchomieniu otwórz **http://127.0.0.1:8001**:
 | `/` | strona główna: gotowość, sygnały, trening na dziś, rekomendacja AI |
 | `/plan` | plan tygodniowy: cel, obciążenie tygodnia, dzień po dniu, uwagi |
 | `/week` | kalendarz treningów z rejestru Garmina |
+| `/stats` | statystyki 4/8/12 tygodni: kilometry na tle fazy strategii, plan a wykonanie, trendy sygnałów |
 | `/analysis` | rozkład pomiarów, z których liczona jest gotowość |
+| `/journal` | dziennik samopoczucia: samopoczucie, RPE, ból i notatka dzień po dniu |
+| `/goal` | cel długoterminowy: odliczanie, fazy strategii i kryteria gotowości |
 | `/settings` | profil biegacza, tętno i forma, strefy tętna, cele oraz integracje (API AI) |
 
 Serwer działa tylko na `127.0.0.1` — nie ma go w sieci. Zatrzymanie: `Ctrl+C` w oknie terminala.
@@ -78,7 +81,7 @@ Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --f
 
 ### Plan tygodniowy
 
-`python -m trainer plan` układa plan na bieżący tydzień (pon–niedz): AI dostaje profil, dostępność dni, przerwy, ostatnie biegi i gotowość, a twarde reguły — dni wolne, okna minut, limit treningów jakościowych — egzekwuje lokalny kod. Plan zapisuje się w `training-plans/{YYYY-MM}/{d}-{d}.json` obok bliźniaczego pliku CSV.
+`python -m trainer plan` układa plan na bieżący tydzień (pon–niedz): AI dostaje profil, dostępność dni, przerwy, ostatnie biegi, gotowość, trendy z 12 tygodni i podsumowanie dziennika z 7 dni, a twarde reguły — dni wolne, okna minut, limit treningów jakościowych — egzekwuje lokalny kod. Plan zapisuje się w `training-plans/{YYYY-MM}/{d}-{d}.json` obok bliźniaczego pliku CSV.
 
 - `python -m trainer plan --show` wypisuje zapisany plan bez wywołania AI.
 - `python -m trainer plan --push` wysyła zapisany plan na zegarek (wymaga działającego logowania do Garmina).
@@ -91,6 +94,16 @@ Generowanie planu wymaga włączonej zgody na eksport danych do AI (`AI_DATA_EXP
 Dashboard uruchamiasz skryptem `start.bat` (Windows) albo `./start.sh` (Linux / macOS) — pełna instrukcja jest na górze tego pliku. Skrypty korzystają z `.venv` właściwego dla danego systemu, nie wymagają jego aktywowania i nie wykonują synchronizacji.
 
 Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w terminalu poleceniem `python -m trainer sync`.
+
+### Zakres danych
+
+Snapshot (`local/data_latest.json`) zawiera wszystkie aktywności z ostatnich 120 dni oraz 90 dni tętna spoczynkowego, stresu, snu i HRV. Okna liczone są od najnowszego rekordu w bazie GarminDB, więc starsza baza daje ten sam zakres. Strona statystyk i strona celu korzystają tylko z tego snapshotu; do AI trafiają wyłącznie agregaty (średnie z 7 dni wobec 12 tygodni, kilometry z 4 tygodni) oraz 7 ostatnich biegów.
+
+### Dziennik i cel
+
+Wpisy dziennika zapisują się w `local/journal.jsonl`. Plik tylko przyrasta, a obowiązuje ostatni wpis z danego dnia. Przy włączonej zgodzie na eksport danych podsumowanie 7 dni — samopoczucie, średnie RPE, zgłoszony ból i notatki ucięte do 120 znaków — trafia do układania planu i rekomendacji dziennej. Ból z dziennika ma dla AI pierwszeństwo przed metrykami zegarka.
+
+Strona celu czyta fazy i kryteria z tabeli „Periodyzacja” oraz sekcji „Kryteria gotowości” w `training-plans/long-term/half-marathon-2027.md`, a datę i czas docelowy z profilu. Kryteria są przybliżone: snapshot nie ma splitów, więc „test 10 km” to najszybszy bieg o długości około 10 km.
 
 Na stronie planu przycisk „Ułóż plan” uruchamia układanie tygodnia w tle, a „Wyślij do Garmina” tworzy treningi na zegarku. Nawigacja „Poprzedni tydzień / Ten tydzień / Następny tydzień” przełącza wyświetlany tydzień; na stronie widać gotowość zmierzoną przez zegarek w danym dniu, zaplanowany czas w tygodniu i obciążenie poprzedniego tygodnia z zegarka. Na stronie głównej przycisk „Zapytaj AI, co dziś zrobić” zapisuje rekomendację dzienną na tym komputerze.
 

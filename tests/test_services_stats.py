@@ -105,3 +105,55 @@ def test_axis_stays_within_the_metric_scale():
     assert _axis_bounds([1.0, 9.5], (0, 10)) == (0, 10)
     assert _axis_bounds([70.0, 98.0], (0, 100))[1] == 100
     assert _axis_bounds([45.0, 55.0]) == (43, 57)
+
+
+def test_weeks_carry_phase_range_longest_run_and_plan_minutes():
+    from services.strategy import parse_strategy
+    from tests.test_services_strategy import SAMPLE
+
+    report = build_stats_report(snapshot=_snapshot(_data()), today=TODAY, weeks=4,
+                                strategy=parse_strategy(SAMPLE), planned_minutes={date(2026, 10, 19): 120})
+
+    last_full = report.weekly[-2]
+    assert last_full.phase_name == "Stabilizacja" and last_full.phase_km == (28, 38)
+    assert last_full.longest_km == 10.0
+    assert last_full.planned_min == 120
+    assert report.weekly[0].planned_min is None
+
+
+def test_phase_view_describes_the_last_full_week_in_words():
+    from api.views.stats import _stats_view
+    from services.strategy import parse_strategy
+    from tests.test_services_strategy import SAMPLE
+
+    report = build_stats_report(snapshot=_snapshot(_data()), today=TODAY, weeks=4,
+                                strategy=parse_strategy(SAMPLE), planned_minutes={date(2026, 10, 19): 110})
+    view = _stats_view(report)
+
+    assert view["phase"]["name"] == "Stabilizacja"
+    assert view["phase"]["week_number"] == 5
+    assert [row["status"] for row in view["phase"]["rows"]] == ["poniżej zakresu", "poniżej zakresu"]
+    assert view["plan_rows"] == [{"label": "19.10", "planned": 110, "done": 55, "share": 50, "is_current": False}]
+    assert any(bar["band"] for bar in view["weekly_chart"]["bars"])
+
+
+def test_planned_minutes_follow_mid_week_revisions(tmp_path, monkeypatch):
+    import json
+    from services.stats import planned_minutes_by_week
+
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
+    month = tmp_path / "2026-10"
+    month.mkdir()
+
+    def plan(start, end, minutes):
+        days = [(date.fromisoformat(start) + timedelta(days=i)).isoformat()
+                for i in range((date.fromisoformat(end) - date.fromisoformat(start)).days + 1)]
+        return {"start_date": start, "end_date": end,
+                "workouts": [{"date": d, "type": "easy", "duration_min": minutes} for d in days]}
+
+    (month / "19-25.json").write_text(json.dumps(plan("2026-10-19", "2026-10-25", 30)), encoding="utf-8")
+    (month / "22-25.json").write_text(json.dumps(plan("2026-10-22", "2026-10-25", 10)), encoding="utf-8")
+
+    result = planned_minutes_by_week(date(2026, 10, 12), date(2026, 10, 19))
+
+    assert result == {date(2026, 10, 19): 3 * 30 + 4 * 10}

@@ -23,6 +23,8 @@ from services.assets import build_manifest
 from services.data_extract import read_snapshot_status
 from services.jobs import JobStore
 from services.recommendations import load_recommendation
+from services.goal import GoalReport, get_goal_report
+from services.journal import JOURNAL_PATH
 from services.stats import StatsReport, get_stats_report
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
@@ -39,6 +41,8 @@ from api.routers.assets import get_assets_router
 from api.routers.dashboard import get_dashboard_router
 from api.routers.plans import get_plans_router
 from api.routers.settings import get_settings_router
+from api.routers.goal import get_goal_router
+from api.routers.journal import get_journal_router
 from api.routers.stats import get_stats_router
 
 # Nazwy dostępne jako api.main.* dla testów i skryptów (np. podmiana check_connection w testach).
@@ -101,6 +105,8 @@ def create_app(
     report_provider: Callable[[], TodayReport] = get_today_report,
     week_report_provider: Callable[[], WeekReport] = get_week_report,
     stats_report_provider: Callable[[int], StatsReport] = get_stats_report,
+    goal_report_provider: Callable[[], GoalReport] = get_goal_report,
+    journal_path: Path | None = None,
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
@@ -120,6 +126,7 @@ def create_app(
 ) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(Path("local/jobs"))
+    journal_path = journal_path or JOURNAL_PATH
     scheduled_job_ids = set()
     asset_manifest = build_manifest()
 
@@ -178,9 +185,13 @@ def create_app(
             attach_csrf=attach_csrf,
             csrf_token=csrf_token,
             app_version=app.version,
+            journal_path=journal_path,
         )
     )
     app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
+    app.include_router(get_goal_router(goal_report_provider=goal_report_provider, templates=_TEMPLATES))
+    app.include_router(get_journal_router(journal_path=journal_path, templates=_TEMPLATES, attach_csrf=attach_csrf,
+                                          csrf_token=csrf_token, csrf_valid=csrf_valid))
     app.include_router(
         get_plans_router(
             plan_provider=plan_provider,

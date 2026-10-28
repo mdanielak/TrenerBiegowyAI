@@ -232,3 +232,18 @@ def test_trim_cuts_on_a_word_boundary_with_an_ellipsis():
     assert plan_service._trim("krótki tekst", 50) == "krótki tekst"
     assert plan_service._trim("Spokojny tydzień, potem akcent progowy", 20) == "Spokojny tydzień…"
     assert len(plan_service._trim("słowo " * 100, 300)) <= 300
+
+
+def test_plan_trends_are_aggregates_only():
+    from datetime import date, timedelta
+
+    days = [(date(2026, 10, 28) - timedelta(days=i)).isoformat() for i in range(84)]
+    data = {"daily_health": [{"date": d, "rhr": 50 if i < 7 else 48} for i, d in enumerate(days)],
+            "activities": [{"date": "2026-10-20 07:00", "type": "running/x", "distance_km": 10.0, "duration_min": 55}]}
+
+    trends = plan_service._plan_trends(data, date(2026, 10, 28))
+
+    assert trends["metrics"]["rhr"]["direction"] == "up"
+    assert trends["metrics"]["hrv"]["recent"] is None
+    assert trends["weekly_km"] == [0, 0, 0, 10.0]
+    assert set(trends) == {"metrics", "weekly_km"}

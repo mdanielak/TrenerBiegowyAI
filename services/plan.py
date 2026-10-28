@@ -151,6 +151,25 @@ def _readiness_for(data, day):
         return None
 
 
+# Trendy dla AI: średnia z 7 dni wobec 12 tygodni, bez surowych serii.
+_TREND_METRICS = ("readiness", "rhr", "hrv", "sleep")
+
+
+def _plan_trends(data, today) -> dict:
+    """Zwięzłe trendy ze statystyk i kilometry z czterech ostatnich pełnych tygodni."""
+    from services.data_extract import SnapshotReadResult, SnapshotStatus
+    from services.stats import build_stats_report, trend_direction
+
+    report = build_stats_report(snapshot=SnapshotReadResult(status=SnapshotStatus.FRESH, data=data),
+                                today=today, weeks=12)
+    if report.status != "ok":
+        return {}
+    metrics = {key: {"recent": report.metrics[key].recent_average, "average": report.metrics[key].average,
+                     "direction": trend_direction(report.metrics[key])} for key in _TREND_METRICS}
+    completed = [week.distance_km for week in report.weekly if not week.is_current]
+    return {"metrics": metrics, "weekly_km": completed[-4:]}
+
+
 def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_start=None,
                         snapshot_status=None, snapshot_timestamp=None) -> dict:
     """Zbuduj kontekst planu: profil, dostępność, przerwy, obciążenie i gotowość."""
@@ -211,6 +230,8 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "readiness_history": history,
         "health_metrics": training.get("health_metrics") or {},
         "hrv_alert": training.get("hrv_alert"),
+        "trends": _plan_trends(data, current.date()),
+        "journal": training.get("journal"),
         "snapshot_status": snapshot_status,
         "snapshot_timestamp": snapshot_timestamp or (data.get("timestamp") if isinstance(data, dict) else None),
     }

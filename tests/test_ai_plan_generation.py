@@ -142,3 +142,34 @@ def test_provider_exception_is_not_suppressed():
 
     with pytest.raises(RuntimeError, match="provider failed"):
         generate_week_plan(Failing(), _context())
+
+
+def test_message_reports_trends_and_journal_pain_first():
+    context = _context()
+    context["trends"] = {
+        "metrics": {"hrv": {"recent": 60.9, "average": 68.1, "direction": "down"},
+                    "rhr": {"recent": 52.6, "average": 49.6, "direction": "up"}},
+        "weekly_km": [33.4, 28.4, 35.1, 8.0],
+    }
+    context["journal"] = {
+        "days_with_entries": 3, "feelings": {"świetnie": 0, "dobrze": 2, "słabo": 1}, "average_rpe": 4.5,
+        "pain_days": [{"date": "2026-10-28", "areas": ["kolano"], "note": "po biegu"}], "notes": [],
+    }
+    message = build_plan_message(context)
+
+    assert "TRENDY (średnia z 7 dni wobec 12 tygodni)" in message
+    assert "- HRV ostatniej nocy: 60,9 ms wobec 68,1 ms (niżej)" in message
+    assert "- gotowość: brak pomiarów" in message
+    assert "33,4; 28,4; 35,1; 8" in message
+    assert "- BÓL 2026-10-28: kolano (po biegu)" in message
+    assert "średnie RPE: 4,5" in message
+
+
+def test_message_without_trends_or_journal_says_so():
+    message = build_plan_message(_context())
+
+    assert "DZIENNIK (ostatnie 7 dni)\n- brak wpisów" in message
+
+
+def test_system_prompt_puts_journal_pain_before_metrics():
+    assert "Ból zgłoszony w sekcji DZIENNIK ma pierwszeństwo przed metrykami" in build_system_prompt()

@@ -271,6 +271,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{ ico.bulb(26) }}<span>Co dziś zrobić</span></h2>
+        {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
       {% if ai_recommendation %}
         <div class="suggestion">

@@ -217,6 +217,15 @@
     width: 100%; min-height: 44px; padding: 10px; font: inherit; color: var(--fg);
     background: var(--surface); border: 1px solid var(--fg-muted); border-radius: 8px;
   }
+  .text-input.narrow { width: 120px; }
+  textarea.text-input { resize: vertical; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+  .field-group { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+  .field-group legend { font-weight: 600; margin-bottom: 6px; padding: 0; width: 100%; }
+  /* Pole wyboru z etykietą: cel kliknięcia co najmniej 44 px wysokości. */
+  .choice { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 400; }
+  .choice input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .card-lead { margin: 0 0 12px; }
   .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .card-head h2 { display: flex; align-items: center; gap: 8px; }
   .card-head .icon { color: var(--fg-muted); }
@@ -442,6 +451,16 @@
   .chart-area { fill: var(--accent); opacity: 0.08; }
   .chart-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
   .chart-dot.today { fill: var(--accent); }
+  /* Pas zakresu fazy: wypełnienie dekoracyjne, obrys #16A34A ma 3,30:1 na bieli; znaczenie niesie podpis. */
+  .chart-band { fill: var(--ok-bg); stroke: var(--ok-icon); stroke-width: 1; stroke-dasharray: 3 3; }
+  /* Oś faz celu: bieżąca faza w akcencie (biel na #2563EB 5,17:1), przeszłe przygaszone, przyszłe obrysowane. */
+  .phase-seg.past { fill: var(--surface-alt); }
+  .phase-seg.current { fill: var(--accent); }
+  .phase-seg.future { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+  .phase-num { font-size: 12px; font-weight: 650; fill: var(--fg-mid); }
+  .phase-num.current { fill: var(--surface); }
+  .phase-marker { stroke: var(--fg); stroke-width: 2; }
+  .goal-phase { font-size: 17px; }
   .chart-avg { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 4 4; }
 
   /* Statystyki: podsumowanie sygnału obok jego wykresu. */

@@ -9,11 +9,12 @@ from fastapi.testclient import TestClient
 from services.stats import build_stats_report
 from tests.test_api import _week_report
 from tests.test_api_plan import _app, _plan
+from tests.test_services_goal import _report as _goal_report, _run
 from tests.test_services_stats import TODAY, _data, _snapshot
 
 pytestmark = pytest.mark.usefixtures("testclient_sockets")
 
-PAGES = ("/", "/plan", "/week", "/analysis", "/settings", "/settings/ai", "/stats?weeks=4")
+PAGES = ("/", "/plan", "/week", "/analysis", "/settings", "/settings/ai", "/stats?weeks=4", "/goal", "/journal")
 
 _TAGS = re.compile(r"<(script|style)[^>]*>.*?</\1>|<[^>]+>", re.S)
 # Liczba z kropką dziesiętną tuż przed jednostką, np. „15.0 km”.
@@ -37,6 +38,8 @@ def client(tmp_path):
         week_report_provider=lambda: _week_report(warnings=["snapshot_stale", "snapshot_activities_may_be_incomplete"]),
         stats_report_provider=lambda weeks: build_stats_report(snapshot=_snapshot(_data()), today=TODAY, weeks=weeks),
         ai_env_path=tmp_path / ".env",
+        goal_report_provider=lambda: _goal_report([_run("2026-10-25", 10.2, 55)]),
+        journal_path=tmp_path / "journal.jsonl",
     )
     return TestClient(app)
 

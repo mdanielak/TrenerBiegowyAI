@@ -10,8 +10,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from services.data_extract import SnapshotStatus, read_snapshot_status
-from services.plan_files import week_bounds
+from services.plan_files import get_today_workout_from_plan, load_plan, week_bounds
 from services.readiness import readiness_for_day
+from services.strategy import Strategy, load_strategy
 
 WEEK_OPTIONS = (4, 8, 12)
 DEFAULT_WEEKS = 8
@@ -35,6 +36,11 @@ class WeekLoad:
     duration_min: float
     sessions: int
     is_current: bool
+    longest_km: float = 0
+    planned_min: int | None = None
+    phase_name: str | None = None
+    phase_km: tuple | None = None
+    phase_long_km: tuple | None = None
 
 
 @dataclass(frozen=True)
@@ -59,6 +65,21 @@ class StatsReport:
     end: date | None = None
     weekly: list = field(default_factory=list)
     metrics: dict = field(default_factory=dict)
+    strategy: Strategy | None = None
+
+
+# Różnica ostatnich 7 dni od średniej mniejsza niż ten ułamek to „bez zmian”.
+FLAT_THRESHOLD = 0.03
+
+
+def trend_direction(trend) -> str | None:
+    """'up', 'down', 'flat' albo None, gdy brakuje pomiarów do porównania."""
+    if trend.average is None or trend.recent_average is None:
+        return None
+    difference = trend.recent_average - trend.average
+    if abs(difference) <= abs(trend.average) * FLAT_THRESHOLD:
+        return "flat"
+    return "up" if difference > 0 else "down"
 
 
 def normalize_weeks(value) -> int:
@@ -87,7 +108,9 @@ def _is_run(activity) -> bool:
     return str(activity.get("type") or "").startswith("running")
 
 
-def _weekly_load(activities, first_monday: date, current_monday: date) -> list[WeekLoad]:
+def _weekly_load(activities, first_monday: date, current_monday: date, *,
+                 strategy=None, planned_minutes=None) -> list[WeekLoad]:
+    planned_minutes = planned_minutes or {}
     weeks = []
     monday = first_monday
     while monday <= current_monday:
@@ -100,12 +123,18 @@ def _weekly_load(activities, first_monday: date, current_monday: date) -> list[W
                 continue
             if monday <= day <= sunday and _is_run(activity):
                 runs.append(activity)
+        phase = strategy.phase_for(monday) if strategy is not None else None
         weeks.append(WeekLoad(
             monday=monday,
             distance_km=round(sum(_number(a.get("distance_km")) or 0 for a in runs), 1),
             duration_min=round(sum(_number(a.get("duration_min")) or 0 for a in runs)),
             sessions=len(runs),
             is_current=monday == current_monday,
+            longest_km=round(max((_number(a.get("distance_km")) or 0 for a in runs), default=0), 1),
+            planned_min=planned_minutes.get(monday),
+            phase_name=phase.name if phase else None,
+            phase_km=phase.km if phase else None,
+            phase_long_km=phase.long_km if phase else None,
         ))
         monday += timedelta(days=7)
     return weeks
@@ -124,7 +153,8 @@ def _metric_points(data, key, days) -> list:
     return [(day, _number((by_day.get(day) or {}).get(field_name))) for day in days]
 
 
-def build_stats_report(*, snapshot, today: date, weeks: int = DEFAULT_WEEKS) -> StatsReport:
+def build_stats_report(*, snapshot, today: date, weeks: int = DEFAULT_WEEKS,
+                       strategy: Strategy | None = None, planned_minutes=None) -> StatsReport:
     """Zbuduj raport z przekazanego snapshotu, bez odczytu plików."""
     weeks = normalize_weeks(weeks)
     status = snapshot.status if snapshot is not None else SnapshotStatus.MISSING
@@ -158,12 +188,50 @@ def build_stats_report(*, snapshot, today: date, weeks: int = DEFAULT_WEEKS) -> 
         weeks=weeks,
         start=first_monday,
         end=today,
-        weekly=_weekly_load(activities, first_monday, current_monday),
+        weekly=_weekly_load(activities, first_monday, current_monday,
+                            strategy=strategy, planned_minutes=planned_minutes),
         metrics=metrics,
+        strategy=strategy,
     )
 
 
+def planned_minutes_by_week(first_monday: date, current_monday: date) -> dict:
+    """Zaplanowane minuty treningów (bez odpoczynku) w każdym tygodniu z zapisanym planem.
+
+    Dzień po dniu, bo rewizja w środku tygodnia zastępuje tylko część dni.
+    """
+    result = {}
+    monday = first_monday
+    while monday <= current_monday:
+        total, covered = 0, False
+        for offset in range(7):
+            day = datetime.combine(monday + timedelta(days=offset), datetime.min.time())
+            try:
+                plan = load_plan(day)
+            except ValueError:
+                plan = None
+            if not plan:
+                continue
+            covered = True
+            workout = get_today_workout_from_plan(plan, day) or {}
+            if workout.get("type") != "rest":
+                total += int(_number(workout.get("duration_min")) or 0)
+        if covered:
+            result[monday] = total
+        monday += timedelta(days=7)
+    return result
+
+
 def get_stats_report(weeks: int = DEFAULT_WEEKS, *, now=None) -> StatsReport:
-    """Raport statystyk z lokalnego snapshotu dla bieżącego dnia."""
+    """Raport statystyk z lokalnego snapshotu, planów i strategii dla bieżącego dnia."""
     current = now or datetime.now()
-    return build_stats_report(snapshot=read_snapshot_status(), today=current.date(), weeks=weeks)
+    weeks = normalize_weeks(weeks)
+    current_monday, _ = week_bounds(current.date())
+    first_monday = current_monday - timedelta(days=7 * (weeks - 1))
+    return build_stats_report(
+        snapshot=read_snapshot_status(),
+        today=current.date(),
+        weeks=weeks,
+        strategy=load_strategy(),
+        planned_minutes=planned_minutes_by_week(first_monday, current_monday),
+    )

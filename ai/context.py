@@ -149,6 +149,9 @@ def build_training_context(data, plan=None, today=None):
         plan = find_current_plan(today)
     today_workout = get_today_workout_from_plan(plan, today) if plan else None
 
+    from services.journal import summary_for_ai
+    journal = summary_for_ai(today=(today or datetime.now()).date())
+
     return {
         "system_prompt": system_prompt,
         "runner_profile": RUNNER_PROFILE,
@@ -158,7 +161,26 @@ def build_training_context(data, plan=None, today=None):
         "today_plan": today_workout,
         "health_metrics": health,
         "hrv_alert": hrv_alert,
+        "journal": journal,
     }
+
+
+def journal_lines(summary) -> list[str]:
+    """Podsumowanie dziennika z 7 dni jako zwięzłe linie promptu."""
+    if not summary:
+        return ["- brak wpisów"]
+    feelings = ", ".join(f"{label} {count}" for label, count in summary["feelings"].items() if count)
+    rpe = summary.get("average_rpe")
+    lines = [f"- wpisy: {summary['days_with_entries']} z 7 dni; samopoczucie: {feelings or 'brak'}; "
+             f"średnie RPE: {'brak' if rpe is None else str(rpe).replace('.', ',')}"]
+    for day in summary.get("pain_days") or []:
+        note = f" ({day['note']})" if day.get("note") else ""
+        lines.append(f"- BÓL {day['date']}: {', '.join(day['areas'])}{note}")
+    if not summary.get("pain_days"):
+        lines.append("- ból: nie zgłoszono")
+    for note in summary.get("notes") or []:
+        lines.append(f"- notatka {note['date']}: {note['note']}")
+    return lines
 
 
 def format_context_for_user(context):
@@ -229,5 +251,9 @@ def format_context_for_user(context):
     else:
         lines.append("## Plan na dzisiaj")
         lines.append("Brak zaplanowanego treningu")
+
+    lines.append("")
+    lines.append("## Dziennik samopoczucia (7 dni)")
+    lines.extend(journal_lines(context.get("journal")))
 
     return "\n".join(lines)

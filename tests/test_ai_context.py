@@ -244,3 +244,21 @@ class TestGetDailyRecommendation:
 
         call_kwargs = mock_provider.chat.call_args[1]
         assert call_kwargs["system_prompt"] == "Testowe zasady trenera"
+
+
+def test_recommendation_context_includes_the_journal_summary(tmp_path, monkeypatch):
+    from datetime import date, datetime
+
+    from ai.context import build_training_context, format_context_for_user
+    from services.journal import add_entry, validate_entry
+
+    path = tmp_path / "journal.jsonl"
+    monkeypatch.setattr("services.journal.JOURNAL_PATH", path)
+    add_entry(validate_entry(day="2026-10-28", feeling="poor", rpe="6", pain_areas=["calf"],
+                             pain_note="", note="", today=date(2026, 10, 29)), path=path)
+
+    context = build_training_context({}, plan={"workouts": []}, today=datetime(2026, 10, 29, 8))
+    text = format_context_for_user(context)
+
+    assert context["journal"]["pain_days"][0]["areas"] == ["łydka"]
+    assert "## Dziennik samopoczucia (7 dni)" in text and "BÓL 2026-10-28: łydka" in text
