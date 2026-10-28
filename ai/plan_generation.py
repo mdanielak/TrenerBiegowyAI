@@ -105,7 +105,9 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 7. W tygodniu jest najwyżej jeden trening jakościowy
    (kind="tempo", "threshold" albo "intervals") i najwyżej jeden długi bieg (kind="long").
 8. Nie stosuj wartości domyślnych w miejscu nieznanych danych. Brak wartości oznacz `null`.
-9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu."""
+9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu.
+10. Wszystkie teksty, także `name`, pisz poprawną polszczyzną z polskimi znakami
+   (np. "Łatwy 40 min – Z2", nie "Latwy 40 min - Z2"), nawet jeśli wcześniejsze treningi ich nie mają."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
 Zwróć obiekt JSON o dokładnie takich kluczach:

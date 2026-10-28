@@ -2,6 +2,7 @@
 """Lokalne API i dashboard Trenera Biegowego AI."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import secrets
 import tomllib
@@ -43,6 +44,18 @@ _CSRF_COOKIE = "trainer_csrf"
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 _TEMPLATES.env.filters["num"] = _format_number
 _TEMPLATES.env.filters["plural"] = _plural
+
+
+def _static_version(relative: str) -> str:
+    """Krótki skrót treści pliku statycznego; zmiana pliku wymusza jego ponowne pobranie."""
+    try:
+        content = (Path(__file__).resolve().parents[1] / "static" / relative).read_bytes()
+    except OSError:
+        return "0"
+    return hashlib.sha256(content).hexdigest()[:10]
+
+
+_TEMPLATES.env.globals["css_version"] = _static_version("css/styles.css")
 
 
 def _app_version() -> str:

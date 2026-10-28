@@ -207,6 +207,16 @@
     box-shadow: var(--shadow);
     padding: 18px;
   }
+  .ring-caption { color: var(--fg-muted); font-size: 12.5px; }
+  .suggestion-row { align-items: flex-start; }
+  .suggestion-row > .suggestion { flex: 1 1 auto; }
+
+  /* Pola formularza: obramowanie 3:1 (#CBD5E1 na bieli to 1,48:1, więc --fg-muted 4,76:1), wysokość 44 px. */
+  .form-stack { margin-top: 16px; }
+  .text-input {
+    width: 100%; min-height: 44px; padding: 10px; font: inherit; color: var(--fg);
+    background: var(--surface); border: 1px solid var(--fg-muted); border-radius: 8px;
+  }
   .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .card-head h2 { display: flex; align-items: center; gap: 8px; }
   .card-head .icon { color: var(--fg-muted); }
@@ -332,6 +342,7 @@
   .item-title { font-weight: 600; font-size: 14px; }
   .item-meta { font-size: 12.5px; color: var(--fg-muted); display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 1px; }
   .item-side { text-align: right; flex: none; }
+  .item-side .item-meta { justify-content: flex-end; }
   .item-strong { font-weight: 650; font-size: 14px; }
 
   .empty {
@@ -409,6 +420,7 @@
   .day-block-meta { color: var(--fg-mid); font-size: 12px; }
 
   .week-nav { display: flex; align-items: center; gap: 8px; }
+  .page-nav { margin-top: 12px; }
 
   /* Siatka planu: rodzaj treningu i gotowość obok siebie. */
   .day-pills { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -432,6 +444,10 @@
   .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--fg-mid); margin-top: 10px; }
   .legend-item { display: inline-flex; align-items: center; gap: 6px; }
   .legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .legend-swatch.ok { background: var(--ok-icon); }
+  .legend-swatch.warn { background: var(--warn-icon); }
+  .legend-swatch.bad { background: var(--danger-icon); }
+  .legend + .week { margin-top: 14px; }
 
   /* ===================== przyciski ===================== */
 
@@ -542,6 +558,9 @@
     font-size: 13.5px;
   }
   .empty-art .asset { opacity: 0.85; }
+  /* Krótki komunikat: obrazek obok zdania, nie nad nim. */
+  .empty-art.compact { flex-direction: row; justify-content: center; gap: 14px; padding: 14px 16px; text-align: left; }
+  .empty-art.compact p { margin: 0; }
 
   /* ===================== dostępność ===================== */
 

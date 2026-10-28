@@ -136,12 +136,12 @@
       </div>
 
       <div class="legend">
-        <span class="legend-item"><span class="legend-swatch" style="background: var(--ok-icon)"></span><span>gotowy do treningu</span></span>
-        <span class="legend-item"><span class="legend-swatch" style="background: var(--warn-icon)"></span><span>gotowy, z rezerwą</span></span>
-        <span class="legend-item"><span class="legend-swatch" style="background: var(--danger-icon)"></span><span>nie jesteś gotowy</span></span>
+        <span class="legend-item"><span class="legend-swatch ok"></span><span>gotowy do treningu</span></span>
+        <span class="legend-item"><span class="legend-swatch warn"></span><span>gotowy, z rezerwą</span></span>
+        <span class="legend-item"><span class="legend-swatch bad"></span><span>nie jesteś gotowy</span></span>
       </div>
 
-      <div class="week" style="margin-top: 14px">
+      <div class="week">
         {% for day in report.days %}
           {% set pill = readiness_pill(day.readiness) %}
           <div class="day {% if day.temporal_state == 'today' %}today{% elif day.temporal_state == 'past' %}past{% endif %}"

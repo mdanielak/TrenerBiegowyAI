@@ -85,7 +85,7 @@
             </span>
           </div>
 
-          <p class="muted" style="font-size: 12.5px">Ocena gotowości na dziś, liczona z nocnych pomiarów zegarka.</p>
+          <p class="ring-caption">Ocena gotowości na dziś, liczona z nocnych pomiarów zegarka.</p>
         </div>
       </section>
 
@@ -292,8 +292,8 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="spread" style="align-items: flex-start">
-          <div class="suggestion" style="flex: 1 1 auto">
+        <div class="spread suggestion-row">
+          <div class="suggestion">
             <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
             <div>
               <p class="suggestion-title">Podpowiedź z oceny gotowości</p>
@@ -325,8 +325,8 @@
             </span>
           </div>
         {% else %}
-          <div class="empty-art">
-            <img class="asset" src="/assets/03_activity/rest_day.png" width="176" height="176" alt="">
+          <div class="empty-art compact">
+            <img class="asset" src="/assets/03_activity/rest_day.png" width="72" height="72" alt="">
             <p>Ten dzień nie jest u Ciebie dniem treningowym.</p>
           </div>
         {% endif %}
@@ -351,14 +351,14 @@
               </span>
               <span class="item-side">
                 <span class="item-strong">{% if activity.avg_hr is not none %}{{ activity.avg_hr }}{% else %}—{% endif %}</span>
-                <span class="item-meta" style="justify-content: flex-end">średnie tętno</span>
+                <span class="item-meta">średnie tętno</span>
               </span>
             </div>
           {% endfor %}
         </div>
       {% else %}
-        <div class="empty-art">
-          <img class="asset" src="/assets/09_illustrations/running.png" width="176" height="138" alt="">
+        <div class="empty-art compact">
+          <img class="asset" src="/assets/09_illustrations/running.png" width="92" height="72" alt="">
           <p>Wczoraj nie zarejestrowano żadnej aktywności.</p>
         </div>
 {% endif %}

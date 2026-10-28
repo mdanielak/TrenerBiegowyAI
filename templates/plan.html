@@ -21,7 +21,7 @@
   <div>
     <h1>Plan treningowy</h1>
     <p class="page-sub">{{ format_date(week_start) }} – {{ format_date(week_end) }}</p>
-    <div class="week-nav" style="margin-top: 12px">
+    <div class="week-nav page-nav">
       <a class="btn btn-secondary" href="/plan?week={{ prev_week }}">Poprzedni tydzień</a>
       {% if week_start != current_week %}
         <a class="btn btn-secondary" href="/plan?week={{ current_week }}">Ten tydzień</a>
@@ -260,7 +260,7 @@
             {% if plan_day.hr_target %}
               <span class="item-side">
                 <span class="item-strong">{{ plan_day.hr_target }}</span>
-                <span class="item-meta" style="justify-content: flex-end">strefa tętna</span>
+                <span class="item-meta">strefa tętna</span>
               </span>
             {% endif %}
           </div>
