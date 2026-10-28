@@ -295,6 +295,9 @@
             {% if ai_recommendation.reasoning_summary %}
               <p class="mid">{{ ai_recommendation.reasoning_summary }}</p>
             {% endif %}
+            {% if ai_recommendation.message %}
+              <p class="tile-foot">Twoja wiadomość: {{ ai_recommendation.message }}</p>
+            {% endif %}
           </div>
         </div>
         {% for warning in ai_recommendation.warnings %}
@@ -314,15 +317,18 @@
               <p class="suggestion-text">{{ suggestion|capitalize }}.</p>
             </div>
           </div>
-          <form method="post" action="/actions/recommendation">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn-secondary"{% if not ai_ready %} disabled{% endif %}>
-              {{ ico.bulb(18) }}<span>Zapytaj AI, co dziś zrobić</span>
-            </button>
-            {% if not ai_ready %}<p class="tile-foot">Wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
-          </form>
         </div>
       {% endif %}
+      <form method="post" action="/actions/recommendation" class="row ask-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="field ask-field">Wiadomość dla AI (opcjonalnie)
+          <input class="text-input" type="text" name="message" maxlength="300" placeholder="np. mam tylko 30 minut, nogi ciężkie"{% if not ai_ready %} disabled{% endif %}>
+        </label>
+        <button type="submit" class="btn-secondary"{% if not ai_ready %} disabled{% endif %}>
+          {{ ico.bulb(18) }}<span>{% if ai_recommendation %}Zapytaj ponownie{% else %}Zapytaj AI, co dziś zrobić{% endif %}</span>
+        </button>
+      </form>
+      {% if not ai_ready %}<p class="tile-foot">Rekomendacja AI wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
     </section>
 
     <div class="grid grid-2">

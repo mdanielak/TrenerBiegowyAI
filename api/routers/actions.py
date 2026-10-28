@@ -33,6 +33,7 @@ from api.views.jobs import (
 )
 from api.routers.plans import plan_page_context
 from services import plan_conflicts
+from services.ai_notes import MESSAGE_LIMIT, clean, set_week_note
 from services.plan_files import week_bounds
 
 logger = logging.getLogger(__name__)
@@ -121,11 +122,12 @@ def get_actions_router(
             return None, RedirectResponse(url=plan_url(week_start, confirm=kind), status_code=303)
         return decision or None, None
 
-    def run_recommendation():
-        """Policz rekomendację AI na dziś."""
+    def run_recommendation(message=None):
+        """Policz rekomendację AI na dziś; jednorazowa wiadomość biegacza jest opcjonalna."""
+        extra = {"message": message} if message else {}
         if recommendation_operation is not None:
-            return recommendation_operation()
-        return generate_daily_recommendation()
+            return recommendation_operation(**extra)
+        return generate_daily_recommendation(**extra)
 
     def today() -> datetime:
         """Aktualna data w strefie lokalnej."""
@@ -384,10 +386,30 @@ def get_actions_router(
             )
         return RedirectResponse(url=plan_url(week_start), status_code=303)
 
+    @router.post("/actions/plan/note")
+    def save_plan_note(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+        note: str = Form(default=""),
+    ):
+        """Wiadomość dla AI na tydzień; pusty tekst ją czyści."""
+        if not csrf_valid(request, csrf_token):
+            return templates.TemplateResponse(
+                request=request,
+                name="plan.html",
+                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+        set_week_note(week_monday(week_start), note)
+        return RedirectResponse(url=plan_url(week_start) + "&note=saved#wiadomosc", status_code=303)
+
     @router.post("/actions/recommendation")
     def submit_recommendation(
         request: Request,
         csrf_token: str = Form(default=""),
+        message: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
@@ -423,6 +445,7 @@ def get_actions_router(
                         job_id=job.id,
                         operation=run_recommendation,
                         lock_directory=lock_directory,
+                        message=clean(message, MESSAGE_LIMIT) or None,
                     )
                 finally:
                     scheduled_job_ids.discard(job.id)

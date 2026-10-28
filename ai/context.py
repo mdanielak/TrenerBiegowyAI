@@ -256,4 +256,12 @@ def format_context_for_user(context):
     lines.append("## Dziennik samopoczucia (7 dni)")
     lines.extend(journal_lines(context.get("journal")))
 
+    if context.get("week_note") or context.get("message"):
+        lines.append("")
+        lines.append("## Wiadomość od biegacza")
+        if context.get("week_note"):
+            lines.append(f"- na ten tydzień: {context['week_note']}")
+        if context.get("message"):
+            lines.append(f"- dziś: {context['message']}")
+
     return "\n".join(lines)

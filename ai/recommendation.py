@@ -54,6 +54,8 @@ Uwzględnij:
 - obciążenie tygodniowe
 - trendy z ostatnich treningów
 - zaplanowany trening na dziś
+- wiadomość od biegacza, jeśli jest: uwzględnij życzenia, o ile nie przeczą zdrowiu i regeneracji;
+  ból i objawy z dziennika mają pierwszeństwo
 
 Bądź konkretny ale ostrożny — priorytetem jest zdrowie i regeneracja."""
 

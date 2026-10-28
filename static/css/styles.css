@@ -214,6 +214,10 @@
   }
   .text-input.narrow { width: 120px; }
   .field-row { flex-wrap: wrap; align-items: flex-end; }
+  .ask-form { flex-wrap: wrap; align-items: flex-end; margin-top: 12px; }
+  /* Przycisk obok długiego podpisu nie może się zwężać i łamać tekstu. */
+  form .row > button, form.row > button { flex: none; white-space: nowrap; }
+  .ask-field { flex: 1 1 260px; }
   .field-row .field { flex: 1 1 180px; }
   textarea.text-input { resize: vertical; }
   .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }

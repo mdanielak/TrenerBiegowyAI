@@ -112,6 +112,16 @@ Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w term
 
 Snapshot (`local/data_latest.json`) zawiera wszystkie aktywności z ostatnich 120 dni oraz 90 dni tętna spoczynkowego, stresu, snu i HRV. Okna liczone są od najnowszego rekordu w bazie GarminDB, więc starsza baza daje ten sam zakres. Strona statystyk i strona celu korzystają tylko z tego snapshotu; do AI trafiają wyłącznie agregaty (średnie z 7 dni wobec 12 tygodni, kilometry z 4 tygodni) oraz 7 ostatnich biegów.
 
+### Stan AI
+
+Na stronie głównej i stronie planu plakietka pokazuje stan AI: „AI połączone · DeepSeek” tylko wtedy, gdy ostatni „Testuj połączenie” w Ustawienia → API AI udał się dla zapisanego adresu i modelu; „AI gotowe” — gdy klucz i zgoda są, ale połączenia nie testowano albo zmieniono model; „AI wyłączone” — gdy brakuje klucza lub zgody. Wynik testu (host, model, wynik, czas — bez klucza) zapisuje się w `local/ai_status.json`. Bez AI przyciski „Zapytaj AI” i „Ułóż plan” są nieaktywne i wyjaśniają, czego brakuje.
+
+### Przerwy i wiadomość dla AI
+
+W Dzienniku, w sekcji „Przerwy”, dodasz chorobę, wyjazd, przerwę, zabieg albo rekonwalescencję z datami i opisem. W tych dniach plan zawsze proponuje odpoczynek; jeśli przerwa obejmuje dni z zaplanowanym treningiem, strona podpowie, żeby ułożyć plan ponownie. Przerwy zapisują się w `local/training_preferences.json`, tak samo jak z polecenia `python -m trainer pause`.
+
+Na stronie planu jest pole „Wiadomość dla AI na ten tydzień” (np. „w sobotę wesele, długi bieg w niedzielę”). Trafia do układania planu i do rekomendacji dziennych w tym tygodniu, z niższym priorytetem niż zasady bezpieczeństwa, dostępność i przerwy. Przy „Zapytaj AI” na stronie głównej możesz dopisać jednorazową wiadomość na dziś. Wiadomości tygodniowe zapisują się w `local/ai-notes.jsonl`.
+
 ### Dziennik i cel
 
 Wpisy dziennika zapisują się w `local/journal.jsonl`. Plik tylko przyrasta, a obowiązuje ostatni wpis z danego dnia. Przy włączonej zgodzie na eksport danych podsumowanie 7 dni — samopoczucie, średnie RPE, zgłoszony ból i notatki ucięte do 120 znaków — trafia do układania planu i rekomendacji dziennej. Ból z dziennika ma dla AI pierwszeństwo przed metrykami zegarka.

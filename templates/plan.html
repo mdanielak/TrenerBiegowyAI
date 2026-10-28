@@ -79,6 +79,24 @@
     </section>
   {% endif %}
 
+  <section class="card" id="wiadomosc">
+    <div class="card-head">
+      <h2>{{ ico.bulb(26) }}<span>Wiadomość dla AI na ten tydzień</span></h2>
+    </div>
+    {% if note_saved %}
+      <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p></div></div>
+    {% endif %}
+    <form method="post" action="/actions/plan/note" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="week_start" value="{{ week_start }}">
+      <textarea class="text-input" name="note" rows="2" maxlength="{{ week_note_limit }}" placeholder="np. w sobotę wesele, długi bieg w niedzielę; w środę mogę dopiero wieczorem">{{ week_note or '' }}</textarea>
+      <div class="row">
+        <button type="submit" class="btn-secondary">{{ ico.check(18) }}<span>Zapisz wiadomość</span></button>
+        <span class="tile-foot">Trafi do „Ułóż plan” i do rekomendacji dziennych w tym tygodniu. AI uwzględni ją, o ile nie przeczy zasadom bezpieczeństwa, dostępności i przerwom. Pusty tekst usuwa wiadomość.</span>
+      </div>
+    </form>
+  </section>
+
   {% for variant in variants %}
     <section class="card">
       <div class="card-head">

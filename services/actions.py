@@ -321,7 +321,7 @@ def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_star
     return store.mark_succeeded(job_id)
 
 
-def generate_daily_recommendation(*, provider_factory=None, save=None, today=None) -> dict:
+def generate_daily_recommendation(*, provider_factory=None, save=None, today=None, message=None) -> dict:
     """Policz rekomendację AI na dziś i zapisz ją lokalnie."""
     from ai.context import build_training_context
     from services import plan as plan_service
@@ -337,6 +337,9 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
     current = as_datetime(today) or datetime.now()
     plan = plan_service.load_week_plan(current)
     context = build_training_context(snapshot.data, plan=plan, today=current)
+    from services.ai_notes import MESSAGE_LIMIT, clean, note_for_day
+    context["week_note"] = note_for_day(current.date())
+    context["message"] = clean(message, MESSAGE_LIMIT)
 
     if provider_factory is None:
         from ai.openai_compatible import OpenAICompatibleProvider
@@ -355,6 +358,7 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
         "adjustment_needed": recommendation.adjustment_needed,
         "reasoning_summary": recommendation.reasoning_summary,
         "warnings": list(recommendation.warnings or []),
+        "message": context["message"] or None,
     }
     if save is None:
         save = save_recommendation
@@ -363,12 +367,15 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
 
 
 def run_recommendation_job(*, store, job_id, operation=generate_daily_recommendation,
-                           lock_directory=None):
+                           lock_directory=None, message=None):
     """Wykonaj rekomendację dzienną pod blokadą i zapisz stan zadania."""
     store.mark_running(job_id)
     try:
         with acquire_lock(name="recommendation", directory=lock_directory):
-            operation()
+            if message:
+                operation(message=message)
+            else:
+                operation()
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:

@@ -279,4 +279,5 @@ def _recommendation_view(recommendation) -> Optional[dict]:
         "adjustment_needed": recommendation.get("adjustment_needed"),
         "reasoning_summary": recommendation.get("reasoning_summary"),
         "warnings": list(recommendation.get("warnings") or []),
+        "message": recommendation.get("message"),
     }

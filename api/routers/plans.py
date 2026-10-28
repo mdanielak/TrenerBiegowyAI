@@ -14,6 +14,7 @@ from services.plan import previous_week_load
 from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
 from services import plan_conflicts
+from services.ai_notes import WEEK_NOTE_LIMIT, note_for_week
 from api.views.common import _WEEK_WARNING_LABELS, _format_date
 from api.views.jobs import _plan_banner
 from api.views.plan import _conflict_view, _format_generated_at, _plan_load_chart, _plan_view, _variant_views
@@ -69,6 +70,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "error_command": error_command,
         "conflict": conflict,
         "variants": variants or [],
+        "week_note_limit": WEEK_NOTE_LIMIT,
     }
 
 
@@ -184,6 +186,11 @@ def get_plans_router(
             variants=variants,
         )
         context["ai_badge"] = ai_badge_provider() if ai_badge_provider is not None else None
+        try:
+            context["week_note"] = note_for_week(monday)
+        except OSError:
+            context["week_note"] = ""
+        context["note_saved"] = request.query_params.get("note") == "saved"
         return attach_csrf(
             templates.TemplateResponse(
                 request=request,

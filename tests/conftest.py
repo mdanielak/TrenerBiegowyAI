@@ -126,3 +126,9 @@ def _isolate_preferences(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> N
     from types import SimpleNamespace
 
     monkeypatch.setattr("trainer.preferences.SETTINGS", SimpleNamespace(local_dir=tmp_path_factory.mktemp("preferences")))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ai_notes(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Wiadomości dla AI w testach nie trafiają do prawdziwego local/ai-notes.jsonl."""
+    monkeypatch.setattr("services.ai_notes.NOTES_PATH", tmp_path_factory.mktemp("ai_notes") / "ai-notes.jsonl")

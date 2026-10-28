@@ -170,6 +170,15 @@ def _plan_trends(data, today) -> dict:
     return {"metrics": metrics, "weekly_km": completed[-4:]}
 
 
+def _week_note(monday) -> str:
+    from services.ai_notes import note_for_week
+
+    try:
+        return note_for_week(monday)
+    except OSError:
+        return ""
+
+
 def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_start=None,
                         snapshot_status=None, snapshot_timestamp=None) -> dict:
     """Zbuduj kontekst planu: profil, dostępność, przerwy, obciążenie i gotowość."""
@@ -232,6 +241,7 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "hrv_alert": training.get("hrv_alert"),
         "trends": _plan_trends(data, current.date()),
         "journal": training.get("journal"),
+        "user_note": _week_note(monday),
         "snapshot_status": snapshot_status,
         "snapshot_timestamp": snapshot_timestamp or (data.get("timestamp") if isinstance(data, dict) else None),
     }
