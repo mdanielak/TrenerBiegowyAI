@@ -79,7 +79,7 @@ def main(sync: bool = False) -> int:
         return 0
 
     try:
-        from trainer.workouts import GarminWorkout
+        from trainer.garmin_workouts import GarminWorkout
 
         snapshot = fetch_snapshot(GarminWorkout().login().api)
     except Exception as exc:

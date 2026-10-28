@@ -18,8 +18,8 @@ def test_sync_uses_mocked_garmin_and_saves_zones(monkeypatch, capsys):
             return self
     monkeypatch.setattr(zones.profile_store, "load_profile", lambda: before)
     monkeypatch.setattr(zones.profile_store, "set_hr_zones", lambda floors, hr_max, source: saved.update(floors=floors, hr_max=hr_max, source=source) or {"hr_zones": "new", "hr_zones_source": source})
-    import trainer.workouts
-    monkeypatch.setattr(trainer.workouts, "GarminWorkout", Workout)
+    import trainer.garmin_workouts
+    monkeypatch.setattr(trainer.garmin_workouts, "GarminWorkout", Workout)
     assert zones.main(sync=True) == 0
     assert saved["floors"]["z5"] == 173
     assert "Strefy po" in capsys.readouterr().out
@@ -30,7 +30,7 @@ def test_sync_empty_response_is_error(monkeypatch, capsys):
         api = SimpleNamespace(get_heart_rate_zones=lambda: None)
         def login(self): return self
     monkeypatch.setattr(zones.profile_store, "load_profile", lambda: {})
-    import trainer.workouts
-    monkeypatch.setattr(trainer.workouts, "GarminWorkout", Workout)
+    import trainer.garmin_workouts
+    monkeypatch.setattr(trainer.garmin_workouts, "GarminWorkout", Workout)
     assert zones.main(sync=True) == 1
     assert "nie zwrócił" in capsys.readouterr().out

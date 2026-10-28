@@ -210,7 +210,7 @@ def test_hr_band_reads_zone_floors():
 
 
 def test_save_and_load_plan_with_its_csv_twin(tmp_path, monkeypatch):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
     plan = _normalize([_workout("2026-10-26", duration_min=40, hr_zone=2)])
 
     path = plan_service.save_plan(plan)

@@ -27,7 +27,7 @@ class NetworkAccessBlocked(RuntimeError):
 
 _MESSAGE = (
     "Test próbował połączenia sieciowego. Zamockuj klienta Garmina "
-    "(np. monkeypatch.setattr('trainer.workouts.GarminWorkout', ...)) "
+    "(np. monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', ...)) "
     "albo oznacz test markerem @pytest.mark.allow_network."
 )
 

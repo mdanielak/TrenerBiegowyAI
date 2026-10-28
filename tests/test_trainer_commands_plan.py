@@ -37,7 +37,7 @@ def _write_plan(base):
 
 
 def test_show_without_a_plan_reports_a_missing_plan(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
 
     code = plan_command.main(show=True, week="2026-10-26")
 
@@ -48,7 +48,7 @@ def test_show_without_a_plan_reports_a_missing_plan(tmp_path, monkeypatch, capsy
 
 
 def test_show_prints_every_day_of_the_saved_plan(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
     _write_plan(tmp_path)
 
     code = plan_command.main(show=True, week="2026-10-26")
@@ -63,7 +63,7 @@ def test_show_prints_every_day_of_the_saved_plan(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_show_option_reaches_the_plan_command(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
     _write_plan(tmp_path)
 
     code = cli.main(["plan", "--show", "--week", "2026-10-26"])
@@ -74,7 +74,7 @@ def test_cli_show_option_reaches_the_plan_command(tmp_path, monkeypatch, capsys)
 
 
 def test_cli_show_without_a_plan_fails_with_one(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
 
     code = cli.main(["plan", "--show"])
 
@@ -84,7 +84,7 @@ def test_cli_show_without_a_plan_fails_with_one(tmp_path, monkeypatch, capsys):
 
 
 def test_push_without_a_plan_does_not_call_garmin(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("services.training_plan.TRAINING_PLANS_DIR", tmp_path)
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
 
     code = plan_command.main(push=True, week="2026-10-26")
 

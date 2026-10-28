@@ -3,7 +3,7 @@
 Reużywalny builder treningów dla Garmin Connect API.
 
 Przykład:
-    from trainer.workouts import GarminWorkout
+    from trainer.garmin_workouts import GarminWorkout
 
     gw = GarminWorkout()
     gw.login()

@@ -45,6 +45,6 @@ def main() -> int:
     print("\nPodsumowanie:", name, kind, when, kw)
     if _ask("Utworzyć i zaplanować trening? (t/N)", "n").lower() not in {"t", "tak", "y", "yes"}:
         print("Nic nie utworzono."); return 0
-    from ..workouts import create_workout
+    from ..garmin_workouts import create_workout
     create_workout(kind, name, **kw)
     return 0

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for services/training_plan.py — training plan loading utilities."""
+"""Tests for services/plan_files.py — training plan loading utilities."""
 import sys
 import os
 import csv
@@ -10,8 +10,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services import training_plan as tp
-from services.training_plan import (
+from services import plan_files as tp
+from services.plan_files import (
     plan_path, find_plan_file, load_plan, find_current_plan,
     get_today_workout_from_plan,
 )
@@ -94,7 +94,7 @@ class TestLoadPlan:
 
 class TestFindCurrentPlan:
     def test_finds_current_plan(self, tmp_path, monkeypatch):
-        monkeypatch.setattr('services.training_plan.TRAINING_PLANS_DIR', tmp_path)
+        monkeypatch.setattr('services.plan_files.TRAINING_PLANS_DIR', tmp_path)
         write_plan(tmp_path, "2026-09", "14-20.json", {"week": 38, "workouts": []})
 
         result = find_current_plan(datetime(2026, 9, 16))
@@ -102,7 +102,7 @@ class TestFindCurrentPlan:
         assert result['week'] == 38
 
     def test_no_plan_returns_none(self, tmp_path, monkeypatch):
-        monkeypatch.setattr('services.training_plan.TRAINING_PLANS_DIR', tmp_path)
+        monkeypatch.setattr('services.plan_files.TRAINING_PLANS_DIR', tmp_path)
         assert find_current_plan(datetime(2026, 9, 16)) is None
 
 

@@ -16,7 +16,7 @@ from ..config import PROJECT_ROOT, DATA_LATEST, IMPORTANT_PROMPT, AI_DATA_EXPORT
 logger = logging.getLogger(__name__)
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.readiness import compute_readiness_breakdown, compare_plan_vs_actual
-from services.training_plan import find_current_plan, get_today_workout_from_plan
+from services.plan_files import find_current_plan, get_today_workout_from_plan
 
 # --- Windows encoding fix ---
 if sys.platform == 'win32':

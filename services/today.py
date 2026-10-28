@@ -7,7 +7,7 @@ from datetime import datetime
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
 from services.readiness import compute_readiness_breakdown, signal_trends
-from services.training_plan import find_current_plan, get_today_workout_from_plan
+from services.plan_files import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
 from trainer.profile_store import load_profile

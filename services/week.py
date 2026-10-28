@@ -8,7 +8,7 @@ from services.activity_matching import assign_activities
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan import zone_number
 from services.readiness import readiness_for_day
-from services.training_plan import week_bounds
+from services.plan_files import week_bounds
 from services.workout_registry import list_workouts
 from services.workout_scoring import planned_duration_min
 from trainer.preferences import get_active_pause, get_weekly_availability

@@ -83,8 +83,8 @@ def test_sync_maps_garmin_keys_and_skips_preference_fields(monkeypatch, capsys):
     monkeypatch.setattr(profile_cmd.profile_store, "set_hr_zones",
                         lambda floors, hr_max, source: zones.update(floors=floors, hr_max=hr_max))
     monkeypatch.setattr(profile_cmd, "fetch_snapshot", lambda api: dict(snapshot))
-    import trainer.workouts
-    monkeypatch.setattr(trainer.workouts, "GarminWorkout", _Workout)
+    import trainer.garmin_workouts
+    monkeypatch.setattr(trainer.garmin_workouts, "GarminWorkout", _Workout)
 
     assert profile_cmd.main(sync=True) == 0
     # Waga i wzrost muszą trafić pod nazwy używane przez profil.
@@ -101,8 +101,8 @@ def test_sync_reports_error_when_garmin_fails(monkeypatch, capsys):
         def login(self):
             raise RuntimeError("429")
     monkeypatch.setattr(profile_cmd.profile_store, "load_profile", lambda: dict(_FULL))
-    import trainer.workouts
-    monkeypatch.setattr(trainer.workouts, "GarminWorkout", Failing)
+    import trainer.garmin_workouts
+    monkeypatch.setattr(trainer.garmin_workouts, "GarminWorkout", Failing)
     assert profile_cmd.main(sync=True) == 1
     assert "nie udało się pobrać" in capsys.readouterr().out
 
@@ -110,8 +110,8 @@ def test_sync_reports_error_when_garmin_fails(monkeypatch, capsys):
 def test_sync_reports_error_on_empty_snapshot(monkeypatch, capsys):
     monkeypatch.setattr(profile_cmd.profile_store, "load_profile", lambda: dict(_FULL))
     monkeypatch.setattr(profile_cmd, "fetch_snapshot", lambda api: {})
-    import trainer.workouts
-    monkeypatch.setattr(trainer.workouts, "GarminWorkout", _Workout)
+    import trainer.garmin_workouts
+    monkeypatch.setattr(trainer.garmin_workouts, "GarminWorkout", _Workout)
     assert profile_cmd.main(sync=True) == 1
     assert "nie zwrócił" in capsys.readouterr().out
 

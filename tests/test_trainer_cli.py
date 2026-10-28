@@ -25,15 +25,15 @@ class TrainerCliTests(unittest.TestCase):
         self.assertEqual(calls, [True])
 
     def test_create_dispatches_to_shared_builder(self):
-        module = types.ModuleType('trainer.workouts')
+        module = types.ModuleType('trainer.garmin_workouts')
         calls = []
         setattr(module, 'create_workout', lambda kind, name, **kwargs: calls.append((kind, name, kwargs)))
-        with patch.dict(sys.modules, {'trainer.workouts': module}):
+        with patch.dict(sys.modules, {'trainer.garmin_workouts': module}):
             self.assertEqual(cli.main(['workouts', 'create', 'easy', 'Lekki', '30', '2026-10-01']), 0)
         self.assertEqual(calls, [('easy', 'Lekki', {'minutes': 30, 'date': '2026-10-01'})])
 
     def test_invalid_number_and_date_do_not_import_garmin(self):
-        with patch.dict(sys.modules, {'trainer.workouts': None}):
+        with patch.dict(sys.modules, {'trainer.garmin_workouts': None}):
             with self.assertRaises(SystemExit) as number_exit:
                 cli.main(['workouts', 'create', 'easy', 'Lekki', '0', '2026-10-01'])
             self.assertEqual(number_exit.exception.code, 2)

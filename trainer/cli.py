@@ -121,7 +121,7 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.workout_command == 'usage':
         from .commands.workout_usage import main as usage
         return usage(delete=args.delete) or 0
-    from .workouts import create_workout
+    from .garmin_workouts import create_workout
     values = vars(args).copy()
     for key in ('command', 'workout_command', 'kind', 'name', 'debug'):
         values.pop(key, None)

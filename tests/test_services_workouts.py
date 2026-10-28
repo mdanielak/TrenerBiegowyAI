@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for services/workouts.py and trainer.workouts — workout builder."""
+"""Tests for services/workouts.py and trainer.garmin_workouts — workout builder."""
 import sys
 import os
 import types
@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Mock garminconnect before importing trainer.workouts
+# Mock garminconnect before importing trainer.garmin_workouts
 _mock_garminconnect = types.ModuleType('garminconnect')
 _mock_garminconnect.Garmin = MagicMock()
 _mock_workout = types.ModuleType('garminconnect.workout')
@@ -28,7 +28,7 @@ sys.modules['garminconnect'] = _mock_garminconnect
 sys.modules['garminconnect.workout'] = _mock_workout
 
 from trainer import garmin_auth
-from trainer.workouts import GarminWorkout, WorkoutSchedulingError
+from trainer.garmin_workouts import GarminWorkout, WorkoutSchedulingError
 from services import workout_registry as registry
 
 
@@ -77,14 +77,14 @@ class TestGarminWorkoutInit:
         assert gw.email == "test@test.com"
         assert gw.password == "pass123"
 
-    @patch('trainer.workouts.GARMIN_EMAIL', 'env@test.com')
+    @patch('trainer.garmin_workouts.GARMIN_EMAIL', 'env@test.com')
     @patch.dict(os.environ, {'GARMIN_PASSWORD': 'envpass'})
     def test_init_from_env(self):
         gw = GarminWorkout()
         assert gw.email == "env@test.com"
         assert gw.password is None
 
-    @patch('trainer.workouts.GARMIN_EMAIL', '')
+    @patch('trainer.garmin_workouts.GARMIN_EMAIL', '')
     def test_init_no_credentials(self):
         gw = GarminWorkout()
         assert gw.email == ""
@@ -144,7 +144,7 @@ class TestLogin:
 
     def test_login_without_token_and_without_password_raises(self, client, monkeypatch):
         """Nie używaj rzeczywistych danych załadowanych z .env przy imporcie."""
-        for module in ('trainer.workouts', 'trainer.garmin_auth'):
+        for module in ('trainer.garmin_workouts', 'trainer.garmin_auth'):
             monkeypatch.setattr(f'{module}.GARMIN_EMAIL', '')
         gw = GarminWorkout(email=None, password=None)
         with pytest.raises(garmin_auth.GarminAuthError, match="python -m trainer setup"):
@@ -259,7 +259,7 @@ class TestUploadSchedulingConsistency:
                 return registry.RegistryWriteResult(kwargs, False, 'io_error')
             return real_added(*args, **kwargs)
 
-        monkeypatch.setattr('trainer.workouts.record_added', fail_once)
+        monkeypatch.setattr('trainer.garmin_workouts.record_added', fail_once)
         assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345
         workout = registry.find_workout(12345)
         assert workout['status'] == 'active'
@@ -268,7 +268,7 @@ class TestUploadSchedulingConsistency:
 
     def test_failed_final_registry_write_still_returns_id(self, mock_gw, monkeypatch):
         monkeypatch.setattr(
-            'trainer.workouts.record_updated',
+            'trainer.garmin_workouts.record_updated',
             lambda *args, **kwargs: registry.RegistryWriteResult({}, False, 'io_error'),
         )
         assert mock_gw.easy_run('Test', 30, '2026-09-20') == 12345

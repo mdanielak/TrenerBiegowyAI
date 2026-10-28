@@ -58,14 +58,14 @@ def compute_readiness_score(latest_health, latest_sleep, latest_hrv):
 
 
 def week_bounds(day):
-    """Compatibility wrapper for services.training_plan.week_bounds."""
-    from services.training_plan import week_bounds as canonical_week_bounds
+    """Compatibility wrapper for services.plan_files.week_bounds."""
+    from services.plan_files import week_bounds as canonical_week_bounds
     return canonical_week_bounds(day)
 
 
 def plan_filename(day):
-    """Compatibility wrapper for services.training_plan.plan_filename."""
-    from services.training_plan import plan_filename as canonical_plan_filename
+    """Compatibility wrapper for services.plan_files.plan_filename."""
+    from services.plan_files import plan_filename as canonical_plan_filename
     return canonical_plan_filename(day)
 
 
@@ -77,5 +77,5 @@ def find_current_plan(base_dir, today=None):
     the week starts in (e.g. training-plans/2026-09/21-27.json).
     """
     from pathlib import Path
-    from services.training_plan import load_plan
+    from services.plan_files import load_plan
     return load_plan(today or datetime.now(), Path(base_dir) / 'training-plans')

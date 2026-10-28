@@ -11,7 +11,7 @@ def test_confirmation_gate_does_not_create(monkeypatch):
     monkeypatch.setattr(builtins, 'input', lambda _: next(answers))
     monkeypatch.setattr(workout_new.sys, 'stdin', Tty())
     called = []
-    monkeypatch.setattr('trainer.workouts.create_workout', lambda *a, **k: called.append(a))
+    monkeypatch.setattr('trainer.garmin_workouts.create_workout', lambda *a, **k: called.append(a))
     assert workout_new.main() == 0
     assert not called
 

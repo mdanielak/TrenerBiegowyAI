@@ -13,9 +13,9 @@ import re
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from services import training_plan
+from services import plan_files
 from services.readiness import readiness_for_day
-from services.training_plan import week_bounds
+from services.plan_files import week_bounds
 
 
 PLAN_KINDS = ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")
@@ -478,7 +478,7 @@ def _append_note(notes, note):
 def save_plan(plan, *, plans_dir=None):
     """Zapisz plan atomowo jako JSON i zapisz jego bliźniaczy CSV."""
     monday = datetime.strptime(plan["start_date"], "%Y-%m-%d")
-    path = training_plan.plan_path(monday, plans_dir)
+    path = plan_files.plan_path(monday, plans_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(plan, ensure_ascii=False, indent=2) + "\n"
     descriptor, temporary = tempfile.mkstemp(
@@ -495,13 +495,13 @@ def save_plan(plan, *, plans_dir=None):
         except FileNotFoundError:
             pass
         raise
-    training_plan.write_plan_csv(plan, path.with_suffix(".csv"))
+    plan_files.write_plan_csv(plan, path.with_suffix(".csv"))
     return path
 
 
 def load_week_plan(day, *, plans_dir=None):
     """Wczytaj plan obejmujący wskazany dzień albo None."""
-    return training_plan.load_plan(day, plans_dir)
+    return plan_files.load_plan(day, plans_dir)
 
 
 def previous_week_load(data, monday):

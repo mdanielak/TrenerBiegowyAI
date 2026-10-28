@@ -133,7 +133,7 @@ def test_wizard_happy_path_writes_files_without_echoing_secrets(monkeypatch, tmp
         return object()
     monkeypatch.setattr(setup_wizard, 'ensure_token', login)
     (tmp_path / '.env').write_text('GARMIN_PASSWORD=legacy-secret\nKEEP=value\n')
-    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', _OfflineGarmin)
     answers = _answers([
         (r'E-mail', 'runner@example.com'),
         (r'Hasło Garmin', 'sekret#haslo'),
@@ -185,7 +185,7 @@ def test_wizard_zone_sync_survives_final_profile_write(monkeypatch, tmp_path):
         api = object()
         def __init__(self, **kwargs): pass
         def login(self): return self
-    monkeypatch.setattr('trainer.workouts.GarminWorkout', Workout)
+    monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', Workout)
     monkeypatch.setattr(setup_wizard, 'fetch_snapshot', lambda api: {
         'age': 31, 'weight': 61, 'height': 171, 'hr_max': 190, 'hr_rest': 51,
         'lactate_threshold_hr': 170, 'hr_zone_floors': {'z1': 100, 'z2': 120, 'z3': 140, 'z4': 160, 'z5': 175}})
@@ -210,7 +210,7 @@ def test_weekly_proposal_approval_avoids_daily_questions(monkeypatch, tmp_path):
     existing['days']['tue'] = {'available': True, 'min_minutes': 40, 'max_minutes': 50}
     preferences.save_preferences(existing)
     prompts = []
-    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', _OfflineGarmin)
     answers = _answers([(r'E-mail', 'x@example.com'), (r'Hasło', ''), (r'Katalog', str(tmp_path)),
                         (r'Wiek', '35'), (r'Waga', '70'), (r'Wzrost', '180'), (r'maksymalne', '190'),
                          (r'spoczynkowe', '50'), (r'mleczanowy', '170'), (r'Wybierz numer', '3'), (r'Zakładany czas', ''),
@@ -227,7 +227,7 @@ def test_weekly_proposal_rejection_asks_daily_questions(monkeypatch, tmp_path):
     _redirect_stores(monkeypatch, tmp_path)
     prefs = preferences.load_preferences(); prefs['days']['mon']['available'] = True; preferences.save_preferences(prefs)
     prompts = []
-    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', _OfflineGarmin)
     answers = _answers([(r'E-mail', 'x'), (r'Katalog', str(tmp_path)), (r'Wiek', '35'), (r'Waga', '70'),
                         (r'Wzrost', '180'), (r'maksymalne', '190'), (r'spoczynkowe', '50'), (r'mleczanowy', '170'),
                         (r'Wybierz numer', '3'), (r'Zakładany czas', ''), (r'Data celu', '2027-01-01'), (r'Aktualny rekord', 'x'),
@@ -274,7 +274,7 @@ def test_weekly_rejection_asks_minutes_once_per_available_day(monkeypatch, tmp_p
     _redirect_stores(monkeypatch, tmp_path)
     prefs = preferences.load_preferences(); prefs['days']['mon'] = {'available': True, 'min_minutes': 30, 'max_minutes': 45}; preferences.save_preferences(prefs)
     prompts = []
-    monkeypatch.setattr('trainer.workouts.GarminWorkout', _OfflineGarmin)
+    monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', _OfflineGarmin)
     answers = _answers([(r'E-mail', 'x'), (r'Katalog', str(tmp_path)), (r'Wiek', '35'), (r'Waga', '70'), (r'Wzrost', '180'),
                         (r'maksymalne', '190'), (r'spoczynkowe', '50'), (r'mleczanowy', '170'), (r'Wybierz numer', '6'),
                         (r'Data celu', ''), (r'Aktualny rekord', ''), (r'Zatwierdzasz', 'n'), (r'Pon: trenujesz', 't'), (r'trenujesz', 'n'),

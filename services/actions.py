@@ -188,7 +188,7 @@ def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None
 
 def _garmin_workout_creator():
     """Zwróż fabrykę treningów działającą na jednej sesji Garmina."""
-    from trainer.workouts import GarminWorkout, build_workout
+    from trainer.garmin_workouts import GarminWorkout, build_workout
 
     state = {"session": None}
 

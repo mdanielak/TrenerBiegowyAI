@@ -293,5 +293,5 @@ def get_today_workout(plan, today=None):
 
     Returns workout dict or None (rest day / no plan).
     """
-    from services.training_plan import get_today_workout_from_plan
+    from services.plan_files import get_today_workout_from_plan
     return get_today_workout_from_plan(plan, today)
