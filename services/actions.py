@@ -123,6 +123,17 @@ def run_review_job(*, store, job_id, review_key, operation, lock_directory=None)
 # --- Plan tygodniowy ---------------------------------------------------------
 
 
+def _remember_ai_success():
+    """Udane wywołanie AI z aplikacji potwierdza połączenie tak samo jak test."""
+    from services.ai_status import record_test
+    from trainer import config
+
+    try:
+        record_test(ok=True, base_url=config.AI_BASE_URL, model=config.AI_MODEL, source="use")
+    except OSError:
+        pass
+
+
 def _require_ai_consent():
     """Sprawdź bramkę zgody na wysyłanie danych do AI."""
     from trainer import config
@@ -189,6 +200,8 @@ def generate_week_plan(*, week_start=None, provider_factory=None, save=None, tod
 
     from ai.plan_generation import generate_week_plan as generate_response
     response = generate_response(provider, context)
+    if provider_factory is None:
+        _remember_ai_success()
 
     normalized = plan_service.normalize_plan(response, context=context)
     if save is not None:
@@ -350,6 +363,8 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
 
     from ai.recommendation import get_daily_recommendation
     recommendation = get_daily_recommendation(provider, context)
+    if provider_factory is None:
+        _remember_ai_success()
 
     result = {
         "readiness": recommendation.readiness,

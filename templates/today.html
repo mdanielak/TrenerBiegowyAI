@@ -27,15 +27,12 @@
       <h1>Dzisiaj</h1>
       <p class="page-sub">{{ weekday|capitalize }}, {{ formatted_date }} · {{ last_sync_time }}{% if not is_stale %} · Dane są aktualne.{% endif %}</p>
     </div>
-    <div class="row head-actions">
-      {% include "_ai_badge.html" %}
-      <form method="post" action="/actions/sync">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit"{% if sync_banner.disabled %} disabled{% endif %}>
-          {{ ico.refresh(18) }}<span>Zsynchronizuj dane</span>
-        </button>
-      </form>
-    </div>
+    <form method="post" action="/actions/sync">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit"{% if sync_banner.disabled %} disabled{% endif %}>
+        {{ ico.refresh(18) }}<span>Zsynchronizuj dane</span>
+      </button>
+    </form>
   </div>
 
   <div class="stack">

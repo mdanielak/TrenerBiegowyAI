@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ai.connection_test import AIConnectionTestError
-from services.ai_status import record_test
+from services.ai_status import ai_status_view, load_status, record_test
 from services.locking import LockBusyError, acquire_lock
 from trainer.ai_settings import (
     read_ai_settings,
@@ -43,10 +43,10 @@ def get_settings_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    def _remember_test(*, ok, base_url, model):
+    def _remember_test(*, ok, base_url, model, error=None):
         """Wynik testu dla plakietki AI; błąd zapisu nie psuje samego testu."""
         try:
-            record_test(ok=ok, base_url=base_url, model=model, path=ai_status_path)
+            record_test(ok=ok, base_url=base_url, model=model, error=error, path=ai_status_path)
         except OSError:
             logger.warning("Could not store the AI connection test result")
 
@@ -71,6 +71,8 @@ def get_settings_router(
         }
         try:
             context["ai_settings"] = read_ai_settings(ai_env_path)
+            context["ai_status"] = ai_status_view(context["ai_settings"], load_status(ai_status_path))
+            context["ai_check"] = request.query_params.get("check") if request.method == "GET" else None
             if form_values is not None:
                 context["ai_settings"].update(form_values)
         except (OSError, UnicodeError):
@@ -134,6 +136,33 @@ def get_settings_router(
     def ai_settings(request: Request):
         return ai_settings_page(request)
 
+    @router.post("/settings/ai/check", response_class=HTMLResponse)
+    def check_saved_connection(request: Request, csrf_token: str = Form(default="")):
+        """Sprawdź zapisaną konfigurację jednym kliknięciem; wynik trafia do plakietki AI."""
+        if not csrf_valid(request, csrf_token):
+            return ai_settings_page(request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403)
+        try:
+            saved = read_ai_settings(ai_env_path)
+            base_url, model = validate_ai_settings(base_url=saved["base_url"] or "", model=saved["model"] or "",
+                                                   api_key="", clear_key=False)
+            key = resolve_test_key(ai_env_path, base_url=base_url, api_key="", clear_key=False)
+            import api.main
+
+            with acquire_lock(name="ai-connection-test", directory=lock_directory):
+                try:
+                    api.main.check_connection(base_url=base_url, model=model, api_key=key)
+                except AIConnectionTestError as exc:
+                    _remember_test(ok=False, base_url=base_url, model=model, error=str(exc))
+                    return RedirectResponse(url="/settings/ai?check=fail#polaczenie", status_code=303)
+                _remember_test(ok=True, base_url=base_url, model=model)
+        except ValueError as exc:
+            return ai_settings_page(request, ai_error=str(exc), status_code=400)
+        except LockBusyError:
+            return ai_settings_page(request, ai_error="Sprawdzanie już trwa. Poczekaj na wynik.", status_code=409)
+        except (OSError, UnicodeError):
+            return ai_settings_page(request, ai_error="Nie można odczytać konfiguracji.", status_code=503)
+        return RedirectResponse(url="/settings/ai?check=ok#polaczenie", status_code=303)
+
     @router.post("/settings/ai/test", response_class=HTMLResponse)
     def test_ai_connection(
         request: Request,
@@ -168,8 +197,8 @@ def get_settings_router(
             with acquire_lock(name="ai-connection-test", directory=lock_directory):
                 try:
                     api.main.check_connection(base_url=base_url, model=model, api_key=key)
-                except AIConnectionTestError:
-                    _remember_test(ok=False, base_url=base_url, model=model)
+                except AIConnectionTestError as exc:
+                    _remember_test(ok=False, base_url=base_url, model=model, error=str(exc))
                     raise
                 _remember_test(ok=True, base_url=base_url, model=model)
         except ValueError as exc:

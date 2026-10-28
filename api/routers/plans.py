@@ -185,7 +185,6 @@ def get_plans_router(
             conflict=conflict,
             variants=variants,
         )
-        context["ai_badge"] = ai_badge_provider() if ai_badge_provider is not None else None
         try:
             context["week_note"] = note_for_week(monday)
         except OSError:

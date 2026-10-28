@@ -57,6 +57,10 @@ _CSRF_COOKIE = "trainer_csrf"
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 _TEMPLATES.env.filters["num"] = _format_number
 _TEMPLATES.env.filters["plural"] = _plural
+# Plakietka AI w bocznym menu: każda aplikacja (także w testach) podaje własnego dostawcę
+# przez request.state, więc współdzielone szablony nie mieszają stanów różnych instancji.
+_TEMPLATES.env.globals["sidebar_ai_badge"] = lambda request: (
+    getattr(request.state, "ai_badge_provider", None) or (lambda: None))()
 
 
 def _static_version(relative: str) -> str:
@@ -166,6 +170,11 @@ def create_app(
         version=_app_version(),
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def provide_ai_badge(request: Request, call_next):
+        request.state.ai_badge_provider = ai_badge
+        return await call_next(request)
 
     static_dir = Path(__file__).resolve().parents[1] / "static"
     if static_dir.is_dir():

@@ -230,19 +230,36 @@
   /* Ikony kolorowe mają własny kształt, więc bez bladego kafelka pod spodem. */
   .tile-icon, .head-icon { flex: none; }
   .item-icon.kind-icon { width: 48px; height: 48px; background: var(--surface-alt); }
-  .head-actions { flex-wrap: wrap; justify-content: flex-end; }
-  /* Plakietka AI: kolor kropki wspiera tekst stanu (połączone / gotowe / wyłączone). */
-  .ai-badge { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 12px;
-              border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface);
-              color: var(--fg); text-decoration: none; }
-  .ai-badge:hover { background: var(--surface-alt); text-decoration: none; }
-  .ai-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--border-strong); }
-  .ai-badge.connected .ai-dot { background: var(--ok-icon); }
-  .ai-badge.ready .ai-dot { background: var(--warn-icon); }
-  .ai-badge.off .ai-dot { background: var(--surface); border: 2px solid var(--fg-muted); }
-  .ai-badge-text { display: flex; flex-direction: column; line-height: 1.2; }
+  /* Plakietka AI w bocznym menu. Tekst stanu jest zawsze; kolory to pary z tabeli stanów
+     (ok #15803D na #DCFCE7, warn #B45309 na #FEF3C7, bad #B91C1C na #FEE2E2). */
+  .ai-badge { display: flex; align-items: flex-start; gap: 9px; margin: 12px 8px 0; padding: 9px 11px;
+              border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; }
+  .ai-badge:hover { text-decoration: none; filter: brightness(0.98); }
+  .ai-badge.ok { background: var(--ok-bg); border-color: var(--ok-icon); }
+  .ai-badge.warn { background: var(--warn-bg); border-color: var(--warn-icon); }
+  .ai-badge.bad { background: var(--danger-bg); border-color: var(--danger-icon); }
+  .ai-dot { width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; flex: none; }
+  .ai-badge.ok .ai-dot { background: var(--ok-icon); }
+  .ai-badge.warn .ai-dot { background: var(--warn-icon); }
+  .ai-badge.bad .ai-dot { background: var(--danger-icon); }
+  .ai-badge-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; min-width: 0; }
   .ai-badge-label { font-size: 13px; font-weight: 650; }
-  .ai-badge-detail { font-size: 11.5px; color: var(--fg-mid); }
+  .ai-badge.ok .ai-badge-label { color: var(--ok-fg); }
+  .ai-badge.warn .ai-badge-label { color: var(--warn-fg); }
+  .ai-badge.bad .ai-badge-label { color: var(--danger-fg); }
+  .ai-badge-detail { font-size: 11.5px; color: var(--fg-mid); overflow-wrap: anywhere; }
+  .ai-badge-action { font-size: 12px; font-weight: 650; color: var(--fg); margin-top: 2px; }
+  .ai-state { margin-bottom: var(--gap); border-width: 2px; }
+  .ai-state.ok { border-color: var(--ok-icon); }
+  .ai-state.warn { border-color: var(--warn-icon); }
+  .ai-state.bad { border-color: var(--danger-icon); }
+  .ai-state h2 { display: flex; align-items: center; gap: 10px; }
+  .ai-state.ok .ai-dot { background: var(--ok-icon); }
+  .ai-state.warn .ai-dot { background: var(--warn-icon); }
+  .ai-state.bad .ai-dot { background: var(--danger-icon); }
+  .state-facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0 0 10px; }
+  .state-facts dt { font-size: 12px; color: var(--fg-mid); }
+  .state-facts dd { margin: 0; font-weight: 650; }
   /* Panel potwierdzenia: obrys ostrzeżenia (#D97706, 3,19:1), znaczenie niesie tytuł i lista. */
   .confirm-panel { border-color: var(--warn-icon); border-width: 2px; }
   .confirm-actions { flex-wrap: wrap; margin-top: 12px; }

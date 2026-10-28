@@ -29,8 +29,7 @@
       <a class="btn btn-secondary" href="/plan?week={{ next_week }}">Następny tydzień</a>
     </div>
   </div>
-  <div class="week-nav head-actions">
-    {% include "_ai_badge.html" %}
+  <div class="week-nav">
     <form method="post" action="/actions/plan">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="week_start" value="{{ week_start }}">

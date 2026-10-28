@@ -1,10 +1,11 @@
-{# Plakietka stanu AI: kropka wspiera tekst, nigdy go nie zastępuje. #}
+{# Plakietka stanu AI w bocznym menu: kolor wspiera tekst, nigdy go nie zastępuje. #}
 {% if ai_badge %}
-  <a class="ai-badge {{ ai_badge.state }}" href="/settings/ai" title="{{ ai_badge.detail }}">
+  <a class="ai-badge {{ ai_badge.tone }}" href="/settings/ai#polaczenie">
     <span class="ai-dot" aria-hidden="true"></span>
     <span class="ai-badge-text">
       <span class="ai-badge-label">{{ ai_badge.label }}</span>
-      <span class="ai-badge-detail">{% if ai_badge.state == 'off' %}{{ ai_badge.detail }} · ustaw{% else %}{{ ai_badge.detail }}{% endif %}</span>
+      <span class="ai-badge-detail">{{ ai_badge.detail }}</span>
+      {% if ai_badge.tone != 'ok' %}<span class="ai-badge-action">{% if ai_badge.state == 'missing' %}Podłącz AI →{% elif ai_badge.state == 'no_consent' %}Włącz zgodę →{% else %}Sprawdź połączenie →{% endif %}</span>{% endif %}
     </span>
   </a>
 {% endif %}

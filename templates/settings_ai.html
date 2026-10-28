@@ -8,6 +8,33 @@
     <p class="page-sub">Połączenie z dostawcą AI i zgoda na eksport danych</p>
   </div>
 </div>
+{% if ai_status %}
+<section class="card ai-state {{ ai_status.tone }}" id="polaczenie" aria-labelledby="ai-state-heading">
+  <div class="card-head">
+    <h2 id="ai-state-heading"><span class="ai-dot" aria-hidden="true"></span><span>{{ ai_status.label }}</span></h2>
+  </div>
+  {% if ai_check == 'ok' %}
+    <div class="banner info" role="status"><div class="banner-body"><p class="banner-title">Połączenie działa — model odpowiedział.</p></div></div>
+  {% elif ai_check == 'fail' %}
+    <div class="banner bad" role="alert"><div class="banner-body"><p class="banner-title">Połączenie nie działa.</p>{% if ai_status.error %}<p class="mid">{{ ai_status.error }}</p>{% endif %}</div></div>
+  {% elif ai_status.error %}
+    <p class="mid">Ostatni błąd: {{ ai_status.error }}</p>
+  {% endif %}
+  <dl class="state-facts">
+    <div><dt>Dostawca</dt><dd>{{ ai_status.provider or '—' }}</dd></div>
+    <div><dt>Model</dt><dd>{{ ai_status.model or '—' }}</dd></div>
+    <div><dt>Ostatnio sprawdzone</dt><dd>{{ ai_status.when or 'nie sprawdzano' }}</dd></div>
+  </dl>
+  <p class="mid">{{ ai_status.hint }}</p>
+  {% if ai_status.can_check %}
+    <form method="post" action="/settings/ai/check" class="row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit"{% if ai_status.tone == 'ok' %} class="btn-secondary"{% endif %}>Sprawdź połączenie</button>
+      <span class="tile-foot">Krótkie zapytanie „Connection test. Reply only OK.” do zapisanej konfiguracji — bez Twoich danych. Dostawca może naliczyć minimalną opłatę.</span>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
 <section class="card" aria-labelledby="ai-heading">
   <div class="card-head"><h2 id="ai-heading">Konfiguracja połączenia</h2></div>
   <div>
