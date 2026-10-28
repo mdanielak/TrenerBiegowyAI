@@ -228,7 +228,7 @@
   .choice input { width: 18px; height: 18px; accent-color: var(--accent); }
   .card-lead { margin: 0 0 12px; }
   /* Ikony kolorowe mają własny kształt, więc bez bladego kafelka pod spodem. */
-  .tile-icon { flex: none; }
+  .tile-icon, .head-icon { flex: none; }
   .item-icon.kind-icon { width: 48px; height: 48px; background: var(--surface-alt); }
   .head-actions { flex-wrap: wrap; justify-content: flex-end; }
   /* Plakietka AI: kolor kropki wspiera tekst stanu (połączone / gotowe / wyłączone). */

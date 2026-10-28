@@ -139,7 +139,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.runner(26) }}<span>Trening na dziś</span></h2>
+        <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
         <span class="row">
           {% if workout %}
             <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
@@ -355,7 +355,7 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.runner(26) }}<span>Wczorajsze aktywności</span></h2>
+          <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Wczorajsze aktywności</span></h2>
         </div>
       {% if report.yesterday_activities %}
         <div class="list">
