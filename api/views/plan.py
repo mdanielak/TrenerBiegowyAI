@@ -27,6 +27,15 @@ _PLAN_KIND_PILL = {
 }
 _PLAN_KIND_ICONS = {kind: f"/assets/03_activity/kind_{kind}.png"
                     for kind in ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")}
+# Rodzaje z rejestru Garmina (builder treningu) w rodzajach planu.
+_REGISTRY_KINDS = {"easy_run": "easy", "easy_run_zoned": "easy", "hr_zone_run": "easy", "strides": "easy",
+                   "long_run": "long", "tempo_run": "tempo", "threshold_intervals": "threshold"}
+
+
+def _kind_icon(kind) -> str:
+    """Ikona rodzaju treningu z planu albo z rejestru; nieznany rodzaj to bieg łatwy."""
+    kind = _REGISTRY_KINDS.get(kind, kind)
+    return _PLAN_KIND_ICONS.get(kind, _PLAN_KIND_ICONS["easy"])
 _PLAN_QUALITY_KINDS = ("tempo", "threshold", "intervals")
 _PLAN_DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 _PLAN_LOAD_WIDTH = 638
@@ -197,6 +206,7 @@ def _plan_workout_view(plan_workout) -> Optional[dict]:
         "notes": plan_workout.get("notes"),
         "garmin_upload": bool(plan_workout.get("garmin_upload")),
         "is_rest": kind == "rest",
+        "icon": _kind_icon(kind),
     }
 
 

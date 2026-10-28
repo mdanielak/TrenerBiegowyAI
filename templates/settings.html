@@ -57,7 +57,7 @@
         <div class="list">
           {% for row in runner_rows %}
             <div class="list-item">
-              <span class="item-icon"><img class="asset" src="/assets/01_navigation/profile.png" width="28" height="28" alt=""></span>
+              <span class="item-icon"><img class="asset" src="/assets/{{ row.icon }}" width="28" height="28" alt=""></span>
               <span class="item-body">
                 <span class="item-title">{{ row.label }}</span>
               </span>
@@ -79,7 +79,7 @@
         <div class="list">
           {% for row in heart_rows %}
             <div class="list-item">
-              <span class="item-icon"><img class="asset" src="/assets/02_health_status/resting_hr.png" width="28" height="28" alt=""></span>
+              <span class="item-icon"><img class="asset" src="/assets/{{ row.icon }}" width="28" height="28" alt=""></span>
               <span class="item-body">
                 <span class="item-title">{{ row.label }}</span>
               </span>
@@ -131,7 +131,7 @@
       <div class="list">
         {% for row in goal_rows %}
           <div class="list-item">
-            <span class="item-icon"><img class="asset" src="/assets/01_navigation/calendar.png" width="28" height="28" alt=""></span>
+            <span class="item-icon"><img class="asset" src="/assets/{{ row.icon }}" width="28" height="28" alt=""></span>
             <span class="item-body">
               <span class="item-title">{{ row.label }}</span>
             </span>

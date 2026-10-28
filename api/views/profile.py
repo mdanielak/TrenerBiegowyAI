@@ -2,38 +2,46 @@
 """Widok profilu biegacza na stronie ustawień."""
 from __future__ import annotations
 
+# (klucz profilu, etykieta, jednostka, ikona wiersza w 07_ui_icons)
 _PROFILE_RUNNER_FIELDS = (
-    ("name", "Imię", ""),
-    ("age", "Wiek", "lat"),
-    ("weight_kg", "Waga", "kg"),
-    ("height_cm", "Wzrost", "cm"),
-    ("device", "Zegarek", ""),
+    ("name", "Imię", "", "tile_person"),
+    ("age", "Wiek", "lat", "tile_age"),
+    ("weight_kg", "Waga", "kg", "tile_weight"),
+    ("height_cm", "Wzrost", "cm", "tile_height"),
+    ("device", "Zegarek", "", "tile_watch"),
 )
 _PROFILE_HEART_FIELDS = (
-    ("hr_max", "Tętno maksymalne", "bpm"),
-    ("hr_rest", "Tętno spoczynkowe", "bpm"),
-    ("lactate_threshold_hr", "Tętno progowe (LTHR)", "bpm"),
-    ("vo2max_running", "VO2max (bieg)", ""),
+    ("hr_max", "Tętno maksymalne", "bpm", "tile_heart_max"),
+    ("hr_rest", "Tętno spoczynkowe", "bpm", "tile_heart_rest"),
+    ("lactate_threshold_hr", "Tętno progowe (LTHR)", "bpm", "tile_threshold"),
+    ("vo2max_running", "VO2max (bieg)", "", "tile_vo2max"),
 )
 _PROFILE_GOAL_FIELDS = (
-    ("target_race", "Zawody docelowe", ""),
-    ("target_date", "Data celu", ""),
-    ("target_time", "Czas docelowy", ""),
-    ("target_hm", "Cel na półmaraton", ""),
-    ("current_hm_record", "Obecny rekord półmaratonu", ""),
-    ("training_frequency", "Liczba treningów w tygodniu", ""),
+    ("target_race", "Zawody docelowe", "", "tile_race"),
+    ("target_date", "Data celu", "", "tile_date"),
+    ("target_time", "Czas docelowy", "", "tile_time"),
+    ("target_hm", "Cel na półmaraton", "", "tile_finish"),
+    ("current_hm_record", "Obecny rekord półmaratonu", "", "tile_trophy"),
+    ("training_frequency", "Liczba treningów w tygodniu", "", "tile_frequency"),
 )
+
+
+def profile_icon_references() -> list[str]:
+    """Ścieżki ikon wierszy ustawień, dla testów i skryptu skalowania grafik."""
+    fields = _PROFILE_RUNNER_FIELDS + _PROFILE_HEART_FIELDS + _PROFILE_GOAL_FIELDS
+    return sorted({f"07_ui_icons/{icon}.png" for *_rest, icon in fields})
 
 
 def _profile_rows(profile: dict, fields) -> list[dict]:
     """Zbuduj wiersze profilu tylko z zapisanych pól. Nic nie jest domyślane."""
     rows = []
-    for key, label, unit in fields:
+    for key, label, unit, icon in fields:
         value = profile.get(key)
         rows.append({
             "label": label,
             "value": None if value is None or value == "" else value,
             "unit": unit,
+            "icon": f"07_ui_icons/{icon}.png",
         })
     return rows
 

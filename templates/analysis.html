@@ -42,7 +42,7 @@
     <div class="grid grid-4">
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info"><img class="asset" src="/assets/02_health_status/readiness.png" width="20" height="20" alt=""></span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_readiness.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Ocena gotowości</span></span>
         </span>
         <span class="tile-value">{{ readiness_score }}<span class="tile-unit">z {{ readiness_max_score }}</span></span>
@@ -58,7 +58,7 @@
 
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info"><img class="asset" src="/assets/07_ui_icons/activity.png" width="20" height="20" alt=""></span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_signals.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Zmierzone sygnały</span></span>
         </span>
         <span class="tile-value">{{ metrics_available }}<span class="tile-unit">z {{ metrics_total }}</span></span>
@@ -67,7 +67,7 @@
 
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info"><img class="asset" src="/assets/02_health_status/success.png" width="20" height="20" alt=""></span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Pewność oceny</span></span>
         </span>
         <span class="tile-value">{{ confidence_label|capitalize }}</span>
@@ -76,7 +76,7 @@
 
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/training_load.png" width="20" height="20" alt=""></span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_points.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Punkty surowe</span></span>
         </span>
         <span class="tile-value">{{ raw_score }}<span class="tile-unit">z {{ available_max_score }}</span></span>

@@ -24,6 +24,7 @@ from services.data_extract import read_snapshot_status
 from services.jobs import JobStore
 from services.recommendations import load_recommendation
 from services.goal import GoalReport, get_goal_report
+from services.ai_status import AI_STATUS_PATH, ai_status_view, load_status
 from services.journal import JOURNAL_PATH
 from services.stats import StatsReport, get_stats_report
 from services.today import TodayReport, get_today_report
@@ -108,6 +109,7 @@ def create_app(
     goal_report_provider: Callable[[], GoalReport] = get_goal_report,
     journal_path: Path | None = None,
     registry_provider: Callable[[], list] | None = None,
+    ai_status_path: Path | None = None,
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
@@ -128,6 +130,15 @@ def create_app(
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(Path("local/jobs"))
     journal_path = journal_path or JOURNAL_PATH
+    ai_status_path = ai_status_path or AI_STATUS_PATH
+    settings_view = ai_settings_provider or (lambda: ai_settings_view(ai_env_path))
+
+    def ai_badge():
+        try:
+            settings = settings_view() or {}
+        except (OSError, UnicodeError):
+            settings = {}
+        return ai_status_view(settings, load_status(ai_status_path))
     if registry_provider is None:
         from services.workout_registry import library
 
@@ -192,6 +203,7 @@ def create_app(
             csrf_token=csrf_token,
             app_version=app.version,
             journal_path=journal_path,
+            ai_badge_provider=ai_badge,
         )
     )
     app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
@@ -211,6 +223,7 @@ def create_app(
             csrf_token=csrf_token,
             snapshot_provider=snapshot_provider,
             registry_provider=registry_provider,
+            ai_badge_provider=ai_badge,
         )
     )
     app.include_router(
@@ -222,6 +235,7 @@ def create_app(
             attach_csrf=attach_csrf,
             csrf_token=csrf_token,
             csrf_valid=csrf_valid,
+            ai_status_path=ai_status_path,
         )
     )
     app.include_router(

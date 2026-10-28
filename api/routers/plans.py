@@ -86,6 +86,7 @@ def get_plans_router(
     snapshot_provider: Callable[[], object] = read_snapshot_status,
     registry_provider: Callable[[], list] | None = None,
     variants_provider: Callable[[datetime], list] = plan_conflicts.list_variants,
+    ai_badge_provider: Callable[[], dict] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -182,6 +183,7 @@ def get_plans_router(
             conflict=conflict,
             variants=variants,
         )
+        context["ai_badge"] = ai_badge_provider() if ai_badge_provider is not None else None
         return attach_csrf(
             templates.TemplateResponse(
                 request=request,

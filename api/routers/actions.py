@@ -402,6 +402,8 @@ def get_actions_router(
                 status_code=403,
                 headers={"Cache-Control": "no-store"},
             )
+        if not ai_ready():
+            return RedirectResponse(url="/?ai=off", status_code=303)
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
                 job = store.submit(

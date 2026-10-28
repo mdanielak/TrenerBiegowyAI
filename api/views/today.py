@@ -9,6 +9,7 @@ from typing import NoReturn, Optional, cast
 
 from fastapi import HTTPException
 
+from api.views.plan import _kind_icon
 from api.views.common import (
     _HRV_STATUSES,
     _READINESS_LABELS,
@@ -251,6 +252,7 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
         "execution": execution,
         "name": planned.get("name") or "Trening",
         "kind": spec.get("kind"),
+        "icon": _kind_icon(spec.get("kind")),
         "planned_duration": planned_duration_min(spec),
         "target": f"Z{zone} ({band[0]}–{band[1]} bpm)" if zone is not None and band else None,
         "status_label": status_label,

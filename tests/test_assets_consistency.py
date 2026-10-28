@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from api.views.plan import _PLAN_KIND_ICONS
+from api.views.profile import profile_icon_references
 from api.views.stats import _METRIC_META
 from api.main import _SIGNAL_META
 from services.assets import build_manifest
@@ -35,6 +36,12 @@ DYNAMIC_SIGNAL_TAG = re.compile(
 )
 DYNAMIC_METRIC_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/\{\{ *metric\.asset *\}\}" width="(\d+)"'
+)
+DYNAMIC_ROW_TAG = re.compile(
+    r'<img class="asset[^"]*" src="/assets/\{\{ *row\.icon *\}\}" width="(\d+)"'
+)
+DYNAMIC_KIND_TAG = re.compile(
+    r'<img class="asset[^"]*" src="\{\{ *(?:plan_)?workout\.icon *\}\}" width="(\d+)"'
 )
 DYNAMIC_PLAN_ICON_TAG = re.compile(
     r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
@@ -104,7 +111,20 @@ def display_sizes() -> dict[str, int]:
     metric_size = metric_asset_size()
     for reference in metric_references():
         sizes[reference] = max(sizes.get(reference, 0), metric_size)
+    row_size = _largest(DYNAMIC_ROW_TAG, "settings.html")
+    for reference in profile_icon_references():
+        sizes[reference] = max(sizes.get(reference, 0), row_size)
+    kind_size = _largest(DYNAMIC_KIND_TAG, "today.html")
+    for reference in plan_icon_references():
+        sizes[reference] = max(sizes.get(reference, 0), kind_size)
     return sizes
+
+
+def _largest(pattern, template) -> int:
+    sizes = pattern.findall((TEMPLATES_DIR / template).read_text(encoding="utf-8"))
+    if not sizes:
+        raise AssertionError(f"Nie znaleziono dynamicznego tagu grafiki w {template}; zaktualizuj wzorzec.")
+    return max(int(size) for size in sizes)
 
 
 def metric_asset_size() -> int:
@@ -137,6 +157,8 @@ def test_templates_expose_expected_number_of_asset_tags() -> None:
         + len(DYNAMIC_METRIC_TAG.findall(
             (TEMPLATES_DIR / "stats.html").read_text(encoding="utf-8")
         ))
+        + len(DYNAMIC_ROW_TAG.findall((TEMPLATES_DIR / "settings.html").read_text(encoding="utf-8")))
+        + len(DYNAMIC_KIND_TAG.findall((TEMPLATES_DIR / "today.html").read_text(encoding="utf-8")))
     )
 
     assert all_tags >= MIN_EXPECTED_TAGS, (
@@ -177,6 +199,15 @@ def test_metric_icons_are_served_by_manifest() -> None:
     missing = [reference for reference in metric_references() if reference not in manifest]
 
     assert not missing, "Grafiki statystyk nieobecne w manifeście: " + ", ".join(missing)
+
+
+def test_settings_row_icons_are_served_by_manifest() -> None:
+    """Ikony wierszy ustawień wstawia Jinja z pól profilu."""
+    manifest = build_manifest(ASSETS_DIR)
+
+    missing = [reference for reference in profile_icon_references() if reference not in manifest]
+
+    assert not missing, "Ikony ustawień nieobecne w manifeście: " + ", ".join(missing)
 
 
 def test_plan_icons_are_served_by_manifest() -> None:

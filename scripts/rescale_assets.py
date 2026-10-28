@@ -44,6 +44,12 @@ DYNAMIC_SIGNAL_TAG = re.compile(
 DYNAMIC_PLAN_ICON_TAG = re.compile(
     r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
 )
+DYNAMIC_ROW_TAG = re.compile(
+    r'<img class="asset[^"]*" src="/assets/\{\{ *row\.icon *\}\}" width="(\d+)"'
+)
+DYNAMIC_KIND_TAG = re.compile(
+    r'<img class="asset[^"]*" src="\{\{ *(?:plan_)?workout\.icon *\}\}" width="(\d+)"'
+)
 DYNAMIC_METRIC_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/\{\{ *metric\.asset *\}\}" width="(\d+)"'
 )
@@ -71,6 +77,14 @@ def plan_icon_references() -> list[str]:
     from api.views.plan import _PLAN_KIND_ICONS
 
     return sorted({reference.removeprefix("/assets/") for reference in _PLAN_KIND_ICONS.values()})
+
+
+def profile_icon_refs() -> list[str]:
+    """Return the settings row icons that Jinja inserts from the profile fields."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from api.views.profile import profile_icon_references
+
+    return profile_icon_references()
 
 
 def metric_references() -> list[str]:
@@ -128,6 +142,18 @@ def collect_targets() -> tuple[dict[str, int], list[str]]:
         warnings.append(
             "no dynamic metric tag found in stats.html, statistics signal images were skipped"
         )
+
+    for pattern, template, references, label in (
+        (DYNAMIC_ROW_TAG, "settings.html", profile_icon_refs(), "settings row icons"),
+        (DYNAMIC_KIND_TAG, "today.html", plan_icon_references(), "today training kind icons"),
+    ):
+        found = [int(size) for size in pattern.findall((TEMPLATES_DIR / template).read_text(encoding="utf-8"))]
+        recognised += len(found)
+        if found:
+            for reference in references:
+                targets[reference] = max(targets.get(reference, 0), max(found))
+        else:
+            warnings.append(f"no dynamic tag found in {template}, {label} were skipped")
 
     if recognised != total:
         warnings.append(

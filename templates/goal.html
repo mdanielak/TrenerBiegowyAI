@@ -36,7 +36,7 @@
     <div class="grid grid-4">
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Czas docelowy</span></span>
         </span>
         <span class="tile-value">{{ goal.target_time or '—' }}</span>
@@ -44,7 +44,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.runner(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_pace.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Wymagane tempo</span></span>
         </span>
         <span class="tile-value">{% if goal.target_pace %}{{ goal.target_pace }}<span class="tile-unit">/km</span>{% else %}—{% endif %}</span>
@@ -52,7 +52,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.check(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_trophy.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Obecny rekord</span></span>
         </span>
         <span class="tile-value">{{ goal.record or '—' }}</span>
@@ -60,7 +60,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.calendar(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Bieżąca faza</span></span>
         </span>
         <span class="tile-value goal-phase">{{ goal.current or '—' }}</span>

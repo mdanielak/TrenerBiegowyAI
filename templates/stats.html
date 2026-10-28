@@ -48,7 +48,7 @@
     <div class="grid grid-4">
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Kilometry biegowe</span></span>
         </span>
         <span class="tile-value">{{ stats.total_km|num }}<span class="tile-unit">km</span></span>
@@ -56,7 +56,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.bar_chart(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_average.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Średnio na tydzień</span></span>
         </span>
         <span class="tile-value">
@@ -66,7 +66,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.runner(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Biegi</span></span>
         </span>
         <span class="tile-value">{{ stats.total_sessions }}</span>
@@ -74,7 +74,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Czas biegu</span></span>
         </span>
         <span class="tile-value">{{ (stats.total_minutes / 60)|num }}<span class="tile-unit">h</span></span>

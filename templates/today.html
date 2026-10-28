@@ -1,4 +1,4 @@
-﻿{% extends "_base.html" %}
+{% extends "_base.html" %}
 
 {% block title %}Trener Biegowy — dziś{% endblock %}
 
@@ -27,15 +27,28 @@
       <h1>Dzisiaj</h1>
       <p class="page-sub">{{ weekday|capitalize }}, {{ formatted_date }} · {{ last_sync_time }}{% if not is_stale %} · Dane są aktualne.{% endif %}</p>
     </div>
-    <form method="post" action="/actions/sync">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit"{% if sync_banner.disabled %} disabled{% endif %}>
-        {{ ico.refresh(18) }}<span>Zsynchronizuj dane</span>
-      </button>
-    </form>
+    <div class="row head-actions">
+      {% include "_ai_badge.html" %}
+      <form method="post" action="/actions/sync">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit"{% if sync_banner.disabled %} disabled{% endif %}>
+          {{ ico.refresh(18) }}<span>Zsynchronizuj dane</span>
+        </button>
+      </form>
+    </div>
   </div>
 
   <div class="stack">
+
+    {% if ai_off_notice %}
+      <div class="banner warn" role="alert">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Rekomendacja AI wymaga połączenia z AI.</p>
+          <p class="mid">Dodaj klucz API i zgodę na wysyłanie danych w <a href="/settings/ai">Ustawienia → API AI</a>. Do tego czasu podpowiedź poniżej liczy ten komputer z oceny gotowości.</p>
+        </div>
+      </div>
+    {% endif %}
 
     {% if is_stale %}
       <div class="banner warn">
@@ -144,7 +157,7 @@
         <div class="stack">
 
           <div class="list-item">
-            <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png" width="28" height="28" alt=""></span>
+            <span class="item-icon kind-icon"><img class="asset" src="{{ workout.icon }}" width="40" height="40" alt=""></span>
             <span class="item-body">
               <span class="item-title">{{ workout.name }}</span>
               <span class="item-meta">
@@ -158,21 +171,21 @@
             <div class="grid grid-4">
               <div class="tile">
                 <span class="tile-head">
-                  <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
                   <span class="tile-label"><span>Czas</span></span>
                 </span>
                 <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
               </div>
               <div class="tile">
                 <span class="tile-head">
-                  <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
                   <span class="tile-label"><span>Dystans</span></span>
                 </span>
                 <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
               </div>
               <div class="tile">
                 <span class="tile-head">
-                  <span class="icon-box sm info"><img class="asset" src="/assets/02_health_status/resting_hr.png" width="20" height="20" alt=""></span>
+                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt="">
                   <span class="tile-label"><span>Średnie tętno</span></span>
                 </span>
                 <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
@@ -182,7 +195,7 @@
               </div>
               <div class="tile">
                 <span class="tile-head">
-                  <span class="icon-box sm info">{{ ico.bolt(20) }}</span>
+                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart_max.png" width="28" height="28" alt="">
                   <span class="tile-label"><span>Maksymalne tętno</span></span>
                 </span>
                 <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
@@ -207,7 +220,7 @@
               {% for row in workout.score_rows %}
                 <div class="tile">
                   <span class="tile-head">
-                    <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/training_load.png" width="20" height="20" alt=""></span>
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_load.png" width="28" height="28" alt="">
                     <span class="tile-label"><span>{{ row.label }}</span></span>
                   </span>
                   <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
@@ -246,7 +259,7 @@
 
       {% if plan_workout and (not workout or plan_workout.name != workout.name) %}
         <div class="list-item">
-          <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png" width="28" height="28" alt=""></span>
+          <span class="item-icon kind-icon"><img class="asset" src="{{ plan_workout.icon }}" width="40" height="40" alt=""></span>
           <span class="item-body">
             <span class="item-title">{{ plan_workout.name }}</span>
             <span class="item-meta">
@@ -303,9 +316,10 @@
           </div>
           <form method="post" action="/actions/recommendation">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn-secondary">
+            <button type="submit" class="btn-secondary"{% if not ai_ready %} disabled{% endif %}>
               {{ ico.bulb(18) }}<span>Zapytaj AI, co dziś zrobić</span>
             </button>
+            {% if not ai_ready %}<p class="tile-foot">Wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
           </form>
         </div>
       {% endif %}

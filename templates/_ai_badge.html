@@ -1,0 +1,10 @@
+{# Plakietka stanu AI: kropka wspiera tekst, nigdy go nie zastępuje. #}
+{% if ai_badge %}
+  <a class="ai-badge {{ ai_badge.state }}" href="/settings/ai" title="{{ ai_badge.detail }}">
+    <span class="ai-dot" aria-hidden="true"></span>
+    <span class="ai-badge-text">
+      <span class="ai-badge-label">{{ ai_badge.label }}</span>
+      <span class="ai-badge-detail">{% if ai_badge.state == 'off' %}{{ ai_badge.detail }} · ustaw{% else %}{{ ai_badge.detail }}{% endif %}</span>
+    </span>
+  </a>
+{% endif %}

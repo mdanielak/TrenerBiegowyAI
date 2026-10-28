@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ai.connection_test import AIConnectionTestError
+from services.ai_status import record_test
 from services.locking import LockBusyError, acquire_lock
 from trainer.ai_settings import (
     read_ai_settings,
@@ -38,8 +39,16 @@ def get_settings_router(
     attach_csrf: Callable,
     csrf_token: Callable,
     csrf_valid: Callable,
+    ai_status_path=None,
 ) -> APIRouter:
     router = APIRouter()
+
+    def _remember_test(*, ok, base_url, model):
+        """Wynik testu dla plakietki AI; błąd zapisu nie psuje samego testu."""
+        try:
+            record_test(ok=ok, base_url=base_url, model=model, path=ai_status_path)
+        except OSError:
+            logger.warning("Could not store the AI connection test result")
 
     def ai_settings_page(
         request: Request,
@@ -157,7 +166,12 @@ def get_settings_router(
             import api.main
 
             with acquire_lock(name="ai-connection-test", directory=lock_directory):
-                api.main.check_connection(base_url=base_url, model=model, api_key=key)
+                try:
+                    api.main.check_connection(base_url=base_url, model=model, api_key=key)
+                except AIConnectionTestError:
+                    _remember_test(ok=False, base_url=base_url, model=model)
+                    raise
+                _remember_test(ok=True, base_url=base_url, model=model)
         except ValueError as exc:
             return ai_settings_page(request, ai_error=str(exc), status_code=400, **result)
         except AIConnectionTestError as exc:

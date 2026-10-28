@@ -110,3 +110,11 @@ def _isolate_plans_and_registry(tmp_path_factory, monkeypatch: pytest.MonkeyPatc
     root = tmp_path_factory.mktemp("isolated")
     monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", root / "training-plans")
     monkeypatch.setattr("services.workout_registry.REGISTRY_PATH", root / "workout-registry.jsonl")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ai_status(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Wynik testu połączenia z AI w testach nigdy nie trafia do prawdziwego local/."""
+    path = tmp_path_factory.mktemp("ai_status") / "ai_status.json"
+    monkeypatch.setattr("services.ai_status.AI_STATUS_PATH", path)
+    monkeypatch.setattr("api.main.AI_STATUS_PATH", path, raising=False)

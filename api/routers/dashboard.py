@@ -61,6 +61,7 @@ def get_dashboard_router(
     csrf_token: Callable,
     app_version: str,
     journal_path,
+    ai_badge_provider: Callable[[], dict] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -93,6 +94,7 @@ def get_dashboard_router(
         token = csrf_token(request)
         now = now_provider()
         banner = _sync_banner(store, now)
+        badge = ai_badge_provider() if ai_badge_provider is not None else None
         try:
             recommendation = recommendation_loader(date=report.date)
         except OSError:
@@ -123,6 +125,9 @@ def get_dashboard_router(
                     "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None)),
                     "ai_recommendation": _recommendation_view(recommendation),
                     "journal_missing": report.date not in entries_by_day(path=journal_path),
+                    "ai_badge": badge,
+                    "ai_ready": badge is not None and badge["state"] != "off",
+                    "ai_off_notice": request.query_params.get("ai") == "off",
                     "active_nav": "today",
                 },
                 headers={"Cache-Control": "no-store"},

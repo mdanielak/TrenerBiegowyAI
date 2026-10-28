@@ -14,8 +14,8 @@ from services.jobs import JobStore
 from services.today import TodayReport
 
 
-_PLAN_ITEM_MARKER = ('<span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png"'
-                     ' width="28" height="28" alt=""></span>')
+# Pozycja treningu (z rejestru albo z planu AI) ma ikonę rodzaju treningu.
+_PLAN_ITEM_MARKER = '<span class="item-icon kind-icon"><img class="asset" src="/assets/03_activity/kind_'
 
 
 pytestmark = pytest.mark.usefixtures("testclient_sockets")
