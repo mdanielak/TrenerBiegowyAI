@@ -10,18 +10,18 @@ Z aplikacji korzysta jedna osoba nietechniczna, która sprawdza informacje dotyc
 
 ## Kontekst techniczny i granice nienaruszalne
 
-Stos: FastAPI, szablony Jinja2, CSS wpisany w szablon. Nie ma tu Reacta, Tailwinda, frameworka animacji ani kroku budowania. Nie dodawaj ich.
+Stos: FastAPI, szablony Jinja2, jeden lokalny arkusz CSS. Nie ma tu Reacta, Tailwinda, frameworka animacji ani kroku budowania. Nie dodawaj ich.
 
 - **Zero kodu wykonywanego w przeglądarce.** Żadnych skryptów, atrybutów zdarzeń ani `<script>`.
 - **Zero zasobów z sieci.** Bez CDN, fontów zewnętrznych, obrazków z adresów URL i reguł dociągających zasoby zewnętrzne. Font to wyłącznie stos systemowy.
-- **Brak `StaticFiles`.** Nie montujemy katalogu statycznego.
+- **Pliki statyczne tylko z dysku.** `StaticFiles` serwuje wyłącznie katalog `static/` z repozytorium (arkusz CSS), a grafiki idą przez `/assets/`. Nic nie jest pobierane z sieci.
 - **Nigdy `|safe`.** Autoescaping Jinja pozostaje włączony wszędzie.
 - **Kolor nigdy nie jest jedynym nośnikiem znaczenia.** Każdy stan ma też tekst.
 - **Teksty po polsku**, bez skrótów i terminów technicznych w treści widocznej dla użytkownika.
 
 ## Jedno źródło prawdy dla stylu
 
-Cały styl mieszka wyłącznie w `templates/_styles.html`, włączanym przez `{% include "_styles.html" %}` w sekcji `<head>`. Nie dodawaj bloków CSS do pozostałych szablonów. Tokeny zapisuj jako własne właściwości CSS w `:root`; nie wklejaj wartości szesnastkowych wprost w reguły.
+Cały styl mieszka wyłącznie w `static/css/styles.css`. Szablon `templates/_styles.html` tylko go dołącza (`<link rel="stylesheet">`) i jest włączany przez `{% include "_styles.html" %}` w sekcji `<head>`. Nie dodawaj bloków `<style>` ani nowych atrybutów `style` w szablonach; istniejące warto stopniowo przenosić do klas. Tokeny zapisuj jako własne właściwości CSS w `:root`; nie wklejaj wartości szesnastkowych wprost w reguły.
 
 ## Tokeny
 
@@ -112,7 +112,7 @@ Cienie są lekkie i warstwowe, aby jedynie oddzielać kartę od tła. Nie zastę
 - Obowiązuje obsługa ustawienia ograniczonego ruchu przez `@media (prefers-reduced-motion: reduce)`.
 - Obramowanie zaznaczenia klawiaturą ma dwa piksele w barwie akcentu i odstęp dwóch pikseli: `outline: 2px solid var(--accent); outline-offset: 2px`. Stosuj `:focus-visible`.
 - Zakazane są rozmycia tła i duże powierzchnie rozmyte, animacje wejścia oraz pulsowanie. Widok odświeża się samoczynnie co piętnaście sekund w trakcie pobierania danych, więc efekty te powodowałyby uporczywe migotanie.
-- Cały styl mieszka wyłącznie w pliku `templates/_styles.html`.
+- Cały styl mieszka wyłącznie w pliku `static/css/styles.css`.
 - Zakazane są czcionki z sieci, reguły dociągające zasoby zewnętrzne oraz jakikolwiek kod wykonywany w przeglądarce.
 
 ## Dostępność

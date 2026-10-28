@@ -2,6 +2,7 @@
 """Wspólne etykiety i formatowanie dat, czasu oraz gotowości dla widoków."""
 from __future__ import annotations
 
+import math
 from datetime import date, datetime
 
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
@@ -32,7 +33,7 @@ _WEEK_STATUS_LABELS = {
     "uncertain": "Nie można jednoznacznie porównać",
 }
 _WEEK_WARNING_LABELS = {
-    "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne. Uruchom `python -m trainer sync`.",
+    "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne.",
     "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo obejmuje tylko 50 ostatnich treningów.",
 }
 _SIGNAL_STATE_LABELS = {"OK": "dobrze", "WARN": "uwaga", "FAIL": "słabo", "UNKNOWN": "brak danych"}
@@ -77,9 +78,34 @@ def _readiness_pill(day_readiness) -> dict | None:
     }
 
 
+def _format_number(value, decimals: int = 1):
+    """Pokaż liczbę po polsku: przecinek dziesiętny, bez zbędnego ',0'. Tekst zostaje bez zmian."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    if isinstance(value, float) and not math.isfinite(value):
+        return value
+    rounded = round(float(value), decimals)
+    if rounded.is_integer():
+        return str(int(rounded))
+    return f"{rounded:.{decimals}f}".rstrip("0").replace(".", ",")
+
+
+def _plural(count, one: str, few: str, many: str) -> str:
+    """Dobierz polską formę rzeczownika do liczby: 1 trening, 2 treningi, 5 treningów."""
+    try:
+        number = abs(int(count))
+    except (TypeError, ValueError):
+        return many
+    if number == 1:
+        return one
+    if number % 10 in (2, 3, 4) and number % 100 not in (12, 13, 14):
+        return few
+    return many
+
+
 def _format_score(value: float) -> str:
     """Pokaż całkowitą gotowość bez zbędnego miejsca dziesiętnego."""
-    return str(int(value)) if value.is_integer() else f"{value:.1f}"
+    return _format_number(float(value))
 
 
 def _format_date(value: str) -> str:

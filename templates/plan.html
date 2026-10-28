@@ -56,6 +56,7 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ snapshot_warning }}</p>
+        <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
       </div>
     </div>
   {% endif %}
@@ -133,7 +134,7 @@
             <span class="tile-label"><span>Objętość</span></span>
           </span>
           <span class="tile-value">
-            {% if plan.totals.distance_km is not none %}{{ plan.totals.distance_km|round(1) }}<span class="tile-unit">km</span>
+            {% if plan.totals.distance_km is not none %}{{ plan.totals.distance_km|num }}<span class="tile-unit">km</span>
             {%- else %}—{% endif %}
           </span>
           <span class="tile-foot">Suma dystansu z planu</span>
@@ -164,6 +165,7 @@
       {% if load_chart %}
         <svg class="chart" viewBox="0 0 {{ load_chart.width }} {{ load_chart.height }}" role="img"
              aria-label="Zaplanowany czas treningowy dzień po dniu.">
+          <line class="chart-grid" x1="0" x2="{{ load_chart.width }}" y1="{{ load_chart.baseline }}" y2="{{ load_chart.baseline }}"/>
           {% for bar in load_chart.bars %}
             <rect class="chart-bar{% if bar.is_rest or not bar.minutes %} rest{% endif %}"
                   x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" rx="6"/>
@@ -183,7 +185,7 @@
         <p class="mid">Plan ułożony {{ plan_generated_at }}.</p>
       {% endif %}
       {% if plan.previous %}
-        <p class="mid">Poprzedni tydzień z zegarka: {{ plan.previous.total_km }} km, {{ plan.previous.sessions }} treningów.</p>
+        <p class="mid">Poprzedni tydzień z zegarka: {{ plan.previous.total_km|num }} km, {{ plan.previous.sessions }} {{ plan.previous.sessions|plural('trening', 'treningi', 'treningów') }}.</p>
       {% endif %}
     </section>
 
@@ -205,7 +207,7 @@
             <div class="day-pills">
               <span class="pill {{ plan_day.kind_pill }}">{{ plan_day.kind_label }}</span>
               {% if plan_day.readiness %}
-                <span class="pill {{ plan_day.readiness.variant }}">{{ plan_day.readiness.score }} z {{ plan_day.readiness.max_score }}</span>
+                <span class="pill {{ plan_day.readiness.variant }}">{{ plan_day.readiness.score|num }} z {{ plan_day.readiness.max_score|num }}</span>
               {% endif %}
             </div>
 
@@ -213,10 +215,12 @@
               {% if plan_day.icon %}
                 <img class="asset day-block-icon" src="{{ plan_day.icon }}" width="64" height="64" alt="">
               {% endif %}
-              <span class="day-block-title">{{ plan_day.name or '—' }}</span>
+              {% if not (plan_day.is_rest and plan_day.name == plan_day.kind_label) %}
+                <span class="day-block-title">{{ plan_day.name or '—' }}</span>
+              {% endif %}
               <span class="day-block-meta">
                 {% if plan_day.duration_min is not none %}{{ plan_day.duration_min }} min{% endif %}
-                {% if plan_day.distance_km is not none %}{{ plan_day.distance_km }} km{% endif %}
+                {% if plan_day.distance_km is not none %}{{ plan_day.distance_km|num }} km{% endif %}
               </span>
               {% if plan_day.hr_zone or plan_day.pace_target %}
                 <span class="day-block-meta">

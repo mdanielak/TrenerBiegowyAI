@@ -420,7 +420,8 @@
 
   /* ===================== wykres liniowy ===================== */
 
-  .chart { width: 100%; height: auto; display: block; overflow: visible; }
+  /* Bez limitu SVG rozciąga się z kartą i etykiety rosną do ok. 20 px; 760 px trzyma je przy 11–13 px. */
+  .chart { width: 100%; max-width: 760px; margin-inline: auto; height: auto; display: block; overflow: visible; }
   .chart-grid { stroke: var(--border); stroke-width: 1; }
   .chart-axis { fill: var(--fg-muted); font-size: 11px; }
   .chart-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }

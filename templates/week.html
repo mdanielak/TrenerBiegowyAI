@@ -48,6 +48,9 @@
           {{ ico.info() }}
           <div class="banner-body">
             <p class="banner-title">{{ warning_labels[warning] }}</p>
+            {% if warning == 'snapshot_stale' %}
+              <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+            {% endif %}
           </div>
         </div>
       {% endif %}
@@ -61,7 +64,7 @@
             <span class="tile-label"><span>Przebiegnięty dystans</span></span>
           </span>
           <span class="tile-value">
-            {% if report.summary.total_distance_km is not none %}{{ report.summary.total_distance_km|round(1) }}<span class="tile-unit">km</span>
+            {% if report.summary.total_distance_km is not none %}{{ report.summary.total_distance_km|num }}<span class="tile-unit">km</span>
             {%- else %}—{% endif %}
           </span>
           <span class="tile-foot">Suma z zapisanych aktywności</span>
@@ -150,7 +153,7 @@
             </div>
 
             {% if pill %}
-              <span class="pill {{ pill.variant }}">{{ pill.score }} z {{ pill.max_score }}</span>
+              <span class="pill {{ pill.variant }}">{{ pill.score|num }} z {{ pill.max_score|num }}</span>
             {% endif %}
 
             <span class="day-block-meta">{{ day_status_labels.get(day.status, '—') }}</span>
@@ -185,7 +188,7 @@
                 <span class="day-block-title">{{ activity.name or '—' }}</span>
                 <span class="day-block-meta">
                   {{ activity.started_at[11:16] or '—' }}
-                  {% if activity.distance_km is not none %}· {{ activity.distance_km }} km{% endif %}
+                  {% if activity.distance_km is not none %}· {{ activity.distance_km|num }} km{% endif %}
                   {% if activity.duration_min is not none %}· {{ activity.duration_min|round|int }} min{% endif %}
                   {% if activity.avg_hr is not none %}· {{ activity.avg_hr }} bpm{% endif %}
                 </span>

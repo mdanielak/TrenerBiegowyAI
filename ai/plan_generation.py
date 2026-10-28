@@ -113,7 +113,7 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
   "start_date": "RRRR-MM-DD",
   "end_date": "RRRR-MM-DD",
   "focus": "krótki cel tygodnia",
-  "summary": "2-3 zdania o tym tygodniu",
+  "summary": "2-3 zdania o tym tygodniu, najwyżej 500 znaków",
   "workouts": [
     {
       "date": "RRRR-MM-DD",

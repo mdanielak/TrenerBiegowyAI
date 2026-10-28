@@ -104,7 +104,7 @@
                 <span class="signal-top"><span>{{ card.label }}</span></span>
 
                 <span class="signal-value">
-                  {% if card.value is not none %}{{ card.value }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
+                  {% if card.value is not none %}{{ card.value|num }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
                   {%- else %}—{% endif %}
                 </span>
 
@@ -135,12 +135,12 @@
         </span>
       </div>
 
-      {% if not workout %}
+      {% if not workout and not plan_workout %}
         <div class="empty-art">
           <img class="asset" src="/assets/09_illustrations/training_plan.png" width="176" height="139" alt="">
           <p>Na dziś nie ma zapisanego treningu.</p>
         </div>
-      {% else %}
+      {% elif workout %}
         <div class="stack">
 
           <div class="list-item">
@@ -168,7 +168,7 @@
                   <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
                   <span class="tile-label"><span>Dystans</span></span>
                 </span>
-                <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
+                <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
               </div>
               <div class="tile">
                 <span class="tile-head">
@@ -210,7 +210,7 @@
                     <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/training_load.png" width="20" height="20" alt=""></span>
                     <span class="tile-label"><span>{{ row.label }}</span></span>
                   </span>
-                  <span class="tile-value">{{ row.value }}<span class="tile-unit">z 10</span></span>
+                  <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
                   <span class="tile-foot">{{ row.hint }}</span>
                 </div>
               {% endfor %}
@@ -252,16 +252,15 @@
             <span class="item-meta">
               <span>Z planu AI</span>
               {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min }} min</span>{% endif %}
-              {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km }} km</span>{% endif %}
+              {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km|num }} km</span>{% endif %}
               {% if plan_workout.hr_zone %}<span>{{ plan_workout.hr_zone }}</span>{% endif %}
               {% if plan_workout.pace_target %}<span>{{ plan_workout.pace_target }}</span>{% endif %}
             </span>
           </span>
-          <span class="item-side">
-            <a href="/plan">Plan tygodnia</a>
-          </span>
         </div>
-        {% if plan_workout.garmin_upload %}
+        {% if plan_workout.is_rest %}
+          <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
+        {% elif plan_workout.garmin_upload %}
           <p class="mid">Ten trening jest już na zegarku.</p>
         {% else %}
           <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
@@ -297,7 +296,7 @@
           <div class="suggestion" style="flex: 1 1 auto">
             <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
             <div>
-              <p class="suggestion-title">Co dziś zrobić</p>
+              <p class="suggestion-title">Podpowiedź z oceny gotowości</p>
               <p class="suggestion-text">{{ suggestion|capitalize }}.</p>
             </div>
           </div>
@@ -346,7 +345,7 @@
                 <span class="item-title">{{ activity.name or 'Aktywność' }}</span>
                 <span class="item-meta">
                   <span>{{ activity.date[11:16] }}</span>
-                  <span>{% if activity.distance_km is not none %}{{ activity.distance_km }} km{% else %}—{% endif %}</span>
+                  <span>{% if activity.distance_km is not none %}{{ activity.distance_km|num }} km{% else %}—{% endif %}</span>
                   <span>{% if activity.duration_min is not none %}{{ activity.duration_min }} min{% else %}—{% endif %}</span>
                 </span>
               </span>

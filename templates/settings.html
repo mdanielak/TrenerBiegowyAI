@@ -63,7 +63,7 @@
               </span>
               <span class="item-side">
                 <span class="item-strong">
-                  {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                  {% if row.value is not none %}{{ row.value|num }}{% if row.unit %} {{ row.unit }}{% endif %}
                   {%- else %}—{% endif %}
                 </span>
               </span>
@@ -85,7 +85,7 @@
               </span>
               <span class="item-side">
                 <span class="item-strong">
-                  {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                  {% if row.value is not none %}{{ row.value|num }}{% if row.unit %} {{ row.unit }}{% endif %}
                   {%- else %}—{% endif %}
                 </span>
               </span>
@@ -108,8 +108,7 @@
                 <span class="item-title">Strefa {{ zone.name }}</span>
               </span>
               <span class="item-side">
-                <span class="item-strong">{{ zone.range }}</span>
-                <span class="item-meta" style="justify-content: flex-end">bpm</span>
+                <span class="item-strong">{{ zone.range }} bpm</span>
               </span>
             </div>
           {% endfor %}
@@ -138,7 +137,7 @@
             </span>
             <span class="item-side">
               <span class="item-strong">
-                {% if row.value is not none %}{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}
+                {% if row.value is not none %}{{ row.value|num }}{% if row.unit %} {{ row.unit }}{% endif %}
                 {%- else %}—{% endif %}
               </span>
             </span>

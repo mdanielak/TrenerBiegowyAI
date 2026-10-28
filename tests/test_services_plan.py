@@ -226,3 +226,9 @@ def test_save_and_load_plan_with_its_csv_twin(tmp_path, monkeypatch):
     assert loaded is not None
     assert len(loaded["workouts"]) == 7
     assert loaded["workouts"][0]["type"] == "easy"
+
+
+def test_trim_cuts_on_a_word_boundary_with_an_ellipsis():
+    assert plan_service._trim("krótki tekst", 50) == "krótki tekst"
+    assert plan_service._trim("Spokojny tydzień, potem akcent progowy", 20) == "Spokojny tydzień…"
+    assert len(plan_service._trim("słowo " * 100, 300)) <= 300

@@ -31,6 +31,7 @@ _NAME_LIMIT = 60
 _DESCRIPTION_LIMIT = 300
 _NOTES_LIMIT = 200
 _TEXT_LIMIT = 300
+_SUMMARY_LIMIT = 600
 
 
 def _pace_seconds(value) -> int | None:
@@ -229,11 +230,16 @@ def _clip_duration(duration, min_minutes, max_minutes):
 
 
 def _trim(text, limit):
-    """Skróć tekst do limitu znaków."""
+    """Skróć tekst do limitu znaków na granicy słowa, z wielokropkiem na końcu."""
     if text is None:
         return ""
     value = str(text).strip()
-    return value[:limit]
+    if len(value) <= limit:
+        return value
+    cut = value[:limit - 1]
+    if " " in cut:
+        cut = cut[:cut.rindex(" ")]
+    return cut.rstrip(" ,;:—-") + "…"
 
 
 def _default_week_days(context):
@@ -464,7 +470,7 @@ def normalize_plan(response, *, context) -> dict:
         "end_date": end_date,
         "priority": "normal",
         "focus": _trim(_field(response, "focus"), _TEXT_LIMIT),
-        "summary": _trim(_field(response, "summary"), _TEXT_LIMIT),
+        "summary": _trim(_field(response, "summary"), _SUMMARY_LIMIT),
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "workouts": workouts,
     }

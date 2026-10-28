@@ -203,4 +203,5 @@ def _plan_workout_view(plan_workout) -> Optional[dict]:
         "pace_target": plan_workout.get("pace_target"),
         "notes": plan_workout.get("notes"),
         "garmin_upload": bool(plan_workout.get("garmin_upload")),
+        "is_rest": kind == "rest",
     }

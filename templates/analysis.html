@@ -136,7 +136,7 @@
             </span>
             <span class="item-side">
               <span class="item-strong">
-                {% if item.value is not none %}{{ item.value }}{% if item.unit %} {{ item.unit }}{% endif %}
+                {% if item.value is not none %}{{ item.value|num }}{% if item.unit %} {{ item.unit }}{% endif %}
                 {%- else %}—{% endif %}
               </span>
             </span>
