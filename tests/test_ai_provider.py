@@ -4,7 +4,6 @@ import sys
 import os
 import json
 from unittest.mock import MagicMock, patch
-from typing import Optional
 
 import pytest
 from pydantic import BaseModel

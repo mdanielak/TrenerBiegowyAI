@@ -3,7 +3,7 @@
 Wspolne funkcje analityczne — bez efektow ubocznych (brak print, brak read).
 Mozna bezpiecznie importowac w testach.
 """
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 def parse_timedelta(td):

@@ -34,7 +34,7 @@ _WEEK_STATUS_LABELS = {
 }
 _WEEK_WARNING_LABELS = {
     "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne.",
-    "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo obejmuje tylko 50 ostatnich treningów.",
+    "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo dane zapisano w starszym, węższym zakresie.",
 }
 _SIGNAL_STATE_LABELS = {"OK": "dobrze", "WARN": "uwaga", "FAIL": "słabo", "UNKNOWN": "brak danych"}
 _SIGNAL_META = {

@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from api.views.plan import _PLAN_KIND_ICONS
+from api.views.stats import _METRIC_META
 from api.main import _SIGNAL_META
 from services.assets import build_manifest
 
@@ -31,6 +32,9 @@ STATIC_ASSET_TAG = re.compile(
 )
 DYNAMIC_SIGNAL_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/\{\{ *card\.asset *\}\}" width="(\d+)"'
+)
+DYNAMIC_METRIC_TAG = re.compile(
+    r'<img class="asset[^"]*" src="/assets/\{\{ *metric\.asset *\}\}" width="(\d+)"'
 )
 DYNAMIC_PLAN_ICON_TAG = re.compile(
     r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
@@ -97,7 +101,23 @@ def display_sizes() -> dict[str, int]:
         sizes[reference] = max(sizes.get(reference, 0), signal_size)
     for reference in plan_icon_references():
         sizes[reference] = max(sizes.get(reference, 0), PLAN_ICON_DISPLAY)
+    metric_size = metric_asset_size()
+    for reference in metric_references():
+        sizes[reference] = max(sizes.get(reference, 0), metric_size)
     return sizes
+
+
+def metric_asset_size() -> int:
+    """Rozmiar wyświetlania ikon sygnałów na stronie statystyk."""
+    sizes = DYNAMIC_METRIC_TAG.findall((TEMPLATES_DIR / "stats.html").read_text(encoding="utf-8"))
+    if not sizes:
+        raise AssertionError("Nie znaleziono tagu z ikoną sygnału w stats.html; zaktualizuj DYNAMIC_METRIC_TAG.")
+    return max(int(size) for size in sizes)
+
+
+def metric_references() -> list[str]:
+    """Grafiki sygnałów ze strony statystyk, wstawiane przez Jinja."""
+    return sorted({meta["asset"] for meta in _METRIC_META.values()})
 
 
 def test_templates_expose_expected_number_of_asset_tags() -> None:
@@ -113,6 +133,9 @@ def test_templates_expose_expected_number_of_asset_tags() -> None:
         ))
         + len(DYNAMIC_PLAN_ICON_TAG.findall(
             (TEMPLATES_DIR / "plan.html").read_text(encoding="utf-8")
+        ))
+        + len(DYNAMIC_METRIC_TAG.findall(
+            (TEMPLATES_DIR / "stats.html").read_text(encoding="utf-8")
         ))
     )
 
@@ -145,6 +168,15 @@ def test_signal_references_are_served_by_manifest() -> None:
     missing = [reference for reference in signal_references() if reference not in manifest]
 
     assert not missing, "Grafiki sygnałów nieobecne w manifeście: " + ", ".join(missing)
+
+
+def test_metric_icons_are_served_by_manifest() -> None:
+    """Ikony statystyk wstawia Jinja, więc szablon ich nie weryfikuje."""
+    manifest = build_manifest(ASSETS_DIR)
+
+    missing = [reference for reference in metric_references() if reference not in manifest]
+
+    assert not missing, "Grafiki statystyk nieobecne w manifeście: " + ", ".join(missing)
 
 
 def test_plan_icons_are_served_by_manifest() -> None:

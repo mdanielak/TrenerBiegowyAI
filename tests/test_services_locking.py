@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from services.locking import LockBusyError, acquire_lock
+from services.locking import acquire_lock
 
 
 _TRY_SCRIPT = """

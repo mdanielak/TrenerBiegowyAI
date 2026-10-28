@@ -167,7 +167,7 @@ def format_context_for_user(context):
 
     # Runner profile
     p = context["runner_profile"]
-    lines.append(f"## Profil biegacza")
+    lines.append("## Profil biegacza")
     lines.append(f"Wiek: {p['age']}, Waga: {p['weight_kg']}kg, Wzrost: {p['height_cm']}cm")
     lines.append(f"HRmax: {p['hr_max']}, HRrest: {p['hr_rest']}")
     lines.append(f"Próg mleczanowy: HR {p['lactate_threshold_hr']}")
@@ -178,14 +178,14 @@ def format_context_for_user(context):
 
     # Goal
     g = context["goal"]
-    lines.append(f"## Cel")
+    lines.append("## Cel")
     lines.append(f"{g['target']} do {g['deadline']}")
     lines.append(f"Aktualny rekord: {g['current_record']}")
     lines.append("")
 
     # Health
     h = context["health_metrics"]
-    lines.append(f"## Aktualny stan zdrowia")
+    lines.append("## Aktualny stan zdrowia")
     lines.append(f"RHR: {h['rhr']}")
     lines.append(f"HRV: {h['hrv_last_night']} (status: {h['hrv_status']}, norma: {h['hrv_baseline']})")
     lines.append(f"Sen: {h['sleep_total_h']}h (score: {h['sleep_score']}, deep: {h['sleep_deep_h']}h)")
@@ -195,20 +195,20 @@ def format_context_for_user(context):
     # HRV alert
     if context["hrv_alert"]:
         alert = context["hrv_alert"]
-        lines.append(f"## ⚠️ ALERT HRV")
+        lines.append("## ⚠️ ALERT HRV")
         lines.append(f"HRV niskie od {alert['days']} dni! Statusy: {', '.join(alert['statuses'])}")
         lines.append(f"Wartości: {alert['values']}")
         lines.append("")
 
     # Weekly load
     w = context["weekly_load"]
-    lines.append(f"## Obciążenie tygodniowe")
+    lines.append("## Obciążenie tygodniowe")
     lines.append(f"Dystans: {w['total_km']}km, Czas: {w['total_min']}min, Sesje: {w['sessions']}")
     lines.append("")
 
     # Recent activities
     if context["recent_activities"]:
-        lines.append(f"## Ostatnie treningi")
+        lines.append("## Ostatnie treningi")
         for a in context["recent_activities"]:
             lines.append(f"- {a['date']}: {a['name'] or 'bieg'}, {a['distance_km']}km, "
                         f"{a['pace']}, HR {a['avg_hr']}/{a['max_hr']}, "
@@ -218,7 +218,7 @@ def format_context_for_user(context):
     # Today's plan
     tp = context["today_plan"]
     if tp:
-        lines.append(f"## Plan na dzisiaj")
+        lines.append("## Plan na dzisiaj")
         lines.append(f"Trening: {tp['name']} ({tp['type']})")
         if tp['type'] != 'rest':
             lines.append(f"Dystans: {tp.get('distance_km', '?')} km")
@@ -227,7 +227,7 @@ def format_context_for_user(context):
         if tp.get('notes'):
             lines.append(f"Notatki: {tp['notes']}")
     else:
-        lines.append(f"## Plan na dzisiaj")
-        lines.append(f"Brak zaplanowanego treningu")
+        lines.append("## Plan na dzisiaj")
+        lines.append("Brak zaplanowanego treningu")
 
     return "\n".join(lines)

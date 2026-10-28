@@ -175,3 +175,11 @@ def test_confirmed_schedule_remains_a_planned_week_workout():
                              schedule_status='confirmed')])
 
     assert [workout.workout_id for workout in _day(report, '2026-12-28').workouts] == [1]
+
+
+def test_incomplete_warning_depends_on_snapshot_format():
+    from services.week import _activities_may_be_truncated
+    activities = [{}] * 60
+    assert _activities_may_be_truncated({'window': {'activity_days': 120}}, activities) is False
+    assert _activities_may_be_truncated({}, activities) is True
+    assert _activities_may_be_truncated({}, [{}] * 10) is False

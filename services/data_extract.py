@@ -27,6 +27,13 @@ from trainer.config import (
 )
 from trainer.garmin_auth import ensure_garmindb_config, ensure_token
 
+# Okna danych w snapshocie liczone od najnowszego rekordu w bazie (nie od dziś),
+# żeby stara baza dawała ten sam zakres. Strona statystyk pokazuje do 12 tygodni.
+ACTIVITY_WINDOW_DAYS = 120
+HEALTH_WINDOW_DAYS = 90
+# Twardy limit wierszy na wypadek nietypowo gęstych danych.
+MAX_SNAPSHOT_ROWS = 1000
+
 class GarminDBSyncError(RuntimeError):
     """GarminDB CLI did not complete, so its database snapshot is unsafe to export."""
 
@@ -220,9 +227,12 @@ def extract():
         "sleep": [],
         "hrv": [],
         "weight": [],
+        "window": {"activity_days": ACTIVITY_WINDOW_DAYS, "health_days": HEALTH_WINDOW_DAYS},
     }
 
     # === Activities ===
+    # Wszystkie aktywności z okna, a nie stała liczba: wcześniejszy limit 50
+    # przy kilku aktywnościach dziennie nie pokrywał nawet bieżącego tygodnia.
     if os.path.exists(ACT_DB):
         with sqlite3.connect(ACT_DB) as conn:
             c = conn.cursor()
@@ -230,9 +240,11 @@ def extract():
                 SELECT activity_id, start_time, name, distance, moving_time, avg_hr, max_hr,
                        avg_speed, ascent, training_effect, anaerobic_training_effect,
                        sport, sub_sport
-                FROM activities WHERE distance > 0
-                ORDER BY start_time DESC LIMIT 50
-            """)
+                FROM activities
+                WHERE distance > 0 AND start_time >= datetime(
+                    (SELECT MAX(start_time) FROM activities WHERE distance > 0), ?)
+                ORDER BY start_time DESC LIMIT ?
+            """, (f"-{ACTIVITY_WINDOW_DAYS} days", MAX_SNAPSHOT_ROWS))
             for r in c.fetchall():
                 t = parse_timedelta(r[4])
                 pace = (t / 60) / r[3] if r[3] > 0 else 0
@@ -257,13 +269,17 @@ def extract():
         with sqlite3.connect(MAIN_DB) as conn:
             c = conn.cursor()
 
-            # Daily summary (last 14 days)
+            health_window = (f"-{HEALTH_WINDOW_DAYS} days", MAX_SNAPSHOT_ROWS)
+
+            # Daily summary (HEALTH_WINDOW_DAYS)
             c.execute("""
                 SELECT day, rhr, hr_min, hr_max, steps, stress_avg,
                        rr_waking_avg, spo2_avg, calories_active, calories_total,
                        moderate_activity_time, vigorous_activity_time
-                FROM daily_summary ORDER BY day DESC LIMIT 14
-            """)
+                FROM daily_summary
+                WHERE day >= date((SELECT MAX(day) FROM daily_summary), ?)
+                ORDER BY day DESC LIMIT ?
+            """, health_window)
             for r in c.fetchall():
                 data["daily_health"].append({
                     "date": str(r[0])[:10],
@@ -278,13 +294,15 @@ def extract():
                     "cal_total": r[9],
                 })
 
-            # Sleep (last 14 days)
+            # Sleep (HEALTH_WINDOW_DAYS)
             try:
                 c.execute("""
                     SELECT day, total_sleep, deep_sleep, light_sleep, rem_sleep,
                            awake, score, qualifier
-                    FROM sleep ORDER BY day DESC LIMIT 14
-                """)
+                    FROM sleep
+                    WHERE day >= date((SELECT MAX(day) FROM sleep), ?)
+                    ORDER BY day DESC LIMIT ?
+                """, health_window)
                 for r in c.fetchall():
                     data["sleep"].append({
                         "date": str(r[0])[:10],
@@ -298,13 +316,15 @@ def extract():
             except Exception as e:
                 print(f"  Warning: sleep table not found or empty: {e}")
 
-            # HRV (last 14 days)
+            # HRV (HEALTH_WINDOW_DAYS)
             try:
                 c.execute("""
                     SELECT day, weekly_avg, last_night_avg, baseline_low,
                            baseline_upper, status
-                    FROM hrv ORDER BY day DESC LIMIT 14
-                """)
+                    FROM hrv
+                    WHERE day >= date((SELECT MAX(day) FROM hrv), ?)
+                    ORDER BY day DESC LIMIT ?
+                """, health_window)
                 for r in c.fetchall():
                     data["hrv"].append({
                         "date": str(r[0])[:10],
@@ -388,32 +408,32 @@ def print_summary(d):
     print(f"\n=== OSTATNIA SYNCHRONIZACJA: {d['timestamp']} ===")
 
     if d['activities']:
-        print(f"\n--- AKTYWNOŚCI (ostatnie) ---")
+        print("\n--- AKTYWNOŚCI (ostatnie) ---")
         for a in d['activities'][:5]:
             print(f"  {a['date']}: {a['name'] or 'bieg'}, {a['distance_km']}km, "
                   f"{a['pace']}, HR {a['avg_hr']}/{a['max_hr']}, "
                   f"wznies {a['ascent_m']}m")
 
     if d['daily_health']:
-        print(f"\n--- ZDROWIE DZIENNE ---")
+        print("\n--- ZDROWIE DZIENNE ---")
         for h in d['daily_health'][:7]:
             print(f"  {h['date']}: RHR={h['rhr']}, HR={h['hr_min']}-{h['hr_max']}, "
                   f"kroki={h['steps']}, stres={h['stress_avg']}, RR={h['rr']}, SpO2={h['spo2']}%")
 
     if d['sleep']:
-        print(f"\n--- SEN ---")
+        print("\n--- SEN ---")
         for s in d['sleep'][:7]:
             print(f"  {s['date']}: {s['total_h']}h, gleboki={s['deep_h']}h, "
                   f"REM={s['rem_h']}h, score={s['score']}, {s['qualifier'] or ''}")
 
     if d['hrv']:
-        print(f"\n--- HRV ---")
+        print("\n--- HRV ---")
         for h in d['hrv'][:7]:
             print(f"  {h['date']}: tydz={h['weekly_avg']}, ostatnia={h['last_night']}, "
                   f"base={h['baseline_low']}-{h['baseline_high']}, status={h['status']}")
 
     if d['weight']:
-        print(f"\n--- WAGA ---")
+        print("\n--- WAGA ---")
         for w in d['weight'][:5]:
             print(f"  {w['date']}: {w['weight_kg']} kg")
 
@@ -424,7 +444,7 @@ def print_summary(d):
         print(f"  ALERT: HRV NISKIE OD {hrv_alert['days']} DNI!")
         print(f"  Statusy: {', '.join(hrv_alert['statuses'])}")
         print(f"  Wartosci: {hrv_alert['values']}")
-        print(f"  REKOMENDACJA: Odpoczynek lub bardzo lekki bieg.")
+        print("  REKOMENDACJA: Odpoczynek lub bardzo lekki bieg.")
         print(f"{'!' * 60}")
 
     print()

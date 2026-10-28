@@ -10,7 +10,7 @@ from typing import Any
 import re
 
 from . import profile_store, preferences
-from .config import PROJECT_ROOT, SETTINGS
+from .config import PROJECT_ROOT
 from .errors import env_hint
 from .garmin_profile import fetch_snapshot
 from .garmin_auth import GarminAuthError, ensure_garmindb_config, ensure_token, has_token

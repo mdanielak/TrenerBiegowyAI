@@ -428,6 +428,8 @@
   /* Słupki zaplanowanego czasu w tygodniu. */
   .chart-bar { fill: var(--accent); }
   .chart-bar.rest { fill: var(--border-strong); }
+  /* Bieżący, niezakończony tydzień: jaśniejsze wypełnienie z obrysem akcentu (3:1 wobec bieli). */
+  .chart-bar.current { fill: var(--accent-soft-2); stroke: var(--accent); stroke-width: 1.5; }
   .chart-bar-value { fill: var(--fg-mid); font-size: 11px; font-weight: 600; }
 
   /* ===================== wykres liniowy ===================== */
@@ -440,6 +442,16 @@
   .chart-area { fill: var(--accent); opacity: 0.08; }
   .chart-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
   .chart-dot.today { fill: var(--accent); }
+  .chart-avg { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+
+  /* Statystyki: podsumowanie sygnału obok jego wykresu. */
+  .metric-row { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: center;
+                padding-top: 14px; border-top: 1px solid var(--border); }
+  .metric-row:first-child { border-top: none; padding-top: 0; }
+  .metric-summary { display: flex; flex-direction: column; gap: 4px; }
+  .metric-chart { max-width: none; }
+  .metric-empty { margin: 0; }
+  .btn-secondary.is-active { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
 
   .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--fg-mid); margin-top: 10px; }
   .legend-item { display: inline-flex; align-items: center; gap: 6px; }
@@ -589,17 +601,26 @@
       padding: 14px;
       gap: 14px;
     }
-    .nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+    /* Menu w jednym przewijanym wierszu zamiast trzech; nieaktywne pozycje znikają. */
+    .nav { flex-direction: row; flex-wrap: nowrap; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
     .nav-label, .nav-note { display: none; }
-    .nav-item { padding: 8px 11px; }
+    .nav-item { padding: 8px 11px; flex: none; }
+    .nav-item.disabled { display: none; }
+    .page-head.spread { flex-direction: column; align-items: flex-start; }
+    .metric-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
     .main { padding: 18px 16px 42px; }
   }
 
   @media (max-width: 520px) {
     body { font-size: 14.5px; }
     h1 { font-size: 21px; }
-    .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+    /* Kafelki liczb mieszczą się po dwa w rzędzie; jedna kolumna dublowała długość strony. */
+    .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .grid-4 .tile { padding: 12px; }
     .week { grid-template-columns: minmax(0, 1fr); }
+    /* SVG skaluje się z szerokością ekranu; większa czcionka w jednostkach wykresu daje ok. 10 px. */
+    .chart .chart-axis, .chart .chart-bar-value { font-size: 22px; }
     .day { min-height: 0; }
     .signals { grid-template-columns: minmax(0, 1fr); }
     .nav-item span { font-size: 13px; }

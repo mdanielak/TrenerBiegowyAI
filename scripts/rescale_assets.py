@@ -41,6 +41,9 @@ DYNAMIC_SIGNAL_TAG = re.compile(
 DYNAMIC_PLAN_ICON_TAG = re.compile(
     r'<img class="asset[^"]*" src="\{\{ *plan_day\.icon *\}\}" width="(\d+)"'
 )
+DYNAMIC_METRIC_TAG = re.compile(
+    r'<img class="asset[^"]*" src="/assets/\{\{ *metric\.asset *\}\}" width="(\d+)"'
+)
 ANY_ASSET_TAG = re.compile(r'<img class="asset[^"]*"[^>]*>')
 
 
@@ -65,6 +68,14 @@ def plan_icon_references() -> list[str]:
     from api.views.plan import _PLAN_KIND_ICONS
 
     return sorted({reference.removeprefix("/assets/") for reference in _PLAN_KIND_ICONS.values()})
+
+
+def metric_references() -> list[str]:
+    """Return the signal images that Jinja inserts on the statistics page."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from api.views.stats import _METRIC_META
+
+    return sorted({meta["asset"] for meta in _METRIC_META.values()})
 
 
 def collect_targets() -> tuple[dict[str, int], list[str]]:
@@ -102,6 +113,17 @@ def collect_targets() -> tuple[dict[str, int], list[str]]:
     else:
         warnings.append(
             "no dynamic plan icon tag found in plan.html, training kind icons were skipped"
+        )
+
+    stats = (TEMPLATES_DIR / "stats.html").read_text(encoding="utf-8")
+    metric_sizes = [int(size) for size in DYNAMIC_METRIC_TAG.findall(stats)]
+    recognised += len(metric_sizes)
+    if metric_sizes:
+        for reference in metric_references():
+            targets[reference] = max(targets.get(reference, 0), max(metric_sizes))
+    else:
+        warnings.append(
+            "no dynamic metric tag found in stats.html, statistics signal images were skipped"
         )
 
     if recognised != total:

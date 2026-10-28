@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from services.activity_matching import assign_activities
-from services.data_extract import SnapshotStatus, read_snapshot_status
+from services.data_extract import MAX_SNAPSHOT_ROWS, SnapshotStatus, read_snapshot_status
 from services.plan import zone_number
 from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
@@ -121,6 +121,18 @@ def _availability(raw):
     return DayAvailability(available, minimum, maximum, available or minimum != 0 or maximum != 0)
 
 
+def _activities_may_be_truncated(data, activities) -> bool:
+    """Czy snapshot mógł uciąć listę aktywności.
+
+    Snapshot z polem `window` bierze wszystkie aktywności z okna dat, więc ucięcie
+    oznacza tylko dojście do twardego limitu wierszy. Starszy format bez `window`
+    zawierał 50 ostatnich aktywności.
+    """
+    if isinstance(data.get('window'), dict):
+        return len(activities) >= MAX_SNAPSHOT_ROWS
+    return len(activities) >= 50
+
+
 def build_week_report(*, snapshot, registry_entries, registry_status, availability, now) -> WeekReport:
     """Zbuduj raport tygodnia z przekazanych danych, bez odczytu plików."""
     monday, sunday = week_bounds(now.date())
@@ -134,7 +146,7 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
     raw_activities = data.get('activities', [])
     if not isinstance(raw_activities, list):
         raw_activities = []
-    if len(raw_activities) >= 50:
+    if _activities_may_be_truncated(data, raw_activities):
         warnings.append('snapshot_activities_may_be_incomplete')
     entries = []
     for entry in registry_entries or []:

@@ -23,6 +23,7 @@ from services.assets import build_manifest
 from services.data_extract import read_snapshot_status
 from services.jobs import JobStore
 from services.recommendations import load_recommendation
+from services.stats import StatsReport, get_stats_report
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
@@ -38,6 +39,13 @@ from api.routers.assets import get_assets_router
 from api.routers.dashboard import get_dashboard_router
 from api.routers.plans import get_plans_router
 from api.routers.settings import get_settings_router
+from api.routers.stats import get_stats_router
+
+# Nazwy dostępne jako api.main.* dla testów i skryptów (np. podmiana check_connection w testach).
+__all__ = [
+    "HealthResponse", "ReadinessDetail", "ReadinessResponse", "_SIGNAL_META", "_format_sync_time",
+    "check_connection", "create_app",
+]
 
 logger = logging.getLogger(__name__)
 _CSRF_COOKIE = "trainer_csrf"
@@ -92,6 +100,7 @@ def create_app(
     *,
     report_provider: Callable[[], TodayReport] = get_today_report,
     week_report_provider: Callable[[], WeekReport] = get_week_report,
+    stats_report_provider: Callable[[int], StatsReport] = get_stats_report,
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
@@ -168,8 +177,10 @@ def create_app(
             templates=_TEMPLATES,
             attach_csrf=attach_csrf,
             csrf_token=csrf_token,
+            app_version=app.version,
         )
     )
+    app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
     app.include_router(
         get_plans_router(
             plan_provider=plan_provider,

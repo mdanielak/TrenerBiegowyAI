@@ -35,9 +35,9 @@
         <img class="asset" src="/assets/01_navigation/calendar.png" width="34" height="34" alt=""><span>Kalendarz</span>
       </a>
 
-      <span class="nav-item disabled" aria-disabled="true">
+      <a class="nav-item{% if active_nav == 'stats' %} active{% endif %}" href="/stats"{% if active_nav == 'stats' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/statistics.png" width="34" height="34" alt=""><span>Statystyki</span>
-      </span>
+      </a>
 
       <a class="nav-item{% if active_nav == 'analysis' %} active{% endif %}" href="/analysis"{% if active_nav == 'analysis' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/analysis.png" width="34" height="34" alt=""><span>Analiza</span>

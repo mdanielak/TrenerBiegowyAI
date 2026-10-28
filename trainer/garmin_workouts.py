@@ -21,8 +21,6 @@ Przykład:
     gw.long_run("Długie 15 km", 5100, "2026-06-21")
 """
 import logging
-import os
-import sys
 import argparse
 from datetime import date
 from garminconnect.workout import (

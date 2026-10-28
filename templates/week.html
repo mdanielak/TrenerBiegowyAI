@@ -48,7 +48,7 @@
           {{ ico.info() }}
           <div class="banner-body">
             <p class="banner-title">{{ warning_labels[warning] }}</p>
-            {% if warning == 'snapshot_stale' %}
+            {% if warning in ('snapshot_stale', 'snapshot_activities_may_be_incomplete') %}
               <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
             {% endif %}
           </div>

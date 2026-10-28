@@ -16,7 +16,7 @@ from services.jobs import JobStore
 from services.today import TodayReport
 from services.week import WeekReport
 from api.schemas import HealthResponse, ReadinessResponse
-from api.views.analysis import _ANALYSIS_PILL_CLASSES, _CONFIDENCE_LABELS, _analysis_measurements, _analysis_rows
+from api.views.analysis import _CONFIDENCE_LABELS, _analysis_measurements, _analysis_rows
 from api.views.common import (
     _HRV_STATUSES,
     _READINESS_LABELS,
@@ -58,12 +58,13 @@ def get_dashboard_router(
     templates: Jinja2Templates,
     attach_csrf: Callable,
     csrf_token: Callable,
+    app_version: str,
 ) -> APIRouter:
     router = APIRouter()
 
     @router.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
-        return HealthResponse(status="ok", version="0.1.0")
+        return HealthResponse(status="ok", version=app_version)
 
     @router.get("/", response_class=HTMLResponse)
     def dashboard(request: Request):

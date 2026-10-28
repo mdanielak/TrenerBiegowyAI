@@ -1,0 +1,174 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — statystyki{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+{% if error_message %}
+
+  <div class="page-head">
+    <h1>Nie można pokazać statystyk</h1>
+  </div>
+  <div class="banner bad">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p>{{ error_message }}</p>
+      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      <p><a href="/">Wróć do widoku dnia</a></p>
+    </div>
+  </div>
+
+{% else %}
+
+  <div class="page-head spread">
+    <div>
+      <h1>Statystyki</h1>
+      <p class="page-sub">{{ stats.range_label }} · Ostatnie {{ stats.weeks }} {{ stats.weeks|plural('tydzień', 'tygodnie', 'tygodni') }}</p>
+    </div>
+    <nav class="week-nav" aria-label="Zakres statystyk">
+      {% for option in week_options %}
+        <a class="btn btn-secondary{% if option == stats.weeks %} is-active{% endif %}" href="/stats?weeks={{ option }}"
+           {% if option == stats.weeks %}aria-current="page"{% endif %}>{{ option }} {{ option|plural('tydzień', 'tygodnie', 'tygodni') }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <div class="stack">
+
+    {% if is_stale %}
+      <div class="banner warn">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Dane są nieaktualne.</p>
+          <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="grid grid-4">
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info"><img class="asset" src="/assets/03_activity/route.png" width="20" height="20" alt=""></span>
+          <span class="tile-label"><span>Kilometry biegowe</span></span>
+        </span>
+        <span class="tile-value">{{ stats.total_km|num }}<span class="tile-unit">km</span></span>
+        <span class="tile-foot">Suma w całym zakresie</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.bar_chart(20) }}</span>
+          <span class="tile-label"><span>Średnio na tydzień</span></span>
+        </span>
+        <span class="tile-value">
+          {% if stats.average_km is not none %}{{ stats.average_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}
+        </span>
+        <span class="tile-foot">Pełne tygodnie, bez bieżącego</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.runner(20) }}</span>
+          <span class="tile-label"><span>Biegi</span></span>
+        </span>
+        <span class="tile-value">{{ stats.total_sessions }}</span>
+        <span class="tile-foot">Aktywności biegowe z zegarka</span>
+      </div>
+      <div class="tile">
+        <span class="tile-head">
+          <span class="icon-box sm info">{{ ico.clock(20) }}</span>
+          <span class="tile-label"><span>Czas biegu</span></span>
+        </span>
+        <span class="tile-value">{{ (stats.total_minutes / 60)|num }}<span class="tile-unit">h</span></span>
+        <span class="tile-foot">Suma czasu w ruchu</span>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.bar_chart(26) }}<span>Kilometry tydzień po tygodniu</span></h2>
+      </div>
+      {% set chart = stats.weekly_chart %}
+      {% if chart %}
+        <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+             aria-label="Kilometry biegowe w kolejnych tygodniach.">
+          <line class="chart-grid" x1="{{ chart.grid_start }}" x2="{{ chart.grid_end }}" y1="{{ chart.baseline }}" y2="{{ chart.baseline }}"/>
+          {% for bar in chart.bars %}
+            <rect class="chart-bar{% if bar.is_current %} current{% endif %}"
+                  x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" rx="6"/>
+            {% if bar.km %}
+              <text class="chart-bar-value" x="{{ bar.center }}" y="{{ bar.y - 6 }}" text-anchor="middle">{{ bar.km|num }}</text>
+            {% endif %}
+            <text class="chart-axis" x="{{ bar.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
+          {% endfor %}
+        </svg>
+        <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.</p>
+      {% else %}
+        <div class="empty-art compact">
+          <img class="asset" src="/assets/09_illustrations/running.png" width="92" height="72" alt="">
+          <p>W tym zakresie nie ma zapisanych biegów.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.line_chart(26) }}<span>Sygnały z organizmu</span></h2>
+      </div>
+      <p class="mid">Linia pokazuje pomiar dzień po dniu, a przerywana linia — średnią z całego zakresu. Przerwa w linii oznacza dzień bez pomiaru.</p>
+      <div class="stack">
+        {% for metric in stats.metrics %}
+          <div class="metric-row">
+            <div class="metric-summary">
+              <span class="tile-head">
+                <img class="asset" src="/assets/{{ metric.asset }}" width="28" height="28" alt="">
+                <span class="item-title">{{ metric.label }}</span>
+              </span>
+              <span class="tile-value">
+                {% if metric.recent is not none %}{{ metric.recent|num }}{% if metric.unit %}<span class="tile-unit">{{ metric.unit }}</span>{% endif %}{% else %}—{% endif %}
+              </span>
+              <span class="tile-foot">średnio z ostatnich 7 dni</span>
+              <span class="trend {{ metric.trend.tone }}">
+                {% if metric.trend.direction == 'up' %}{{ ico.arrow_up(13) }}
+                {% elif metric.trend.direction == 'down' %}{{ ico.arrow_down(13) }}{% endif %}
+                <span>{{ metric.trend.label }}{% if metric.average is not none %} ({{ metric.average|num }}){% endif %}</span>
+              </span>
+              <span class="tile-foot">{{ metric.hint }} Pomiary: {{ metric.measured_days }} z {{ metric.total_days }} dni.</span>
+            </div>
+            {% set chart = metric.chart %}
+            {% if chart %}
+              <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+                   aria-label="{{ metric.label }} dzień po dniu.">
+                {% for line in chart.gridlines %}
+                  <line class="chart-grid" x1="{{ chart.grid_start }}" y1="{{ line.y }}" x2="{{ chart.grid_end }}" y2="{{ line.y }}"/>
+                  <text class="chart-axis" x="{{ chart.axis_x }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
+                {% endfor %}
+                {% if chart.average_y is not none %}
+                  <line class="chart-avg" x1="{{ chart.grid_start }}" y1="{{ chart.average_y }}" x2="{{ chart.grid_end }}" y2="{{ chart.average_y }}"/>
+                {% endif %}
+                {% for points in chart.lines %}<polyline class="chart-line" points="{{ points }}"/>{% endfor %}
+                {% for dot in chart.dots %}<circle class="chart-dot" cx="{{ dot.x }}" cy="{{ dot.y }}" r="3"/>{% endfor %}
+                <circle class="chart-dot today" cx="{{ chart.last.x }}" cy="{{ chart.last.y }}" r="4"/>
+                {% for label in chart.labels %}
+                  <text class="chart-axis" x="{{ label.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ label.text }}</text>
+                {% endfor %}
+              </svg>
+            {% else %}
+              <p class="mid metric-empty">Za mało pomiarów, żeby narysować wykres.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="mid">Statystyki liczy ten komputer z lokalnego snapshotu danych zegarka, bez udziału AI. Snapshot obejmuje ostatnie 90 dni pomiarów i 120 dni aktywności.</p>
+      </div>
+    </div>
+
+    <footer>To nie jest porada medyczna.</footer>
+
+  </div>
+
+{% endif %}
+{% endblock %}

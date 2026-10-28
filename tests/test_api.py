@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import socket
 import re
 from datetime import datetime, timedelta, timezone
 from threading import Event
@@ -15,23 +14,9 @@ from services.week import DayAvailability, WeekActivity, WeekDayReport, WeekRepo
 from services.jobs import JobStore
 
 
-_ORIGINAL_CONNECT = socket.socket.connect
 
 
-@pytest.fixture(autouse=True)
-def _testclient_socketpair(monkeypatch):
-    """Pozwól TestClient utworzyć wyłącznie jego wewnętrzną parę gniazd."""
-    def socketpair():
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.bind(("127.0.0.1", 0))
-        listener.listen(1)
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        _ORIGINAL_CONNECT(client, listener.getsockname())
-        server, _ = listener.accept()
-        listener.close()
-        return server, client
-
-    monkeypatch.setattr(socket, "socketpair", socketpair)
+pytestmark = pytest.mark.usefixtures("testclient_sockets")
 
 
 def _readiness(level="ready"):
@@ -116,7 +101,9 @@ def test_health_is_minimal_liveness():
     with _client(_report()) as client:
         response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.1.0"}
+    from api.main import _app_version
+    assert response.json() == {"status": "ok", "version": _app_version()}
+    assert _app_version() != "unknown"
 
 
 @pytest.mark.parametrize(
@@ -338,7 +325,7 @@ def test_job_page_states_and_refresh_policy(tmp_path):
         failed_job = store.mark_running(store.submit("other", {}).id)
         failed = store.mark_failed(failed_job.id)
         failed_response = client.get(f"/jobs/{failed.id}")
-        unknown_job = store.mark_running(store.submit("unknown", {}).id)
+        store.mark_running(store.submit("unknown", {}).id)
         unknown = store.mark_abandoned_running_as_unknown()[0]
         unknown_response = client.get(f"/jobs/{unknown.id}")
     assert "Zadanie przyjęte, czeka na rozpoczęcie." in accepted.text
@@ -395,11 +382,11 @@ def test_sync_failure_does_not_render_exception_text(tmp_path):
     app = _action_app(tmp_path, fail)
     with TestClient(app) as client:
         token = _csrf(client)
-        response = client.post("/actions/sync", data={"csrf_token": token},
-                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        client.post("/actions/sync", data={"csrf_token": token},
+                    headers={"Origin": "http://testserver"}, follow_redirects=False)
         assert failed.wait(timeout=5)
         app.state.job_executor.shutdown(wait=True)
-        job = store = JobStore(tmp_path / "jobs").list_jobs().jobs[0]
+        job = JobStore(tmp_path / "jobs").list_jobs().jobs[0]
         page = client.get(f"/jobs/{job.id}")
     assert "Nie udało się. Spróbuj ponownie." in page.text
     assert "ROZPOZNAWALNY_SEKRET" not in page.text

@@ -3,7 +3,6 @@
 Analiza gotowości treningowej + porównanie z planem.
 Uruchomienie: python -m trainer analyze [--ai]
 """
-import json
 import sys
 import io
 import logging
@@ -11,7 +10,7 @@ from datetime import datetime, timedelta
 
 from ..logging_config import setup_logging
 from ..core import check_hrv_alert
-from ..config import PROJECT_ROOT, DATA_LATEST, IMPORTANT_PROMPT, AI_DATA_EXPORT_ENABLED
+from ..config import DATA_LATEST, AI_DATA_EXPORT_ENABLED
 
 logger = logging.getLogger(__name__)
 from services.data_extract import SnapshotStatus, read_snapshot_status
@@ -46,22 +45,22 @@ def print_weekly_activities(data, today):
 
 def print_health_data(data):
     """Print recent health, sleep, HRV, weight."""
-    print(f"\n--- Ostatnie dni — zdrowie ---")
+    print("\n--- Ostatnie dni — zdrowie ---")
     for h in data['daily_health'][:7]:
         print(f"  {h['date']}: RHR={h['rhr']}, HR={h['hr_min']}-{h['hr_max']}, "
               f"kroki={h['steps']}, stres={h['stress_avg']}, SpO2={h['spo2']}%")
 
-    print(f"\n--- Sen ---")
+    print("\n--- Sen ---")
     for s in data['sleep'][:7]:
         print(f"  {s['date']}: {s['total_h']}h, gleboki={s['deep_h']}h, "
               f"REM={s['rem_h']}h, score={s['score']}, {s['qualifier'] or ''}")
 
-    print(f"\n--- HRV ---")
+    print("\n--- HRV ---")
     for h in data['hrv'][:7]:
         print(f"  {h['date']}: tydz={h['weekly_avg']}, ostatnia={h['last_night']}, "
               f"base={h['baseline_low']}-{h['baseline_high']}, status={h['status']}")
 
-    print(f"\n--- Waga ---")
+    print("\n--- Waga ---")
     for w in data['weight'][:3]:
         print(f"  {w['date']}: {w['weight_kg']} kg")
 
@@ -74,8 +73,8 @@ def print_hrv_alert(data):
         print(f"  ALERT: HRV NISKIE OD {hrv_alert['days']} DNI!")
         print(f"  Statusy: {', '.join(hrv_alert['statuses'])}")
         print(f"  Wartości: {hrv_alert['values']} (baseline: {hrv_alert['baseline']})")
-        print(f"  Organizm sie NIE regeneruje.")
-        print(f"  REKOMENDACJA: Odpoczynek lub bardzo lekki bieg regeneracyjny.")
+        print("  Organizm sie NIE regeneruje.")
+        print("  REKOMENDACJA: Odpoczynek lub bardzo lekki bieg regeneracyjny.")
         print(f"{'!' * 60}")
 
 
@@ -106,20 +105,20 @@ def print_readiness(breakdown):
 
     level = breakdown['level']
     if level == "ready":
-        print(f"\n[GOTOWY] Organizm w pelni zregenerowany. Realizuj plan.")
+        print("\n[GOTOWY] Organizm w pelni zregenerowany. Realizuj plan.")
     elif level == "ready_with_reserves":
-        print(f"\n[GOTOWY Z REZERWA] Lekkie zmeczenie, trening OK.")
-        print(f"   Uwazaj na tempo w pierwszych powtorzeniach.")
+        print("\n[GOTOWY Z REZERWA] Lekkie zmeczenie, trening OK.")
+        print("   Uwazaj na tempo w pierwszych powtorzeniach.")
     else:
-        print(f"\n[NIE GOTOWY] Potrzebujesz regeneracji.")
-        print(f"   Zastap trening biegiem regeneracyjnym 30-40 min.")
+        print("\n[NIE GOTOWY] Potrzebujesz regeneracji.")
+        print("   Zastap trening biegiem regeneracyjnym 30-40 min.")
 
 
 def print_plan_comparison(plan, data, today):
     """Print plan vs actual comparison and today's workout."""
     results = compare_plan_vs_actual(plan, data['activities'], today)
 
-    print(f"\n--- Porownanie: PLAN vs WYKONANIE ---")
+    print("\n--- Porownanie: PLAN vs WYKONANIE ---")
     print(f"  Plan: {plan['start_date']} — {plan['end_date']}")
     print(f"  Priorytet: {plan['priority']}")
     print()
@@ -151,7 +150,7 @@ def print_plan_comparison(plan, data, today):
             print(f"  HR: {today_workout.get('hr_target', '?')}")
         print(f"  {today_workout.get('notes', '')}")
     else:
-        print(f"\n--- Brak planu na biezacy tydzien ---")
+        print("\n--- Brak planu na biezacy tydzien ---")
         print("  Brak aktywnego planu tygodniowego; analiza gotowości działa nadal.")
 
 
@@ -208,7 +207,7 @@ def main(use_ai=False, strict_ai=False):
     if plan:
         print_plan_comparison(plan, data, today)
     else:
-        print(f"\n--- Brak planu na biezacy tydzien ---")
+        print("\n--- Brak planu na biezacy tydzien ---")
         print("  Brak aktywnego planu tygodniowego; analiza gotowości działa nadal.")
 
     # 6. AI recommendation (optional)
@@ -245,10 +244,10 @@ def main(use_ai=False, strict_ai=False):
             if recommendation.planned_workout:
                 print(f"  Planowany trening: {recommendation.planned_workout}")
             if recommendation.adjustment_needed:
-                print(f"  ⚠️  Zalecana korekta planu")
+                print("  ⚠️  Zalecana korekta planu")
             print(f"  Uzasadnienie: {recommendation.reasoning_summary}")
             if recommendation.warnings:
-                print(f"  Ostrzezenia:")
+                print("  Ostrzezenia:")
                 for w in recommendation.warnings:
                     print(f"    - {w}")
         except ImportError as e:

@@ -25,6 +25,9 @@ class NetworkAccessBlocked(RuntimeError):
     """Test próbował otworzyć połączenie sieciowe."""
 
 
+# Zapisane przed blokadą sieci: TestClient potrzebuje lokalnej pary gniazd.
+_ORIGINAL_CONNECT = socket.socket.connect
+
 _MESSAGE = (
     "Test próbował połączenia sieciowego. Zamockuj klienta Garmina "
     "(np. monkeypatch.setattr('trainer.garmin_workouts.GarminWorkout', ...)) "
@@ -72,3 +75,19 @@ def _isolate_garmin_tokens(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) ->
     token_dir = tmp_path_factory.mktemp("garmindb")
     monkeypatch.setattr(garmin_auth, "token_path",
                         lambda: token_dir / "garmin_tokens.json")
+
+
+@pytest.fixture
+def testclient_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pozwól TestClient utworzyć wyłącznie jego wewnętrzną parę gniazd na 127.0.0.1."""
+    def socketpair():
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        _ORIGINAL_CONNECT(client, listener.getsockname())
+        server, _ = listener.accept()
+        listener.close()
+        return server, client
+
+    monkeypatch.setattr(socket, "socketpair", socketpair)

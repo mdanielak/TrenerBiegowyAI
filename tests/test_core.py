@@ -3,11 +3,8 @@
 import sys
 import os
 import json
-import tempfile
-import sqlite3
 from datetime import datetime
 
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

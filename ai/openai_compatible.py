@@ -100,7 +100,7 @@ class OpenAICompatibleProvider(AIProvider):
         if response_model is not None:
             try:
                 data = json.loads(content)
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 logger.debug("AI returned invalid JSON response: %s", content)
                 raise AIResponseError(
                     f"AI returned invalid JSON ({len(content)} characters)"
@@ -108,7 +108,7 @@ class OpenAICompatibleProvider(AIProvider):
 
             try:
                 return response_model.model_validate(data)
-            except Exception as e:
+            except Exception:
                 logger.debug("AI response validation failed for data: %s", data)
                 raise AIResponseError(
                     f"AI response validation failed for response of {len(content)} characters"

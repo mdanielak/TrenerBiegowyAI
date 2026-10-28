@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from ai.base import AIProvider
-from ai.context import build_training_context, format_context_for_user
+from ai.context import format_context_for_user
 
 
 class DailyRecommendation(BaseModel):

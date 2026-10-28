@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import socket
 from datetime import datetime
 
 from fastapi.testclient import TestClient
@@ -15,25 +14,11 @@ from services.jobs import JobStore
 from services.today import TodayReport
 
 
-_ORIGINAL_CONNECT = socket.socket.connect
 _PLAN_ITEM_MARKER = ('<span class="item-icon"><img class="asset" src="/assets/07_ui_icons/plan.png"'
                      ' width="28" height="28" alt=""></span>')
 
 
-@pytest.fixture(autouse=True)
-def _testclient_socketpair(monkeypatch):
-    """Pozwól TestClient utworzyć wyłącznie jego wewnętrzną parę gniazd."""
-    def socketpair():
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.bind(("127.0.0.1", 0))
-        listener.listen(1)
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        _ORIGINAL_CONNECT(client, listener.getsockname())
-        server, _ = listener.accept()
-        listener.close()
-        return server, client
-
-    monkeypatch.setattr(socket, "socketpair", socketpair)
+pytestmark = pytest.mark.usefixtures("testclient_sockets")
 
 
 def _readiness():
