@@ -71,6 +71,71 @@
       </form>
     </section>
 
+    <section class="card" id="przerwy">
+      <div class="card-head">
+        <h2>{{ ico.clock(26) }}<span>Przerwy: choroba, wyjazd, zabieg</span></h2>
+      </div>
+      {% if pause_error %}
+        <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ pause_error }}</p></div></div>
+      {% endif %}
+      {% if pause_saved %}
+        <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body">
+          <p class="banner-title">Zapisano przerwę. W tych dniach plan zaproponuje odpoczynek.</p>
+          {% if pause_clash %}
+            <p class="mid">Obecny plan ma treningi w dniach: {{ pause_clash.labels }}. <a href="/plan?week={{ pause_clash.week }}">Ułóż plan ponownie</a> — zapytam, czy nadpisać obecny.</p>
+          {% endif %}
+        </div></div>
+      {% endif %}
+      {% if pause_removed %}
+        <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Usunięto przerwę.</p></div></div>
+      {% endif %}
+
+      {% if pauses %}
+        <div class="list">
+          {% for pause in pauses %}
+            <div class="list-item">
+              <span class="item-body">
+                <span class="item-title">{{ pause.reason }}</span>
+                <span class="item-meta"><span>{{ format_date(pause.start_date) }} – {{ format_date(pause.end_date) }}</span></span>
+              </span>
+              <span class="item-side row">
+                {% if pause.is_active %}<span class="pill warn">trwa teraz</span>{% endif %}
+                <form method="post" action="/journal/pause/remove">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="start" value="{{ pause.start_date }}">
+                  <input type="hidden" name="end" value="{{ pause.end_date }}">
+                  <button type="submit" class="btn-secondary">Usuń</button>
+                </form>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mid">Nie ma zaplanowanych przerw.</p>
+      {% endif %}
+
+      <form method="post" action="/journal/pause" class="stack form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <fieldset class="field-group">
+          <legend>Rodzaj przerwy</legend>
+          {% for key, label in pause_types.items() %}
+            <label class="choice"><input type="radio" name="pause_type" value="{{ key }}"{% if pause_form.type == key %} checked{% endif %} required> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+        <div class="row field-row">
+          <label class="field">Od<input class="text-input" type="date" name="start" value="{{ pause_form.start }}" required></label>
+          <label class="field">Do<input class="text-input" type="date" name="end" value="{{ pause_form.end }}" required></label>
+        </div>
+        <label class="field">Opis (opcjonalnie)
+          <input class="text-input" type="text" name="note" maxlength="120" value="{{ pause_form.note or '' }}" placeholder="np. przeziębienie, urlop w górach">
+        </label>
+        <div class="row">
+          <button type="submit" class="btn">{{ ico.plus(18) }}<span>Dodaj przerwę</span></button>
+          <span class="tile-foot">AI nie zaplanuje treningu w dniach przerwy.</span>
+        </div>
+      </form>
+    </section>
+
     <section class="card">
       <div class="card-head">
         <h2>{{ ico.calendar(26) }}<span>Ostatnie 14 dni</span></h2>

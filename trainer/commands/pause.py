@@ -62,7 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     add_parser.add_argument("start_date", help="data rozpoczęcia (RRRR-MM-DD)")
     add_parser.add_argument("end_date", help="data zakończenia (RRRR-MM-DD)")
     add_parser.add_argument("reason", help="powód przerwy (np. przeziębienie, wyjazd)")
-    add_parser.add_argument("--type", default="medical", choices=["medical", "recovery", "vacation"],
+    add_parser.add_argument("--type", default="medical",
+                            choices=["medical", "recovery", "vacation", "illness", "break"],
                             help="typ przerwy (domyślnie: medical)")
 
     remove_parser = subparsers.add_parser("remove", help="usuń planowaną przerwę")

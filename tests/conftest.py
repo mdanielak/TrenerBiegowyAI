@@ -118,3 +118,11 @@ def _isolate_ai_status(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> Non
     path = tmp_path_factory.mktemp("ai_status") / "ai_status.json"
     monkeypatch.setattr("services.ai_status.AI_STATUS_PATH", path)
     monkeypatch.setattr("api.main.AI_STATUS_PATH", path, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_preferences(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Przerwy i dostępność w testach nigdy nie zmieniają prawdziwego local/training_preferences.json."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr("trainer.preferences.SETTINGS", SimpleNamespace(local_dir=tmp_path_factory.mktemp("preferences")))
