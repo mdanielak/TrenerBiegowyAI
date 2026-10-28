@@ -13,9 +13,10 @@ from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan import previous_week_load
 from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
+from services import plan_conflicts
 from api.views.common import _WEEK_WARNING_LABELS, _format_date
 from api.views.jobs import _plan_banner
-from api.views.plan import _format_generated_at, _plan_load_chart, _plan_view
+from api.views.plan import _conflict_view, _format_generated_at, _plan_load_chart, _plan_view, _variant_views
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ _EMPTY_BANNER = {"message": None, "details_url": None, "refresh": False, "disabl
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
                       banner=None, push_banner=None, error_message=None, error_command=None,
                       now=None, readiness_by_date=None, previous_week=None,
-                      snapshot_stale=False, anchor=None) -> dict:
+                      snapshot_stale=False, anchor=None, conflict=None, variants=None) -> dict:
     """Zbuduj kontekst strony planu; ten sam zestaw używa router i obsługa błędów CSRF."""
     monday, sunday = week_bounds(anchor or today)
     plan = _plan_view(
@@ -66,6 +67,8 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "next_week": (monday + timedelta(days=7)).date().isoformat(),
         "error_message": error_message,
         "error_command": error_command,
+        "conflict": conflict,
+        "variants": variants or [],
     }
 
 
@@ -81,6 +84,8 @@ def get_plans_router(
     attach_csrf: Callable,
     csrf_token: Callable,
     snapshot_provider: Callable[[], object] = read_snapshot_status,
+    registry_provider: Callable[[], list] | None = None,
+    variants_provider: Callable[[datetime], list] = plan_conflicts.list_variants,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -142,6 +147,22 @@ def get_plans_router(
             ai_settings = {}
         ai_ready = bool(ai_settings.get("key_present") and ai_settings.get("export_enabled"))
 
+        conflict = None
+        confirm = request.query_params.get("confirm")
+        if confirm == "plan" and stored is not None:
+            conflict = _conflict_view("plan", plan_conflicts.plan_conflict_days(stored))
+        elif confirm == "push" and stored is not None and registry_provider is not None:
+            try:
+                entries = registry_provider()
+            except OSError:
+                entries = []
+            days = plan_conflicts.garmin_conflict_days(stored, entries)
+            conflict = _conflict_view("push", days) if days else None
+        try:
+            variants = _variant_views(stored, variants_provider(monday))
+        except OSError:
+            variants = []
+
         token = csrf_token(request)
         context = plan_page_context(
             today=today,
@@ -158,6 +179,8 @@ def get_plans_router(
             previous_week=previous_week,
             snapshot_stale=snapshot.status is SnapshotStatus.STALE,
             anchor=monday,
+            conflict=conflict,
+            variants=variants,
         )
         return attach_csrf(
             templates.TemplateResponse(

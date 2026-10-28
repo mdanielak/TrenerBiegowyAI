@@ -58,6 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument('--week', type=iso_date, help='dowolny dzień wybranego tygodnia (RRRR-MM-DD)')
     plan.add_argument('--show', action='store_true', help='wypisz zapisany plan, bez AI')
     plan.add_argument('--push', action='store_true', help='wyślij zapisany plan do Garmina, bez AI')
+    plan.add_argument('--on-conflict', choices=('overwrite', 'add', 'cancel'),
+                      help='co zrobić, gdy plan lub treningi już istnieją (bez pytania)')
     commands.add_parser('doctor', help='sprawdza lokalną konfigurację bez synchronizacji')
     commands.add_parser('setup', help='prowadzi przez pierwszą konfigurację')
     commands.add_parser('today', help='pokazuje plan i gotowość na dziś')
@@ -117,7 +119,7 @@ def dispatch(args: argparse.Namespace) -> int:
         return workout_new()
     if args.command == 'plan':
         from .commands.plan import main as plan
-        return plan(week=args.week, show=args.show, push=args.push)
+        return plan(week=args.week, show=args.show, push=args.push, on_conflict=args.on_conflict)
     if args.workout_command == 'usage':
         from .commands.workout_usage import main as usage
         return usage(delete=args.delete) or 0

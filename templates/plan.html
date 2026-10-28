@@ -51,6 +51,62 @@
 
 <div class="stack">
 
+  {% if conflict %}
+    <section class="card confirm-panel" role="alertdialog" aria-labelledby="conflict-title">
+      <div class="card-head">
+        <h2 id="conflict-title">{{ ico.info(26) }}<span>{{ conflict.title }}</span></h2>
+      </div>
+      <div class="list">
+        {% for row in conflict.rows %}
+          <div class="list-item">
+            <span class="item-body">
+              <span class="item-title">{{ row.label|capitalize }}</span>
+              <span class="item-meta"><span>{{ row.detail }}</span></span>
+            </span>
+            {% if row.on_watch %}<span class="item-side"><span class="pill warn">na zegarku</span></span>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <p class="mid">{{ conflict.note }}</p>
+      <form method="post" action="{{ conflict.action }}" class="row confirm-actions">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="week_start" value="{{ week_start }}">
+        {% for value, label, style in conflict.buttons %}
+          <button type="submit" name="on_conflict" value="{{ value }}"{% if style %} class="{{ style }}"{% endif %}>{{ label }}</button>
+        {% endfor %}
+      </form>
+    </section>
+  {% endif %}
+
+  {% for variant in variants %}
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ ico.clipboard(26) }}<span>Druga wersja planu</span></h2>
+      </div>
+      {% if variant.focus %}<p class="mid card-lead">{{ variant.focus }}</p>{% endif %}
+      <div class="list">
+        {% for row in variant.rows %}
+          <div class="list-item">
+            <span class="zone-chip lead">{{ row.weekday }}</span>
+            <span class="item-body">
+              <span class="item-title">{{ row.variant }}</span>
+              <span class="item-meta"><span>teraz: {{ row.current }}</span></span>
+            </span>
+            {% if row.changed %}<span class="item-side"><span class="pill info">zmiana</span></span>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <form method="post" action="/actions/plan/variant" class="row confirm-actions">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="week_start" value="{{ week_start }}">
+        <input type="hidden" name="variant" value="{{ variant.name }}">
+        <button type="submit" name="decision" value="activate">Użyj tej wersji</button>
+        <button type="submit" name="decision" value="archive" class="btn-secondary">Odłóż do archiwum</button>
+      </form>
+      <p class="tile-foot">Po zmianie wersji obecny plan trafi do archiwum. Treningi już wysłane zostają na zegarku.</p>
+    </section>
+  {% endfor %}
+
   {% if snapshot_stale %}
     <div class="banner warn">
       {{ ico.info() }}

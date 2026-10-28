@@ -102,6 +102,8 @@ Cienie są lekkie i warstwowe, aby jedynie oddzielać kartę od tła. Nie zastę
 
 **Brak danych.** Pokazuj znakiem myślnika `—`, nigdy zerem ani pustym miejscem.
 
+**Panel potwierdzenia.** Gdy akcja coś zastąpi, zamiast niej pojawia się karta `.confirm-panel` z tytułem w formie pełnego zdania, listą tego, co zostanie dotknięte, zdaniem o skutkach i trzema przyciskami: działanie główne, alternatywa (`btn-secondary`) i „Anuluj” (`btn-secondary`). Obrys karty to `--warn-icon` `#D97706` (3,19:1 na bieli, próg 3:1 dla elementów graficznych); znaczenie niesie tekst, nie kolor. Bez JavaScriptu: przyciski to `name="on_conflict"` w jednym formularzu z tokenem CSRF.
+
 **Linki.** Kolor `--accent`; podkreślenie może pojawiać się po najechaniu. Link musi pozostawać rozpoznawalny jako element interaktywny.
 
 ## Zasady

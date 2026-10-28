@@ -16,6 +16,10 @@ from services.plan import as_datetime
 SYNC_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
 SNAPSHOT_MISSING_MESSAGE = "Brakuje lokalnego snapshotu danych. Uruchom: python -m trainer sync"
 PLAN_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
+PLAN_CONFLICT_MESSAGE = ("Na ten tydzień jest już plan. Wybierz, czy go nadpisać, "
+                         "zapisać nowy jako drugą wersję, czy anulować.")
+GARMIN_CONFLICT_MESSAGE = ("Na niektóre dni są już treningi na zegarku. Wybierz, czy je zastąpić, "
+                           "dodać nowe obok, czy anulować.")
 
 
 def synchronize_data(*, fresh=False):
@@ -127,9 +131,24 @@ def _require_ai_consent():
         raise ValueError(PLAN_AI_DISABLED_MESSAGE)
 
 
-def generate_week_plan(*, week_start=None, provider_factory=None, save=None, today=None) -> dict:
-    """Ułóż tydzień treningowy przez AI, popraw go regułami i zapisz."""
+def _check_policy(on_conflict):
+    from services.plan_conflicts import ON_CONFLICT
+
+    if on_conflict is not None and on_conflict not in ON_CONFLICT:
+        raise ValueError("Nieznana decyzja w sprawie konfliktu.")
+
+
+def generate_week_plan(*, week_start=None, provider_factory=None, save=None, today=None,
+                       on_conflict=None) -> dict | None:
+    """Ułóż tydzień treningowy przez AI, popraw go regułami i zapisz.
+
+    Gdy na tydzień jest już plan, `on_conflict` decyduje: 'overwrite' odkłada obecne pliki
+    do archiwum, 'add' zapisuje nowy plan jako drugą wersję, 'cancel' nic nie robi.
+    Bez decyzji konflikt kończy się PlanConflictError, zanim dane trafią do AI.
+    Jawne `save` (np. podgląd) pomija sprawdzanie konfliktu.
+    """
     from services import plan as plan_service
+    from services import plan_conflicts
     from services.data_extract import SnapshotStatus, read_snapshot_status
     from trainer.preferences import load_preferences
     from trainer.profile_store import load_profile
@@ -142,6 +161,13 @@ def generate_week_plan(*, week_start=None, provider_factory=None, save=None, tod
 
     current = as_datetime(today) or datetime.now()
     anchor = as_datetime(week_start) or current
+    _check_policy(on_conflict)
+    existing = plan_service.load_week_plan(anchor) if save is None else None
+    if existing is not None:
+        if on_conflict is None:
+            raise plan_conflicts.PlanConflictError(PLAN_CONFLICT_MESSAGE)
+        if on_conflict == "cancel":
+            return None
     profile = load_profile()
     preferences = load_preferences()
     context = plan_service.build_plan_context(
@@ -165,18 +191,27 @@ def generate_week_plan(*, week_start=None, provider_factory=None, save=None, tod
     response = generate_response(provider, context)
 
     normalized = plan_service.normalize_plan(response, context=context)
-    if save is None:
-        save = plan_service.save_plan
-    save(normalized)
+    if save is not None:
+        save(normalized)
+    elif existing is not None and on_conflict == "add":
+        plan_conflicts.save_variant(normalized)
+    else:
+        if existing is not None:
+            plan_conflicts.archive_week(datetime.strptime(normalized["start_date"], "%Y-%m-%d"))
+        plan_service.save_plan(normalized)
     return normalized
 
 
-def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None, lock_directory=None):
+def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None, lock_directory=None,
+                 on_conflict=None):
     """Wykonaj układanie planu pod blokadą i zapisz stan zadania."""
     store.mark_running(job_id)
     try:
         with acquire_lock(name="plan", directory=lock_directory):
-            operation(week_start=week_start)
+            if on_conflict is None:
+                operation(week_start=week_start)
+            else:
+                operation(week_start=week_start, on_conflict=on_conflict)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:
@@ -186,30 +221,65 @@ def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None
     return store.mark_succeeded(job_id)
 
 
-def _garmin_workout_creator():
-    """Zwróż fabrykę treningów działającą na jednej sesji Garmina."""
+def _garmin_session():
+    """Zwróć (utwórz, usuń) działające na jednej, leniwie otwieranej sesji Garmina."""
     from trainer.garmin_workouts import GarminWorkout, build_workout
 
     state = {"session": None}
 
-    def create(kind, name, **kwargs):
+    def session():
         if state["session"] is None:
             state["session"] = GarminWorkout().login()
-        return build_workout(state["session"], kind, name, **kwargs)
+        return state["session"]
 
-    return create
+    def create(kind, name, **kwargs):
+        return build_workout(session(), kind, name, **kwargs)
+
+    def delete(workout_id, schedule_id=None, reason=None):
+        return session().delete(workout_id, schedule_id=schedule_id, reason=reason)
+
+    return create, delete
 
 
-def push_plan_to_garmin(*, week_start=None, workout_factory=None) -> dict:
-    """Wyślij zapisany plan na zegarek; każdy udany trening zapisujesz od razu."""
+def push_plan_to_garmin(*, week_start=None, workout_factory=None, workout_deleter=None,
+                        on_conflict=None, registry_entries=None) -> dict:
+    """Wyślij zapisany plan na zegarek; każdy udany trening zapisujesz od razu.
+
+    Dni, na które rejestr ma już aktywny trening spoza tego planu, wymagają decyzji:
+    'overwrite' usuwa tamte treningi z Garmina (rejestr pozwala je odtworzyć),
+    'add' wysyła obok, 'cancel' nic nie robi.
+    """
     from services import plan as plan_service
+    from services.plan_conflicts import PlanConflictError, garmin_conflict_days
+    from services.workout_registry import library
 
+    _check_policy(on_conflict)
     anchor = as_datetime(week_start) or datetime.now()
     plan = plan_service.load_week_plan(anchor)
     if plan is None:
         raise ValueError(PLAN_NO_PLAN_MESSAGE)
 
-    create = workout_factory if workout_factory is not None else _garmin_workout_creator()
+    entries = library("active") if registry_entries is None else registry_entries
+    conflicts = garmin_conflict_days(plan, entries)
+    if conflicts and on_conflict is None:
+        raise PlanConflictError(GARMIN_CONFLICT_MESSAGE)
+    if conflicts and on_conflict == "cancel":
+        return {"created": [], "skipped": 0, "replaced": []}
+
+    replace = bool(conflicts) and on_conflict == "overwrite"
+    if workout_factory is None or (replace and workout_deleter is None):
+        session_create, session_delete = _garmin_session()
+        workout_factory = workout_factory or session_create
+        workout_deleter = workout_deleter or session_delete
+    create = workout_factory
+
+    replaced = []
+    if replace:
+        for conflict in conflicts:
+            for existing in conflict["existing"]:
+                workout_deleter(existing["workout_id"], schedule_id=existing["schedule_id"],
+                                reason="zastąpiony planem")
+                replaced.append(existing["workout_id"])
 
     created = []
     skipped = 0
@@ -227,16 +297,19 @@ def push_plan_to_garmin(*, week_start=None, workout_factory=None) -> dict:
         workout["garmin_workout_id"] = workout_id
         created.append(workout_id)
         plan_service.save_plan(plan)
-    return {"created": created, "skipped": skipped}
+    return {"created": created, "skipped": skipped, "replaced": replaced}
 
 
 def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_start=None,
-                      lock_directory=None):
+                      lock_directory=None, on_conflict=None):
     """Wykonaj wysyłkę planu do Garmina pod blokadą i zapisz stan zadania."""
     store.mark_running(job_id)
     try:
         with acquire_lock(name="plan-push", directory=lock_directory):
-            operation(week_start=week_start)
+            if on_conflict is None:
+                operation(week_start=week_start)
+            else:
+                operation(week_start=week_start, on_conflict=on_conflict)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:

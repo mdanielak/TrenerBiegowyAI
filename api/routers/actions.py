@@ -32,6 +32,8 @@ from api.views.jobs import (
     SYNC_COOLDOWN,
 )
 from api.routers.plans import plan_page_context
+from services import plan_conflicts
+from services.plan_files import week_bounds
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +57,69 @@ def get_actions_router(
     recommendation_operation: Callable[..., dict] | None = None,
     ai_settings_provider: Callable[[], dict] | None = None,
     now_provider: Callable[[], datetime] | None = None,
+    plan_provider: Callable[[str], dict | None] | None = None,
+    registry_provider: Callable[[], list] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
-    def run_plan(*, week_start: str):
+    def run_plan(*, week_start: str, on_conflict=None):
         """Ułóż plan tygodnia na tym samym dostawcy danych, co pulpit."""
+        decision = {"on_conflict": on_conflict} if on_conflict else {}
         if plan_operation is not None:
-            return plan_operation(week_start=week_start)
-        return generate_week_plan(week_start=week_start or None)
+            return plan_operation(week_start=week_start, **decision)
+        return generate_week_plan(week_start=week_start or None, **decision)
 
-    def run_plan_push(*, week_start: str):
+    def run_plan_push(*, week_start: str, on_conflict=None):
         """Wyślij zapisany plan na zegarek."""
+        decision = {"on_conflict": on_conflict} if on_conflict else {}
         if plan_push_operation is not None:
-            return plan_push_operation(week_start=week_start or None)
-        return push_plan_to_garmin(week_start=week_start or None)
+            return plan_push_operation(week_start=week_start or None, **decision)
+        return push_plan_to_garmin(week_start=week_start or None, **decision)
+
+    def week_monday(week_start: str) -> datetime:
+        try:
+            anchor = datetime.fromisoformat(week_start[:10]) if week_start else today()
+        except ValueError:
+            anchor = today()
+        return week_bounds(anchor.replace(tzinfo=None))[0]
+
+    def stored_plan(week_start: str):
+        if plan_provider is None:
+            return None
+        try:
+            return plan_provider(week_monday(week_start).date().isoformat())
+        except (OSError, ValueError):
+            return None
+
+    def has_conflict(kind: str, week_start: str) -> bool:
+        """Czy akcja nadpisałaby istniejący plan albo treningi na zegarku."""
+        plan = stored_plan(week_start)
+        if kind == "plan":
+            return plan is not None
+        if plan is None or registry_provider is None:
+            return False
+        try:
+            entries = registry_provider()
+        except OSError:
+            entries = []
+        return bool(plan_conflicts.garmin_conflict_days(plan, entries))
+
+    def plan_url(week_start: str, confirm: str | None = None) -> str:
+        params = [f"week={week_monday(week_start).date().isoformat()}"]
+        if confirm:
+            params.append(f"confirm={confirm}")
+        return "/plan?" + "&".join(params)
+
+    def decide(kind: str, week_start: str, on_conflict: str):
+        """Zwróć (decyzja, przekierowanie); przekierowanie oznacza, że zadania nie zakładamy."""
+        decision = (on_conflict or "").strip()
+        if decision == "cancel":
+            return None, RedirectResponse(url=plan_url(week_start), status_code=303)
+        if decision and decision not in plan_conflicts.ON_CONFLICT:
+            return None, RedirectResponse(url=plan_url(week_start), status_code=303)
+        if not decision and has_conflict(kind, week_start):
+            return None, RedirectResponse(url=plan_url(week_start, confirm=kind), status_code=303)
+        return decision or None, None
 
     def run_recommendation():
         """Policz rekomendację AI na dziś."""
@@ -191,6 +242,7 @@ def get_actions_router(
         request: Request,
         csrf_token: str = Form(default=""),
         week_start: str = Form(default=""),
+        on_conflict: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
@@ -217,9 +269,13 @@ def get_actions_router(
                 status_code=400,
                 headers={"Cache-Control": "no-store"},
             )
+        decision, redirect = decide("plan", week_start, on_conflict)
+        if redirect is not None:
+            return redirect
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("plan", {"week_start": week_start}, cooldown=PLAN_COOLDOWN)
+                job = store.submit("plan", {"week_start": week_start, "on_conflict": decision},
+                                   cooldown=PLAN_COOLDOWN)
                 should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
                 if should_schedule:
                     scheduled_job_ids.add(job.id)
@@ -234,6 +290,7 @@ def get_actions_router(
                         operation=run_plan,
                         week_start=week_start,
                         lock_directory=lock_directory,
+                        on_conflict=decision,
                     )
                 finally:
                     scheduled_job_ids.discard(job.id)
@@ -246,6 +303,7 @@ def get_actions_router(
         request: Request,
         csrf_token: str = Form(default=""),
         week_start: str = Form(default=""),
+        on_conflict: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
@@ -259,9 +317,13 @@ def get_actions_router(
                 status_code=403,
                 headers={"Cache-Control": "no-store"},
             )
+        decision, redirect = decide("push", week_start, on_conflict)
+        if redirect is not None:
+            return redirect
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("plan_push", {"week_start": week_start}, cooldown=PLAN_PUSH_COOLDOWN)
+                job = store.submit("plan_push", {"week_start": week_start, "on_conflict": decision},
+                                   cooldown=PLAN_PUSH_COOLDOWN)
                 should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
                 if should_schedule:
                     scheduled_job_ids.add(job.id)
@@ -276,12 +338,51 @@ def get_actions_router(
                         operation=run_plan_push,
                         week_start=week_start,
                         lock_directory=lock_directory,
+                        on_conflict=decision,
                     )
                 finally:
                     scheduled_job_ids.discard(job.id)
 
             request.app.state.job_executor.submit(execute)
         return RedirectResponse(url="/plan", status_code=303)
+
+    @router.post("/actions/plan/variant")
+    def plan_variant(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+        variant: str = Form(default=""),
+        decision: str = Form(default=""),
+    ):
+        """Użyj drugiej wersji planu albo odłóż ją do archiwum; nic nie jest kasowane."""
+        if not csrf_valid(request, csrf_token):
+            return templates.TemplateResponse(
+                request=request,
+                name="plan.html",
+                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+        monday = week_monday(week_start)
+        try:
+            with acquire_lock(name="plan", directory=lock_directory):
+                if decision == "activate":
+                    plan_conflicts.activate_variant(monday, variant)
+                elif decision == "archive":
+                    plan_conflicts.archive_variant(monday, variant)
+                else:
+                    raise ValueError("Nieznana decyzja.")
+        except LockBusyError:
+            pass
+        except ValueError as error:
+            return templates.TemplateResponse(
+                request=request,
+                name="plan.html",
+                context=plan_page_context(today=today(), error_message=str(error), now=datetime.now(), anchor=monday),
+                status_code=400,
+                headers={"Cache-Control": "no-store"},
+            )
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
 
     @router.post("/actions/recommendation")
     def submit_recommendation(

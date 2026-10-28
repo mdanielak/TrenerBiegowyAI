@@ -226,6 +226,10 @@
   .choice { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 400; }
   .choice input { width: 18px; height: 18px; accent-color: var(--accent); }
   .card-lead { margin: 0 0 12px; }
+  /* Panel potwierdzenia: obrys ostrzeżenia (#D97706, 3,19:1), znaczenie niesie tytuł i lista. */
+  .confirm-panel { border-color: var(--warn-icon); border-width: 2px; }
+  .confirm-actions { flex-wrap: wrap; margin-top: 12px; }
+  .confirm-panel .list + .mid { margin-top: 12px; }
   .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .card-head h2 { display: flex; align-items: center; gap: 8px; }
   .card-head .icon { color: var(--fg-muted); }

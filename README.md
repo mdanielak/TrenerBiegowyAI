@@ -89,6 +89,19 @@ Przy pierwszym pobraniu lub przebudowie danych użyj `python -m trainer sync --f
 
 Generowanie planu wymaga włączonej zgody na eksport danych do AI (`AI_DATA_EXPORT_ENABLED=true` wraz z kluczem API). Ten sam plan można ułożyć i wysłać na zegarek z dashboardu.
 
+#### Gdy plan lub treningi już istnieją
+
+Ani „Ułóż plan”, ani „Wyślij do Garmina” niczego nie nadpisują bez pytania. Jeśli na tydzień jest już plan albo na zegarku są już treningi na te same dni, pojawia się lista kolidujących dni i trzy decyzje:
+
+| Akcja | Nadpisz | Dodaj obok | Anuluj |
+| --- | --- | --- | --- |
+| Ułóż plan | obecne pliki tygodnia trafiają do `training-plans/{YYYY-MM}/archive/`, nowy plan obowiązuje | nowy plan zapisuje się jako druga wersja w `variants/`; na stronie planu porównasz ją dzień po dniu i możesz jej użyć albo odłożyć do archiwum | nic się nie zmienia |
+| Wyślij do Garmina | kolidujące treningi są usuwane z Garmina (zostają w rejestrze i da się je odtworzyć), potem wysyłka | nowe treningi trafiają obok istniejących | nic nie jest wysyłane |
+
+Treningi na zegarku rozpoznawane są z lokalnego rejestru, więc trening dodany ręcznie w Garmin Connect nie zostanie wykryty. Pliki nigdy nie są kasowane — archiwum i wersje to zwykłe pliki JSON obok planu.
+
+W terminalu `python -m trainer plan` i `plan --push` zadają to samo pytanie. W skryptach użyj `--on-conflict overwrite|add|cancel`; bez terminala interaktywnego i bez flagi polecenie anuluje i nic nie zmienia.
+
 ## Lokalny dashboard
 
 Dashboard uruchamiasz skryptem `start.bat` (Windows) albo `./start.sh` (Linux / macOS) — pełna instrukcja jest na górze tego pliku. Skrypty korzystają z `.venv` właściwego dla danego systemu, nie wymagają jego aktywowania i nie wykonują synchronizacji.

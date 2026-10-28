@@ -91,3 +91,67 @@ def test_push_without_a_plan_does_not_call_garmin(tmp_path, monkeypatch, capsys)
     captured = capsys.readouterr()
     assert code == 1
     assert "Najpierw ułóż plan na ten tydzień." in captured.err
+
+
+class _Input:
+    def __init__(self, answer, tty=True):
+        self.answer, self.tty = answer, tty
+
+    def isatty(self):
+        return self.tty
+
+    def readline(self):
+        return self.answer + "\n"
+
+
+def _record_generate(monkeypatch):
+    calls = []
+
+    def fake(**kwargs):
+        calls.append(kwargs)
+        return {"start_date": "2026-10-26", "end_date": "2026-11-01", "workouts": []}
+
+    monkeypatch.setattr("services.actions.generate_week_plan", fake)
+    return calls
+
+
+def test_existing_plan_without_a_terminal_is_left_untouched(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
+    _write_plan(tmp_path)
+    calls = _record_generate(monkeypatch)
+
+    code = plan_command.main(week="2026-10-26", stdin=_Input("n", tty=False))
+
+    out = capsys.readouterr().out
+    assert code == 0 and calls == []
+    assert "Na ten tydzień jest już plan:" in out and "Tempo progowe" in out
+    assert "--on-conflict" in out
+
+
+def test_answer_from_the_terminal_and_the_flag_choose_the_policy(tmp_path, monkeypatch):
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
+    _write_plan(tmp_path)
+    calls = _record_generate(monkeypatch)
+
+    plan_command.main(week="2026-10-26", stdin=_Input("d"))
+    plan_command.main(["--week", "2026-10-26", "--on-conflict", "overwrite"])
+
+    assert [c["on_conflict"] for c in calls] == ["add", "overwrite"]
+
+
+def test_without_an_existing_plan_nothing_is_asked(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path)
+    calls = _record_generate(monkeypatch)
+
+    plan_command.main(week="2026-10-26", stdin=_Input("a", tty=False))
+
+    assert calls[0]["on_conflict"] is None
+    assert "jest już plan" not in capsys.readouterr().out
+
+
+def test_cli_accepts_the_on_conflict_flag(monkeypatch):
+    seen = {}
+    monkeypatch.setattr("trainer.commands.plan.main", lambda **kwargs: seen.update(kwargs) or 0)
+
+    assert cli.main(["plan", "--push", "--on-conflict", "add"]) == 0
+    assert seen["on_conflict"] == "add" and seen["push"] is True

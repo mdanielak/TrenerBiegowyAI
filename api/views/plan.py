@@ -205,3 +205,66 @@ def _plan_workout_view(plan_workout) -> Optional[dict]:
         "garmin_upload": bool(plan_workout.get("garmin_upload")),
         "is_rest": kind == "rest",
     }
+
+
+_CONFLICT_COPY = {
+    "plan": {
+        "title": "Na ten tydzień jest już plan",
+        "action": "/actions/plan",
+        "buttons": (("overwrite", "Nadpisz plan", ""), ("add", "Zapisz jako drugą wersję", "btn-secondary"),
+                    ("cancel", "Anuluj", "btn-secondary")),
+        "note": ("Nadpisany plan trafi do archiwum, nie zostanie usunięty. Treningi już wysłane zostaną "
+                 "na zegarku; przy wysyłce nowego planu zapytam, czy je zastąpić."),
+    },
+    "push": {
+        "title": "Na te dni są już treningi na zegarku",
+        "action": "/actions/plan/push",
+        "buttons": (("overwrite", "Zastąp na zegarku", ""), ("add", "Dodaj obok", "btn-secondary"),
+                    ("cancel", "Anuluj", "btn-secondary")),
+        "note": ("Zastąpione treningi zostaną usunięte z Garmina, ale zostają w lokalnym rejestrze "
+                 "i da się je odtworzyć. Treningi dodane ręcznie w Garmin Connect nie są tu widoczne."),
+    },
+}
+
+
+def _conflict_view(kind, days) -> dict | None:
+    """Panel potwierdzenia: lista kolidujących dni i trzy decyzje."""
+    copy = _CONFLICT_COPY[kind]
+    rows = []
+    for day in days or []:
+        if kind == "plan":
+            detail = f"{day['name']}" + (f", {day['minutes']} min" if day.get("minutes") else "")
+            rows.append({"label": day["label"], "detail": detail, "on_watch": day.get("on_watch")})
+        else:
+            existing = ", ".join(item["name"] for item in day["existing"])
+            rows.append({"label": day["label"], "detail": f"na zegarku: {existing}; nowy: {day['name']}",
+                         "on_watch": True})
+    return {"kind": kind, "title": copy["title"], "action": copy["action"], "buttons": copy["buttons"],
+            "note": copy["note"], "rows": rows}
+
+
+def _variant_views(current, variants) -> list[dict]:
+    """Druga wersja planu obok obecnej, dzień po dniu."""
+    current_by_date = {w.get("date"): w for w in (current or {}).get("workouts") or []}
+    views = []
+    for name, plan in variants or []:
+        rows = []
+        for workout in plan.get("workouts") or []:
+            before = current_by_date.get(workout.get("date")) or {}
+            rows.append({
+                "weekday": _WEEKDAYS_SHORT[_plan_day_index(workout.get("day"))],
+                "current": _workout_label(before) if before else "—",
+                "variant": _workout_label(workout),
+                "changed": _workout_label(before) != _workout_label(workout),
+            })
+        views.append({"name": name, "focus": plan.get("focus"), "generated_at": plan.get("generated_at"),
+                      "rows": rows})
+    return views
+
+
+def _workout_label(workout) -> str:
+    kind = workout.get("type") or "rest"
+    if kind == "rest":
+        return "Odpoczynek"
+    minutes = workout.get("duration_min")
+    return f"{workout.get('name') or _PLAN_KIND_LABELS.get(kind, kind)}" + (f" · {minutes} min" if minutes else "")

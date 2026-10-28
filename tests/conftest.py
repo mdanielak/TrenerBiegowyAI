@@ -99,3 +99,14 @@ def _isolate_journal(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path_factory.mktemp("journal") / "journal.jsonl"
     monkeypatch.setattr("services.journal.JOURNAL_PATH", path)
     monkeypatch.setattr("api.main.JOURNAL_PATH", path, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_plans_and_registry(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Domyślnie testy widzą pusty katalog planów i pusty rejestr Garmina, nie prawdziwe pliki.
+
+    Test, który potrzebuje własnych plików, nadal podmienia te ścieżki sam.
+    """
+    root = tmp_path_factory.mktemp("isolated")
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", root / "training-plans")
+    monkeypatch.setattr("services.workout_registry.REGISTRY_PATH", root / "workout-registry.jsonl")

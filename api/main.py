@@ -107,6 +107,7 @@ def create_app(
     stats_report_provider: Callable[[int], StatsReport] = get_stats_report,
     goal_report_provider: Callable[[], GoalReport] = get_goal_report,
     journal_path: Path | None = None,
+    registry_provider: Callable[[], list] | None = None,
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
@@ -127,6 +128,11 @@ def create_app(
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(Path("local/jobs"))
     journal_path = journal_path or JOURNAL_PATH
+    if registry_provider is None:
+        from services.workout_registry import library
+
+        def registry_provider():
+            return library("active")
     scheduled_job_ids = set()
     asset_manifest = build_manifest()
 
@@ -204,6 +210,7 @@ def create_app(
             attach_csrf=attach_csrf,
             csrf_token=csrf_token,
             snapshot_provider=snapshot_provider,
+            registry_provider=registry_provider,
         )
     )
     app.include_router(
@@ -233,6 +240,8 @@ def create_app(
             recommendation_operation=recommendation_operation,
             ai_settings_provider=ai_settings_provider or (lambda: ai_settings_view(ai_env_path)),
             now_provider=now_provider,
+            plan_provider=plan_provider,
+            registry_provider=registry_provider,
         )
     )
 
