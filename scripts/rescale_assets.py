@@ -62,7 +62,7 @@ def signal_references() -> list[str]:
 def plan_icon_references() -> list[str]:
     """Return the training kind icons that Jinja inserts in the plan grid."""
     sys.path.insert(0, str(PROJECT_ROOT))
-    from api.formatters import _PLAN_KIND_ICONS
+    from api.views.plan import _PLAN_KIND_ICONS
 
     return sorted({reference.removeprefix("/assets/") for reference in _PLAN_KIND_ICONS.values()})
 

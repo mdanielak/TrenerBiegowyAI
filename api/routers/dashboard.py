@@ -15,33 +15,31 @@ from services.data_extract import SnapshotStatus
 from services.jobs import JobStore
 from services.today import TodayReport
 from services.week import WeekReport
-from api.formatters import (
-    HealthResponse,
-    ReadinessResponse,
-    _ANALYSIS_PILL_CLASSES,
-    _CONFIDENCE_LABELS,
+from api.schemas import HealthResponse, ReadinessResponse
+from api.views.analysis import _ANALYSIS_PILL_CLASSES, _CONFIDENCE_LABELS, _analysis_measurements, _analysis_rows
+from api.views.common import (
     _HRV_STATUSES,
     _READINESS_LABELS,
-    _SUGGESTIONS,
     _WEEK_STATUS_LABELS,
     _WEEK_WARNING_LABELS,
     _WEEKDAYS,
     _WEEKDAYS_SHORT,
-    _analysis_measurements,
-    _analysis_rows,
     _format_date,
     _format_minutes,
     _format_score,
     _format_sync_time,
-    _plan_workout_view,
+    _readiness_pill,
+)
+from api.views.jobs import _sync_banner
+from api.views.plan import _plan_workout_view
+from api.views.today import (
+    _SUGGESTIONS,
     _raise_report_error,
     _readiness_chart,
-    _readiness_pill,
     _recommendation_view,
     _report_error,
     _ring_geometry,
     _signal_cards,
-    _sync_banner,
     _workout_section,
 )
 

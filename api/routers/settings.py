@@ -18,7 +18,7 @@ from trainer.ai_settings import (
     save_ai_settings,
     validate_ai_settings,
 )
-from api.formatters import (
+from api.views.profile import (
     _PROFILE_GOAL_FIELDS,
     _PROFILE_HEART_FIELDS,
     _PROFILE_RUNNER_FIELDS,

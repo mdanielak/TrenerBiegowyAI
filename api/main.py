@@ -30,14 +30,8 @@ from trainer.logging_config import setup_logging
 from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
 
-from api.formatters import (  # Re-exported
-    HealthResponse,
-    ReadinessDetail,
-    ReadinessResponse,
-    _CSRF_COOKIE,
-    _SIGNAL_META,
-    _format_sync_time,
-)
+from api.schemas import HealthResponse, ReadinessDetail, ReadinessResponse  # Re-exported
+from api.views.common import _SIGNAL_META, _format_sync_time  # Re-exported
 from api.routers.actions import get_actions_router
 from api.routers.assets import get_assets_router
 from api.routers.dashboard import get_dashboard_router
@@ -45,6 +39,7 @@ from api.routers.plans import get_plans_router
 from api.routers.settings import get_settings_router
 
 logger = logging.getLogger(__name__)
+_CSRF_COOKIE = "trainer_csrf"
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 
 

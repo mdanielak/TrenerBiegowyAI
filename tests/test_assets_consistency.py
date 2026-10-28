@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from api.formatters import _PLAN_KIND_ICONS
+from api.views.plan import _PLAN_KIND_ICONS
 from api.main import _SIGNAL_META
 from services.assets import build_manifest
 

@@ -24,7 +24,7 @@ from services.actions import (
 )
 from services.jobs import JobConflictError, JobCooldownError, JobNotFoundError, JobStore
 from services.locking import LockBusyError, acquire_lock
-from api.formatters import (
+from api.views.jobs import (
     PLAN_COOLDOWN,
     PLAN_PUSH_COOLDOWN,
     RECOMMENDATION_COOLDOWN,
