@@ -25,6 +25,9 @@ PIXEL_RATIO = 2
 # Visible artwork fills this share of the frame. The originals shipped with
 # 20-37% of empty alpha margin, which made the icons look far too small.
 FILL = 0.88
+# Pixels at or below this alpha are ignored when finding the artwork: generated images
+# can carry faint, invisible noise that would otherwise stretch the crop box.
+ALPHA_FLOOR = 16
 # Small dots keep their margin on purpose, so they are only resized.
 NO_CROP_MARKER = "dot_"
 # Below this ratio the artwork is enlarged beyond its original resolution and
@@ -151,7 +154,7 @@ def render(source: Path, display: int, crop: bool):
     with Image.open(source) as opened:
         image = opened.convert("RGBA")
         frame = frame_size(image.size, display)
-        box = image.getchannel("A").getbbox()
+        box = image.getchannel("A").point(lambda value: 255 if value > ALPHA_FLOOR else 0).getbbox()
         full_frame = box is None or box == (0, 0, image.width, image.height)
 
         if not crop or full_frame:

@@ -88,3 +88,6 @@ GarminDB/garmindb/__pycache__/
 
 # Generated code graph (graphify) — local analysis output
 graphify-out/
+
+# Robocze wyniki generowania grafik (przegląd przed --promote)
+trener_biegowy_ai_assets/_generated/

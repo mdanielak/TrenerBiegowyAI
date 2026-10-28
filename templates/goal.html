@@ -20,8 +20,9 @@
 
 {% else %}
 
-  <div class="page-head">
-    <div>
+  <div class="page-head spread">
+    <img class="asset goal-hero" src="/assets/09_illustrations/goal_finish.png" width="180" height="120" alt="">
+    <div class="goal-head">
       <h1>{{ goal.title or 'Cel długoterminowy' }}</h1>
       <p class="page-sub">
         {% if goal.target_label %}Start {{ goal.target_label }}{% endif %}

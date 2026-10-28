@@ -25,15 +25,8 @@ _PLAN_KIND_PILL = {
     "intervals": "warn",
     "rest": "neutral",
 }
-_PLAN_KIND_ICONS = {
-    "easy": "/assets/03_activity/run_fast.png",
-    "recovery": "/assets/03_activity/mobility.png",
-    "long": "/assets/03_activity/trail_run.png",
-    "tempo": "/assets/03_activity/run_interval.png",
-    "threshold": "/assets/03_activity/run_interval.png",
-    "intervals": "/assets/03_activity/run_interval.png",
-    "rest": "/assets/03_activity/rest_day.png",
-}
+_PLAN_KIND_ICONS = {kind: f"/assets/03_activity/kind_{kind}.png"
+                    for kind in ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")}
 _PLAN_QUALITY_KINDS = ("tempo", "threshold", "intervals")
 _PLAN_DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 _PLAN_LOAD_WIDTH = 638

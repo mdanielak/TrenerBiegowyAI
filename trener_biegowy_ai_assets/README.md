@@ -129,3 +129,13 @@ Pliki v2 to wycięcia z wygenerowanych plansz assetów i również mają przezro
 - `10_sports_weather/walk.png` — 94×94px
 - `10_sports_weather/water.png` — 88×88px
 - `10_sports_weather/wind.png` — 92×92px
+## Generowanie i podmiana grafik
+
+Nowe grafiki powstają skryptem `scripts/generate_art.py` (OpenAI Images, klucz w `OPENAI_API_KEY` w środowisku albo w `.env`). Skrypt wybiera najnowszy model `gpt-image-*`, który obsługuje przezroczyste tło, i zapisuje wynik do `_generated/<przebieg>/` wraz z arkuszem `sheet.html` do przeglądu. W promptach nie ma danych biegacza.
+
+1. `python scripts/generate_art.py --list` — lista grafik i ich docelowych ścieżek.
+2. `python scripts/generate_art.py` (albo `--only <klucze> --run <katalog>`, żeby poprawić pojedyncze).
+3. Przejrzyj `sheet.html`, potem `python scripts/generate_art.py --promote <katalog>` kopiuje wybrane pliki do `_originals/`.
+4. `python scripts/rescale_assets.py --write` tworzy pliki prezentacyjne w rozmiarach z szablonów (2× rozmiaru wyświetlania).
+
+Katalog `_generated/` jest ignorowany przez Git.

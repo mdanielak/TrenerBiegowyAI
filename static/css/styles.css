@@ -132,14 +132,8 @@
   }
 
   .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
-  .brand-mark {
-    width: 34px; height: 34px;
-    flex: none;
-    display: grid; place-items: center;
-    background: var(--accent);
-    color: #FFFFFF;             /* 5.17:1 na --accent */
-    border-radius: var(--radius-sm);
-  }
+  /* Znak aplikacji: kafelek jest częścią grafiki, więc bez tła i obramowania. */
+  .brand-mark { width: 36px; height: 36px; flex: none; }
   .brand-name { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
   .brand-sub { font-size: 12px; color: var(--fg-muted); }
 
@@ -465,6 +459,8 @@
   .phase-num.current { fill: var(--surface); }
   .phase-marker { stroke: var(--fg); stroke-width: 2; }
   .goal-phase { font-size: 17px; }
+  .goal-head { flex: 1 1 auto; }
+  .goal-hero { order: 2; flex: none; }
   .chart-avg { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 4 4; }
 
   /* Statystyki: podsumowanie sygnału obok jego wykresu. */

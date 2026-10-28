@@ -185,7 +185,7 @@ def test_plan_page_shows_kind_icon_zone_chip_and_shape_of_the_week(tmp_path):
         response = client.get("/plan")
 
     assert response.status_code == 200
-    assert 'src="/assets/03_activity/run_fast.png"' in response.text
+    assert 'src="/assets/03_activity/kind_easy.png"' in response.text
     assert 'class="zone-chip z2"' in response.text
     assert response.text.count('<rect class="chart-bar"') == 2
 

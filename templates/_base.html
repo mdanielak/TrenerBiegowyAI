@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Trener Biegowy{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/assets/07_ui_icons/app_mark.png">
   {% block head_extra %}{% endblock %}
   {% include "_styles.html" %}
 </head>
@@ -13,7 +14,7 @@
 
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark">{{ ico.runner(19) }}</span>
+      <img class="asset brand-mark" src="/assets/07_ui_icons/app_mark.png" width="36" height="36" alt="">
       <span>
         <span class="brand-name">Trener Biegowy</span>
         <span class="brand-sub">Dane z Twojego zegarka</span>
@@ -44,11 +45,11 @@
       </a>
 
       <a class="nav-item{% if active_nav == 'journal' %} active{% endif %}" href="/journal"{% if active_nav == 'journal' %} aria-current="page"{% endif %}>
-        <img class="asset" src="/assets/07_ui_icons/plan.png" width="34" height="34" alt=""><span>Dziennik</span>
+        <img class="asset" src="/assets/01_navigation/journal.png" width="34" height="34" alt=""><span>Dziennik</span>
       </a>
 
       <a class="nav-item{% if active_nav == 'goal' %} active{% endif %}" href="/goal"{% if active_nav == 'goal' %} aria-current="page"{% endif %}>
-        <img class="asset" src="/assets/03_activity/trail_run.png" width="34" height="34" alt=""><span>Cel</span>
+        <img class="asset" src="/assets/01_navigation/goal.png" width="34" height="34" alt=""><span>Cel</span>
       </a>
 
       <a class="nav-item{% if active_nav == 'settings' %} active{% endif %}" href="/settings"{% if active_nav == 'settings' %} aria-current="page"{% endif %}>
