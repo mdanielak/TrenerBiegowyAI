@@ -30,7 +30,7 @@ def read_ai_settings(path: Path) -> dict:
 def validate_ai_settings(*, base_url: str, model: str, api_key: str,
                          clear_key: bool = False) -> tuple[str, str]:
     """Wspólna walidacja zapisu i testu; komunikaty nie zawierają sekretów."""
-    base_url, model = base_url.strip(), model.strip()
+    base_url, model, api_key = base_url.strip(), model.strip(), api_key.strip()
     for value in (base_url, model, api_key):
         if len(value) > 4096 or any(ord(char) < 32 or ord(char) == 127 or char in '\u0085\u2028\u2029' for char in value):
             raise ValueError("Pola nie mogą zawierać znaków sterujących ani przekraczać 4096 znaków.")
@@ -47,7 +47,7 @@ def validate_ai_settings(*, base_url: str, model: str, api_key: str,
         raise FieldError("Podaj nazwę modelu AI.", "ai-model")
     if clear_key and api_key:
         raise FieldError("Nie można jednocześnie ustawić i usunąć klucza.", "ai-key")
-    return base_url, model
+    return base_url, model, api_key
 
 
 def same_api_provider(first: str, second: str) -> bool:
@@ -74,8 +74,8 @@ def resolve_test_key(path: Path, *, base_url: str, api_key: str, clear_key: bool
     """Używaj zapisanego klucza także po zmianie ścieżki u tego samego dostawcy."""
     if clear_key:
         raise FieldError("Odznacz usuwanie klucza przed testem połączenia.", "ai-clear-key")
-    if api_key:
-        return api_key
+    if api_key.strip():
+        return api_key.strip()
     values = read_env_file(path)
     saved_url = values.get("AI_BASE_URL", config.AI_BASE_URL)
     if not same_api_provider(base_url, saved_url):
@@ -89,7 +89,7 @@ def resolve_test_key(path: Path, *, base_url: str, api_key: str, clear_key: bool
 def save_ai_settings(path: Path, *, base_url: str, model: str, api_key: str,
                      export_enabled: bool, clear_key: bool = False) -> None:
     """Atomowo zmień wyłącznie wpisy AI. Wywołujący zapewnia blokadę."""
-    base_url, model = validate_ai_settings(
+    base_url, model, api_key = validate_ai_settings(
         base_url=base_url, model=model, api_key=api_key, clear_key=clear_key)
     saved = read_env_file(path)
     saved_url = saved.get("AI_BASE_URL", config.AI_BASE_URL)

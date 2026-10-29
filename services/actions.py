@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from services.jobs import (
+    AI_PAYMENT_MESSAGE,
+    AI_REJECTED_MESSAGE,
     GARMIN_LOGIN_REQUIRED_MESSAGE,
     JobStore,
     PLAN_AI_DISABLED_MESSAGE,
@@ -54,6 +56,16 @@ def run_sync_job(*, store: JobStore, job_id: str, operation=synchronize_data,
         return store.mark_failed(job_id)
     progress.finish(succeeded=True)
     return store.mark_succeeded(job_id)
+
+
+def _ai_failure_message(exc) -> str | None:
+    """Powód dla błędów dostawcy AI; inne błędy zostają z ogólnym komunikatem."""
+    status = getattr(exc, "status_code", None)
+    if status == 402:
+        return AI_PAYMENT_MESSAGE
+    if status in (400, 401, 403):
+        return AI_REJECTED_MESSAGE
+    return None
 
 
 REVIEW_BUSY_MESSAGE = "Ocena już trwa. Spróbuj ponownie za chwilę."
@@ -121,8 +133,9 @@ def run_review_job(*, store, job_id, review_key, operation, lock_directory=None)
         return store.mark_failed(job_id, message=REVIEW_BUSY_MESSAGE)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
-    except Exception:
-        return store.mark_failed(job_id)
+    except Exception as exc:
+        message = _ai_failure_message(exc)
+        return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)
 
 
@@ -235,8 +248,9 @@ def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
-    except Exception:
-        return store.mark_failed(job_id)
+    except Exception as exc:
+        message = _ai_failure_message(exc)
+        return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)
 
 
@@ -404,6 +418,7 @@ def run_recommendation_job(*, store, job_id, operation=generate_daily_recommenda
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
-    except Exception:
-        return store.mark_failed(job_id)
+    except Exception as exc:
+        message = _ai_failure_message(exc)
+        return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)

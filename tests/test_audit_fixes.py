@@ -81,3 +81,24 @@ def test_old_finished_jobs_are_removed_at_start(tmp_path):
     assert store.prune_finished() == 1
     assert [job.id for job in store.list_jobs().jobs] == [recent.id]
     assert not (store.directory / "progress" / f"{old.id}.json").exists()
+
+
+def test_a_key_pasted_with_spaces_is_trimmed():
+    from trainer.ai_settings import validate_ai_settings
+    assert validate_ai_settings(base_url="https://api.example.test/v1", model="m", api_key="  AIzaKey \t")[2] == "AIzaKey"
+
+
+def test_ai_job_failures_explain_missing_funds_and_rejected_keys(tmp_path):
+    from ai.openai_compatible import AIProviderError
+    from services.jobs import AI_PAYMENT_MESSAGE, AI_REJECTED_MESSAGE
+
+    store = JobStore(tmp_path / "jobs")
+    for status, expected in ((402, AI_PAYMENT_MESSAGE), (400, AI_REJECTED_MESSAGE), (500, "Operacja nie powiodła się.")):
+        job = store.submit("recommendation", {"status": status})
+
+        def fail(status=status, **kwargs):
+            raise AIProviderError("AI API error", status)
+
+        assert actions.run_recommendation_job(store=store, job_id=job.id, operation=fail,
+                                              lock_directory=tmp_path).error_message == expected
+

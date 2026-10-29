@@ -67,3 +67,16 @@ def test_empty_or_malformed_response_is_not_success(monkeypatch, body):
     transport(monkeypatch, lambda request: httpx.Response(200, json=body))
     with pytest.raises(AIConnectionTestError):
         check_connection(base_url='https://example.test/v1', api_key='test-secret', model='model')
+
+
+def test_gemini_invalid_key_and_missing_funds_get_clear_messages(monkeypatch):
+    gemini = [{'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.',
+                         'status': 'INVALID_ARGUMENT', 'details': [{'reason': 'API_KEY_INVALID'}]}}]
+    transport(monkeypatch, lambda request: httpx.Response(400, json=gemini))
+    with pytest.raises(AIConnectionTestError, match='Klucz API jest nieprawidłowy') as invalid:
+        check_connection(base_url='https://example.test/v1', api_key='AIzaSecret', model='gemini-3.8-flash')
+    assert 'Please pass' not in str(invalid.value)  # własny komunikat, nie treść dostawcy
+
+    transport(monkeypatch, lambda request: httpx.Response(402, json={'error': {'message': 'Insufficient Balance'}}))
+    with pytest.raises(AIConnectionTestError, match='Brak środków'):
+        check_connection(base_url='https://example.test/v1', api_key='sk-secret', model='deepseek-flash')

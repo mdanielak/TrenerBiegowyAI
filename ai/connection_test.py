@@ -1,4 +1,6 @@
 """Jednorazowy test Chat Completions bez profilu i danych treningowych."""
+import json
+
 from openai import (
     APIConnectionError, APIStatusError, APITimeoutError, DefaultHttpxClient, OpenAI,
 )
@@ -6,6 +8,25 @@ from openai import (
 
 class AIConnectionTestError(Exception):
     """Bezpieczny komunikat dla użytkownika, bez odpowiedzi dostawcy i sekretów."""
+
+
+# Znane przyczyny rozpoznawane po kodach w odpowiedzi; treści dostawcy nie pokazujemy,
+# bo może zawierać prywatne dane — tylko własny komunikat.
+_KNOWN_REASONS = (
+    (("API_KEY_INVALID", "API key not valid"),
+     "Klucz API jest nieprawidłowy. Skopiuj go ponownie, bez spacji, i zapisz."),
+    (("location is not supported", "FAILED_PRECONDITION"),
+     "Dostawca nie obsługuje tego regionu albo konta. Sprawdź warunki w panelu dostawcy."),
+)
+
+
+def known_reason(exc) -> str | None:
+    """Własny opis znanej przyczyny błędu albo None."""
+    text = json.dumps(getattr(exc, "body", None), ensure_ascii=False, default=str)
+    for markers, message in _KNOWN_REASONS:
+        if any(marker in text for marker in markers):
+            return message
+    return None
 
 
 def check_connection(*, base_url: str, api_key: str, model: str) -> None:
@@ -28,13 +49,15 @@ def check_connection(*, base_url: str, api_key: str, model: str) -> None:
         raise AIConnectionTestError("Nie można połączyć się z API. Sprawdź adres, sieć i certyfikat TLS.") from None
     except APIStatusError as exc:
         messages = {
-            400: "API odrzuciło żądanie. Sprawdź model i obsługę Chat Completions.",
+            # Gemini zgłasza nieprawidłowy klucz jako 400, nie 401.
+            400: "API odrzuciło żądanie. Najczęściej to nieprawidłowy klucz albo zła nazwa modelu.",
             401: "API odrzuciło klucz. Sprawdź klucz API.",
+            402: "Brak środków na koncie u dostawcy AI. Doładuj konto albo wybierz darmową opcję (Gemini).",
             403: "Brak uprawnień do API lub wybranego modelu.",
             404: "Nie znaleziono modelu lub endpointu. Sprawdź adres API i nazwę modelu.",
             429: "Limit zapytań lub środków u dostawcy. Spróbuj później lub sprawdź rozliczenia.",
         }
-        raise AIConnectionTestError(messages.get(
+        raise AIConnectionTestError(known_reason(exc) or messages.get(
             exc.status_code, "API zwróciło błąd. Sprawdź dostępność dostawcy i konfigurację."
         )) from None
     except Exception:

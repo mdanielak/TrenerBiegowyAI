@@ -1,4 +1,5 @@
 import json
+from datetime import date, timedelta
 import sys
 import types
 
@@ -145,3 +146,23 @@ def test_ensure_garmindb_config_never_overwrites(monkeypatch, tmp_path):
     monkeypatch.setattr(garmin_auth, 'token_path', lambda: config.parent / 'garmin_tokens.json')
     assert garmin_auth.ensure_garmindb_config('runner@example.com') is False
     assert config.read_text(encoding='utf8') == 'keep'
+
+
+def test_garmindb_downloads_only_the_history_the_app_uses(tmp_path, monkeypatch):
+    today = date(2026, 10, 29)
+    fresh = {"data": {"monitoring_start_date": "12/31/2019", "hrv_start_date": "12/31/2019"}}
+    assert garmin_auth._recent_history(fresh, today=today) is True
+    expected = (today - timedelta(days=garmin_auth.DOWNLOAD_HISTORY_DAYS)).strftime("%m/%d/%Y")
+    assert fresh["data"]["monitoring_start_date"] == expected
+
+    # Istniejąca konfiguracja (jak u osoby testującej): przykład z 2019 r. przestawiony, własna data zostaje.
+    monkeypatch.setattr(garmin_auth, "token_path", lambda: tmp_path / "garmin_tokens.json")
+    config = tmp_path / "GarminConnectConfig.json"
+    config.write_text(json.dumps({"credentials": {"user": "ala@example.com", "password": ""},
+                                  "data": {"monitoring_start_date": "12/31/2019", "sleep_start_date": "01/01/2024"}}),
+                      encoding="utf-8")
+    assert garmin_auth.ensure_garmindb_config("ala@example.com") is False
+    saved = json.loads(config.read_text(encoding="utf-8"))
+    assert saved["data"]["monitoring_start_date"] != "12/31/2019"
+    assert saved["data"]["sleep_start_date"] == "01/01/2024"
+    assert saved["credentials"] == {"user": "ala@example.com", "password": ""}

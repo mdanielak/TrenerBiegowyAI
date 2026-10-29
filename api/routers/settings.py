@@ -169,7 +169,7 @@ def get_settings_router(
             return ai_settings_page(request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403)
         try:
             saved = read_ai_settings(ai_env_path)
-            base_url, model = validate_ai_settings(base_url=saved["base_url"] or "", model=saved["model"] or "",
+            base_url, model, _ = validate_ai_settings(base_url=saved["base_url"] or "", model=saved["model"] or "",
                                                    api_key="", clear_key=False)
             key = resolve_test_key(ai_env_path, base_url=base_url, api_key="", clear_key=False)
             import api.main
@@ -211,7 +211,7 @@ def get_settings_router(
                 request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403, **result
             )
         try:
-            base_url, model = validate_ai_settings(
+            base_url, model, _ = validate_ai_settings(
                 base_url=base_url, model=model, api_key=api_key, clear_key=clear_key == "true"
             )
             key = resolve_test_key(

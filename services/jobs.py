@@ -27,12 +27,16 @@ JOB_RETENTION = timedelta(days=30)
 PLAN_AI_DISABLED_MESSAGE = "Generowanie planu wymaga włączenia wysyłania danych do AI."
 PLAN_NO_PLAN_MESSAGE = "Najpierw ułóż plan na ten tydzień."
 GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego logowania."
+AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → API AI."
+AI_REJECTED_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź klucz w Ustawienia → API AI → Sprawdź połączenie."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
     _GENERIC_FAILURE,
     "Operacja już trwa. Spróbuj ponownie za chwilę.",
     PLAN_AI_DISABLED_MESSAGE,
     PLAN_NO_PLAN_MESSAGE,
     GARMIN_LOGIN_REQUIRED_MESSAGE,
+    AI_PAYMENT_MESSAGE,
+    AI_REJECTED_MESSAGE,
 })
 
 

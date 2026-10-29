@@ -1,6 +1,7 @@
 """Wspólne uwierzytelnianie Garmin Connect i przygotowanie GarminDB."""
 import json
 import logging
+from datetime import date, timedelta
 import os
 import subprocess
 from pathlib import Path
@@ -108,16 +109,42 @@ def ensure_token(email=None, password=None, prompt_mfa=None):
         raise _auth_error(exc) from exc
 
 
+# Przykład GarminDB pobiera wszystko od 31.12.2019: przy pierwszym pobraniu to godziny pracy
+# i przerwanie przez limit czasu. Aplikacja czyta 120 dni aktywności i 90 dni pomiarów.
+DOWNLOAD_HISTORY_DAYS = 120
+_EXAMPLE_START = "12/31/2019"
+_START_KEYS = ("weight_start_date", "sleep_start_date", "rhr_start_date", "hrv_start_date", "monitoring_start_date")
+
+
+def _recent_history(config, today=None) -> bool:
+    """Przestaw nietknięte daty przykładu na okno aplikacji; własne daty zostają."""
+    start = ((today or date.today()) - timedelta(days=DOWNLOAD_HISTORY_DAYS)).strftime("%m/%d/%Y")
+    data = config.setdefault("data", {})
+    changed = False
+    for key in _START_KEYS:
+        if data.get(key, _EXAMPLE_START) == _EXAMPLE_START:
+            data[key] = start
+            changed = True
+    return changed
+
+
 def ensure_garmindb_config(email):
     """Utwórz neutralny config GarminDB, jeśli użytkownik jeszcze go nie ma."""
     config_path = token_path().parent / "GarminConnectConfig.json"
     if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        if _recent_history(config):
+            write_atomic(config_path, json.dumps(config, indent=2) + "\n")
         return False
     import garmindb
     example_path = Path(garmindb.__file__).parent / "GarminConnectConfig.json.example"
     config = json.loads(example_path.read_text(encoding="utf-8"))
     config["credentials"]["user"] = email
     config["credentials"]["password"] = ""
+    _recent_history(config)
     write_atomic(config_path, json.dumps(config, indent=2) + "\n")
     return True
 

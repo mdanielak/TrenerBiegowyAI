@@ -39,8 +39,11 @@ def _strip_code_fence(text: str) -> str:
 
 
 class AIProviderError(Exception):
-    """Raised on AI API errors."""
-    pass
+    """Raised on AI API errors; ``status_code`` is the provider's HTTP status when known."""
+
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class AIResponseError(Exception):
@@ -104,14 +107,15 @@ class OpenAICompatibleProvider(AIProvider):
             # Prompt i tak wymaga samego JSON-a, więc jedna ponowna próba bez nich jest bezpieczna.
             optional = [name for name in ("response_format", "seed") if name in kwargs]
             if not optional or getattr(e, "status_code", None) != 400:
-                raise AIProviderError(f"AI API error: {e}") from e
+                raise AIProviderError(f"AI API error: {e}", getattr(e, "status_code", None)) from e
             logger.info("AI provider rejected %s; retrying without them", ", ".join(optional))
             for name in optional:
                 kwargs.pop(name)
             try:
                 response = self.client.chat.completions.create(**kwargs)
             except Exception as retry_error:
-                raise AIProviderError(f"AI API error: {retry_error}") from retry_error
+                raise AIProviderError(f"AI API error: {retry_error}",
+                                      getattr(retry_error, "status_code", None)) from retry_error
 
         content = response.choices[0].message.content
         if content is None:
