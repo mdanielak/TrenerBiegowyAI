@@ -1029,14 +1029,16 @@ def test_dashboard_workout_section_escapes_saved_comment():
     assert "&lt;script&gt;" in response.text
 
 
-def test_dashboard_workout_section_reports_missing_execution():
+def test_dashboard_workout_section_waits_for_sync_before_the_training():
     with _workout_client(execution=_execution(happened=False, match_method="unmatched",
                                               certain=False, activity_id=None, distance_km=None,
                                               duration_min=None, avg_hr=None, max_hr=None)) as client:
         response = client.get("/")
-    assert "Brak wykonania w lokalnych danych" in response.text
-    assert "W lokalnych danych nie ma dziś aktywności pasującej do tego treningu." in response.text
-    assert "Oceń mój trening" in response.text
+    assert "Do zrobienia" in response.text
+    assert "nie ma dziś aktywności" not in response.text
+    assert "Brak wykonania" not in response.text
+    assert "Zgodność z planem" not in response.text
+    assert "Oceń mój trening" not in response.text
 
 
 def test_dashboard_workout_section_warns_about_heuristic_match():

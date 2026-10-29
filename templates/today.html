@@ -211,21 +211,17 @@
                 <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
               </div>
             </div>
-          {% else %}
-            <div class="empty-art">
-              <img class="asset" src="/assets/03_activity/no_training.png" width="176" height="176" alt="">
-              <p>W lokalnych danych nie ma dziś aktywności pasującej do tego treningu.</p>
-            </div>
           {% endif %}
 
           {% if workout.match_note %}
             <p class="mid">{{ workout.match_note }}</p>
           {% endif %}
-          {% if workout.planned_count %}
+          {% if workout.planned_count and workout.execution.happened %}
             <p class="mid">Na dziś zapisano więcej treningów ({{ workout.planned_count }}). Oceniany jest pierwszy z nich.</p>
           {% endif %}
 
-          {% if workout.score_rows %}
+          {# Przed wykonaniem nie ma czego oceniać: wynik i ocena pojawią się po synchronizacji. #}
+          {% if workout.execution.happened and workout.score_rows %}
             <div class="grid grid-2">
               {% for row in workout.score_rows %}
                 <div class="tile">
@@ -239,7 +235,7 @@
               {% endfor %}
             </div>
             <p class="mid">Punkty wylicza ten komputer z Twojego planu i pomiarów zegarka, bez udziału AI. Pewność oceny: {{ workout.confidence_label }}.</p>
-          {% else %}
+          {% elif workout.execution.happened %}
             <p class="mid">Nie można policzyć punktów bez lokalnego profilu biegacza.</p>
           {% endif %}
 
@@ -251,7 +247,7 @@
                 <p class="suggestion-text">{{ workout.comment }}</p>
               </div>
             </div>
-          {% elif workout.review_key %}
+          {% elif workout.review_key and workout.execution.happened %}
             <div class="spread">
               <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
               <form method="post" action="/actions/review">

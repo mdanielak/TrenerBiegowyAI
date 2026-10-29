@@ -211,7 +211,8 @@ def _workout_status(execution: dict) -> tuple[str, str]:
         return "Znaleziono wykonanie", "ok" if execution.get("certain") is True else "warn"
     if execution.get("match_method") == "ambiguous":
         return "Nie można jednoznacznie porównać", "warn"
-    return "Brak wykonania w lokalnych danych", "neutral"
+    # Strona główna dotyczy dnia, który jeszcze trwa: brak aktywności to „do zrobienia”, nie zaniedbanie.
+    return "Do zrobienia", "neutral"
 
 
 def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
