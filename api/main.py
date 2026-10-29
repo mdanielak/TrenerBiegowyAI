@@ -45,6 +45,7 @@ from api.routers.settings import get_settings_router
 from api.routers.goal import get_goal_router
 from api.routers.journal import get_journal_router
 from api.routers.wizard import get_wizard_router
+from api.routers.garmin_setup import get_garmin_setup_router
 from api.routers.stats import get_stats_router
 
 # Nazwy dostępne jako api.main.* dla testów i skryptów (np. podmiana check_connection w testach).
@@ -117,6 +118,7 @@ def create_app(
     ai_status_path: Path | None = None,
     profile_updater: Callable[..., dict] | None = None,
     availability_setter: Callable[..., dict] | None = None,
+    garmin_token_check: Callable[[], bool] | None = None,
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
@@ -222,6 +224,13 @@ def create_app(
     app.include_router(get_goal_router(goal_report_provider=goal_report_provider, templates=_TEMPLATES))
     from trainer import preferences as _preferences, profile_store as _profile_store
 
+    from trainer import garmin_auth as _garmin_auth
+
+    app.include_router(get_garmin_setup_router(
+        has_token=garmin_token_check or _garmin_auth.has_token,
+        profile_provider=profile_provider, snapshot_provider=snapshot_provider,
+        templates=_TEMPLATES, attach_csrf=attach_csrf, csrf_token=csrf_token, csrf_valid=csrf_valid,
+    ))
     app.include_router(get_wizard_router(
         profile_provider=profile_provider,
         availability_provider=availability_provider,

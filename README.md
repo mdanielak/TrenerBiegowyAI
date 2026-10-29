@@ -2,6 +2,15 @@
 
 Lokalne narzędzie do synchronizacji danych GarminDB, analizy gotowości i zarządzania treningami Garmin. Jedynym wspieranym entry pointem jest `python -m trainer` — na Linuxie, macOS i Windows.
 
+## Zacznij tutaj (Windows, bez terminala)
+
+1. Pobierz projekt (na GitHubie **Code → Download ZIP**) i rozpakuj go w wygodnym miejscu.
+2. Kliknij dwukrotnie **`install.bat`**. Instalator sprawdzi Pythona (jeśli go brakuje, zaproponuje instalację przez Microsoft winget), przygotuje aplikację i utworzy na pulpicie skrót **„Trener Biegowy”**. Szczegóły ewentualnych błędów trafiają do `local\install.log`.
+3. Uruchom skrót **„Trener Biegowy”** (albo `start.bat`). Przeglądarka otworzy się sama.
+4. Przy pierwszym uruchomieniu strona poprowadzi Cię dalej: połączenie konta Garmin (z kodem weryfikacyjnym, jeśli Garmin o niego poprosi), pierwsze pobranie danych z zegarka i kreator celu.
+
+Hasło do Garmina służy tylko do jednorazowego logowania i nie jest nigdzie zapisywane. Aplikacja działa wyłącznie na tym komputerze. AI jest opcjonalne — klucz dodasz później w Ustawienia → API AI.
+
 ## Uruchom dashboard (frontend)
 
 Dashboard to lokalny serwer FastAPI z szablonami Jinja; dane bierze wyłącznie z tego komputera.

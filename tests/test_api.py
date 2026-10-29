@@ -106,19 +106,18 @@ def test_health_is_minimal_liveness():
     assert _app_version() != "unknown"
 
 
-@pytest.mark.parametrize(
-    ("status", "expected_status", "command"),
-    [
-        ("profile_missing", 404, "python -m trainer setup"),
-        ("snapshot_missing", 404, "python -m trainer sync"),
-        ("snapshot_invalid", 503, "python -m trainer sync"),
-    ],
-)
-def test_dashboard_shows_friendly_error_for_missing_data(status, expected_status, command):
+def test_first_run_without_a_profile_goes_to_connecting_the_watch():
+    with _client(_report(status="profile_missing")) as client:
+        response = client.get("/", follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"] == "/setup/garmin"
+
+
+@pytest.mark.parametrize(("status", "expected_status"), [("snapshot_missing", 404), ("snapshot_invalid", 503)])
+def test_dashboard_offers_downloading_data_instead_of_a_terminal_command(status, expected_status):
     with _client(_report(status=status)) as client:
         response = client.get("/")
     assert response.status_code == expected_status
-    assert command in response.text
+    assert "Pobierz dane z zegarka" in response.text and 'name="fresh" value="1"' in response.text
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -328,7 +327,7 @@ def test_job_page_states_and_refresh_policy(tmp_path):
         store.mark_running(store.submit("unknown", {}).id)
         unknown = store.mark_abandoned_running_as_unknown()[0]
         unknown_response = client.get(f"/jobs/{unknown.id}")
-    assert "Zadanie przyjęte, czeka na rozpoczęcie." in accepted.text
+    assert "Zadanie przyjęte, za chwilę się zacznie." in accepted.text and "w kolejce" in accepted.text
     assert 'http-equiv="refresh" content="15"' in accepted.text and 'http-equiv="refresh" content="15"' in running_response.text
     assert "Gotowe. Dane są zaktualizowane." in succeeded_response.text
     assert 'http-equiv="refresh"' not in succeeded_response.text

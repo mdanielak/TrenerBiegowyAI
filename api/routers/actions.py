@@ -155,7 +155,7 @@ def get_actions_router(
         )
 
     @router.post("/actions/sync")
-    def submit_sync(request: Request, csrf_token: str = Form(default="")):
+    def submit_sync(request: Request, csrf_token: str = Form(default=""), fresh: str = Form(default="")):
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
                 request=request,
@@ -170,7 +170,8 @@ def get_actions_router(
             )
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("sync", {"fresh": False}, cooldown=SYNC_COOLDOWN)
+                full = fresh == "1"
+                job = store.submit("sync", {"fresh": full}, cooldown=SYNC_COOLDOWN)
                 should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
                 if should_schedule:
                     scheduled_job_ids.add(job.id)
@@ -187,14 +188,15 @@ def get_actions_router(
                         store=store,
                         job_id=job.id,
                         operation=sync_operation,
-                        fresh=False,
+                        fresh=full,
                         lock_directory=lock_directory,
                     )
                 finally:
                     scheduled_job_ids.discard(job.id)
 
             request.app.state.job_executor.submit(execute)
-        return RedirectResponse(url="/", status_code=303)
+        # Pełne pobranie trwa długo: pokaż stronę postępu zamiast pulpitu bez danych.
+        return RedirectResponse(url=f"/jobs/{job.id}" if full else "/", status_code=303)
 
     @router.post("/actions/review")
     def submit_review(
@@ -460,7 +462,7 @@ def get_actions_router(
         except JobNotFoundError:
             raise HTTPException(404, "Nie znaleziono zadania.")
         labels = {
-            "accepted": "Zadanie przyjęte, czeka na rozpoczęcie.",
+            "accepted": "Zadanie przyjęte, za chwilę się zacznie.",
             "running": "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama.",
             "succeeded": "Gotowe. Dane są zaktualizowane.",
             "failed": "Nie udało się. Spróbuj ponownie.",
@@ -472,6 +474,8 @@ def get_actions_router(
             context={
                 "job": job,
                 "message": labels[job.status],
+                "status_label": {"accepted": "w kolejce", "running": "trwa", "succeeded": "gotowe",
+                                 "failed": "błąd", "unknown": "nieznany"}.get(job.status, job.status),
                 "active_nav": "today",
             },
             headers={"Cache-Control": "no-store"},

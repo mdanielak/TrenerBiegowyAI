@@ -1,0 +1,85 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — połącz zegarek{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+
+  <div class="page-head">
+    <div>
+      <h1>Połącz zegarek Garmin</h1>
+      <p class="page-sub">Krok 1: konto Garmin Connect · krok 2: pobranie danych · krok 3: Twój cel</p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    {% if error %}
+      <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
+    {% endif %}
+
+    {% if stage == 'login' %}
+      <section class="card">
+        <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""><span>Zaloguj się do Garmin Connect</span></h2></div>
+        <form method="post" action="/setup/garmin" class="stack form-stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label class="field">E-mail konta Garmin
+            <input class="text-input" type="email" name="email" value="{{ email }}" autocomplete="username" required>
+          </label>
+          <label class="field">Hasło
+            <input class="text-input" type="password" name="password" autocomplete="current-password" required>
+          </label>
+          <div class="row">
+            <button type="submit" class="btn">Połącz</button>
+            <span class="tile-foot">Logowanie może potrwać do 2 minut — nie zamykaj strony.</span>
+          </div>
+        </form>
+        <p class="mid">Hasło służy tylko do jednorazowego logowania i nie jest nigdzie zapisywane. Na tym komputerze zostaje token Garmina, który odnawia się sam — tak samo jak w aplikacji Garmin Connect. Strona działa wyłącznie na tym komputerze.</p>
+      </section>
+
+    {% elif stage == 'mfa' %}
+      <section class="card">
+        <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Wpisz kod weryfikacyjny</span></h2></div>
+        <p class="mid">Garmin wysłał kod na Twój e-mail albo SMS-em. Kod jest ważny kilka minut.</p>
+        <form method="post" action="/setup/garmin/mfa" class="stack form-stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="pending" value="{{ pending }}">
+          <input type="hidden" name="email" value="{{ email }}">
+          <label class="field">Kod
+            <input class="text-input narrow-time" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required autofocus>
+          </label>
+          <div class="row"><button type="submit" class="btn">Potwierdź</button></div>
+        </form>
+      </section>
+
+    {% else %}
+      <section class="card ai-state ok">
+        <div class="card-head"><h2><span class="ai-dot" aria-hidden="true"></span><span>Zegarek połączony</span></h2></div>
+        {% if request.query_params.get('profile') == 'failed' %}
+          <p class="mid">Połączenie działa, ale nie udało się teraz pobrać danych profilu. Uzupełnią się przy następnej próbie.</p>
+        {% endif %}
+        <dl class="state-facts">
+          <div><dt>Imię</dt><dd>{{ profile.name or '—' }}</dd></div>
+          <div><dt>Wiek</dt><dd>{{ profile.age or '—' }}</dd></div>
+          <div><dt>Tętno maksymalne</dt><dd>{% if profile.hr_max %}{{ profile.hr_max }} bpm{% else %}—{% endif %}</dd></div>
+          <div><dt>Tętno spoczynkowe</dt><dd>{% if profile.hr_rest %}{{ profile.hr_rest }} bpm{% else %}—{% endif %}</dd></div>
+          <div><dt>Strefy tętna</dt><dd>{{ 'pobrane' if profile.hr_zone_floors else '—' }}</dd></div>
+        </dl>
+        {% if snapshot_missing %}
+          <p class="mid"><strong>Krok 2:</strong> pobierz historię treningów i pomiarów z Garmina. Za pierwszym razem trwa to zwykle od kilku do kilkudziesięciu minut — strona sama pokaże, kiedy skończy.</p>
+          <form method="post" action="/actions/sync" class="row">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="fresh" value="1">
+            <button type="submit" class="btn">{{ ico.refresh(18) }}<span>Pobierz dane z zegarka</span></button>
+          </form>
+        {% else %}
+          <p class="mid">Dane z zegarka są już pobrane. Kolejne synchronizacje uruchomisz przyciskiem na stronie głównej.</p>
+          <div class="row"><a class="btn" href="/">Przejdź dalej →</a></div>
+        {% endif %}
+        <p class="tile-foot"><a href="/setup/garmin?change=1">Połącz inne konto Garmin</a></p>
+      </section>
+    {% endif %}
+
+  </div>
+
+{% endblock %}

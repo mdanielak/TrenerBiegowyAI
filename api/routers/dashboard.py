@@ -74,6 +74,9 @@ def get_dashboard_router(
     @router.get("/", response_class=HTMLResponse)
     def dashboard(request: Request):
         report = report_provider()
+        if report.status == "profile_missing":
+            # Pierwsze uruchomienie: zamiast polecenia z terminala — połączenie zegarka w przeglądarce.
+            return RedirectResponse(url="/setup/garmin", status_code=303)
         if report.status != "ok":
             status_code, message, command = _report_error(report)
             return attach_csrf(
@@ -82,7 +85,9 @@ def get_dashboard_router(
                     name="today.html",
                     context={
                         "error_message": message,
-                        "error_command": command,
+                        "error_command": None if report.status == "snapshot_missing" else command,
+                        "error_sync": report.status in ("snapshot_missing", "snapshot_invalid"),
+                        "csrf_token": csrf_token(request),
                         "sync_banner": {"refresh": False},
                         "active_nav": "today",
                     },

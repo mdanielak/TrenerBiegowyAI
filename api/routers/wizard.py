@@ -103,7 +103,7 @@ def get_wizard_router(
         if action == "save":
             if profile_or_none() is None:
                 return render(request, step="summary", values=values, status_code=409,
-                              error="Najpierw połącz zegarek poleceniem python -m trainer setup, potem zapisz cel.")
+                              error="Najpierw połącz zegarek (Ustawienia → Połącz zegarek), potem zapisz cel.")
             wizard.save(values, update_profile=update_profile, set_availability=set_availability)
             return RedirectResponse(url="/goal?wizard=done", status_code=303)
         return render(request, step=wizard.STEPS[min(index + 1, len(wizard.STEPS) - 1)], values=values)

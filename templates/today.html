@@ -17,6 +17,14 @@
     <div class="banner-body">
       <p>{{ error_message }}</p>
       {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% if error_sync %}
+        <form method="post" action="/actions/sync" class="row">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="fresh" value="1">
+          <button type="submit">Pobierz dane z zegarka</button>
+          <span class="tile-foot">Za pierwszym razem może to potrwać kilkanaście minut.</span>
+        </form>
+      {% endif %}
       {% if error_link %}<p><a href="{{ error_link }}">Wróć do widoku dnia</a></p>{% endif %}
     </div>
   </div>
