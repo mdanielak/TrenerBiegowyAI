@@ -8,11 +8,12 @@ from datetime import datetime
 from typing import Optional, cast
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from services.data_extract import SnapshotStatus
 from services.journal import entries_by_day
+from services.wizard import needs_onboarding
 from services.jobs import JobStore
 from services.today import TodayReport
 from services.week import WeekReport
@@ -90,6 +91,13 @@ def get_dashboard_router(
                 ),
                 csrf_token(request),
             )
+
+        try:
+            first_run = needs_onboarding(profile_provider())
+        except (FileNotFoundError, OSError, ValueError):
+            first_run = False
+        if first_run:
+            return RedirectResponse(url="/wizard", status_code=303)
 
         readiness_data = cast(dict, report.readiness)
         token = csrf_token(request)

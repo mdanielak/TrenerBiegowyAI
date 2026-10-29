@@ -1,0 +1,130 @@
+{% extends "_base.html" %}
+
+{% block title %}Trener Biegowy — kreator celu{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+
+  <div class="page-head">
+    <div>
+      {% if not first_run %}<p><a href="/settings">← Ustawienia</a></p>{% endif %}
+      <h1>{% if first_run %}Witaj! Ustalmy Twój cel{% else %}Kreator celu i tygodnia{% endif %}</h1>
+      <p class="page-sub">Krok {{ step_number }} z {{ steps|length }} · zmiany zapiszą się dopiero na końcu</p>
+    </div>
+  </div>
+
+  <ol class="wizard-steps" aria-label="Kroki kreatora">
+    {% for name, label in [("goal", "Cel"), ("times", "Czas"), ("week", "Tydzień"), ("summary", "Podsumowanie")] %}
+      <li class="{% if name == step %}current{% elif loop.index < step_number %}done{% endif %}"{% if name == step %} aria-current="step"{% endif %}>
+        <span class="wizard-num">{{ loop.index }}</span><span>{{ label }}</span>
+      </li>
+    {% endfor %}
+  </ol>
+
+  <div class="stack">
+
+    {% if profile_missing %}
+      <div class="banner warn">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Najpierw połącz zegarek.</p>
+          <p class="mid">Uruchom w terminalu <code>python -m trainer setup</code> — kreator pobierze z Garmina tętno, strefy i dane profilu. Cel możesz wpisać już teraz, a zapiszesz go po połączeniu.</p>
+        </div>
+      </div>
+    {% endif %}
+    {% if error %}
+      <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
+    {% endif %}
+
+    <section class="card">
+      <form method="post" action="/wizard" class="stack form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="step" value="{{ step }}">
+
+        {% if step == 'goal' %}
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Do czego się przygotowujesz?</span></h2></div>
+          <fieldset class="field-group">
+            <legend>Cel</legend>
+            {% for key, label in distances.items() %}
+              <label class="choice"><input type="radio" name="distance" value="{{ key }}"{% if values.distance == key %} checked{% endif %} required> {{ label }}</label>
+            {% endfor %}
+          </fieldset>
+          <label class="field">Jaki dystans? (gdy „inny dystans”)
+            <input class="text-input" type="text" name="distance_other" maxlength="80" value="{{ values.distance_other }}" placeholder="np. 15 km, bieg górski 25 km">
+          </label>
+          <label class="field">Nazwa wydarzenia (opcjonalnie)
+            <input class="text-input" type="text" name="event_name" maxlength="80" value="{{ values.event_name }}" placeholder="np. Półmaraton Warszawski">
+          </label>
+          <label class="field">Kiedy jest to wydarzenie?
+            <input class="text-input narrow-date" type="date" name="event_date" min="{{ today }}" value="{{ values.event_date }}">
+          </label>
+          <p class="tile-foot">Data może być orientacyjna. Przy celu „bez zawodów” zostaw ją pustą.</p>
+        {% else %}
+          {% for name in ("distance", "distance_other", "event_name", "event_date") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
+        {% endif %}
+
+        {% if step == 'times' %}
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Jaki czas chcesz osiągnąć?</span></h2></div>
+          <label class="field">Czas docelowy (opcjonalnie)
+            <input class="text-input narrow-time" type="text" name="target_time" inputmode="numeric" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">
+          </label>
+          <label class="field">Obecny rekord na tym dystansie (opcjonalnie)
+            <input class="text-input narrow-time" type="text" name="record" inputmode="numeric" maxlength="8" value="{{ values.record }}" placeholder="np. 1:57:14">
+          </label>
+          <p class="tile-foot">Nie znasz jeszcze celu czasowego? Zostaw puste — AI ułoży plan po samej dacie i Twojej formie.</p>
+        {% else %}
+          {% for name in ("target_time", "record") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
+        {% endif %}
+
+        {% if step == 'week' %}
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_frequency.png" width="28" height="28" alt=""><span>Jak wygląda Twój tydzień?</span></h2></div>
+          <label class="field">Ile treningów w tygodniu chcesz robić?
+            <input class="text-input narrow" type="number" name="frequency" min="1" max="7" value="{{ values.frequency }}" required>
+          </label>
+          <fieldset class="field-group wizard-days">
+            <legend>W które dni możesz trenować i ile minut?</legend>
+            {% for day in days %}
+              <div class="wizard-day">
+                <label class="choice"><input type="checkbox" name="day_{{ day }}" value="on"{% if values['day_' ~ day] == 'on' %} checked{% endif %}> {{ day_labels[day] }}</label>
+                <label class="field inline">od <input class="text-input mini" type="number" name="min_{{ day }}" min="10" max="300" value="{{ values['min_' ~ day] }}"> min</label>
+                <label class="field inline">do <input class="text-input mini" type="number" name="max_{{ day }}" min="10" max="300" value="{{ values['max_' ~ day] }}"> min</label>
+              </div>
+            {% endfor %}
+          </fieldset>
+        {% else %}
+          {% for day in days %}{% for prefix in ("day", "min", "max") %}<input type="hidden" name="{{ prefix }}_{{ day }}" value="{{ values[prefix ~ '_' ~ day] }}">{% endfor %}{% endfor %}
+          {% if step != 'week' %}<input type="hidden" name="frequency" value="{{ values.frequency }}">{% endif %}
+        {% endif %}
+
+        {% if step == 'summary' %}
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Sprawdź i zapisz</span></h2></div>
+          <dl class="state-facts wizard-summary">
+            <div><dt>Cel</dt><dd>{{ goal_label }}{% if values.event_name %} — {{ values.event_name }}{% endif %}</dd></div>
+            <div><dt>Termin</dt><dd>{{ event_date_label or '—' }}</dd></div>
+            <div><dt>Czas docelowy</dt><dd>{{ values.target_time or '—' }}</dd></div>
+            <div><dt>Obecny rekord</dt><dd>{{ values.record or '—' }}</dd></div>
+            <div><dt>Treningi w tygodniu</dt><dd>{{ values.frequency }}</dd></div>
+          </dl>
+          <ul class="wizard-week">
+            {% for day in days %}
+              <li>{{ day_labels[day]|capitalize }}: {% if values['day_' ~ day] == 'on' %}{{ values['min_' ~ day] }}–{{ values['max_' ~ day] }} min{% else %}wolne{% endif %}</li>
+            {% endfor %}
+          </ul>
+          <p class="mid">Cel trafi do profilu, a dni do dostępności. Kolejne „Ułóż plan” weźmie je pod uwagę. Fazy na stronie Cel pochodzą z pliku strategii długoterminowej, więc przy zmianie dystansu warto ją też odświeżyć.</p>
+        {% endif %}
+
+        <div class="row confirm-actions">
+          {% if step != 'goal' %}<button type="submit" name="action" value="back" class="btn-secondary" formnovalidate>← Wstecz</button>{% endif %}
+          {% if step == 'summary' %}
+            <button type="submit" name="action" value="save">{{ ico.check(18) }}<span>Zapisz cel</span></button>
+          {% else %}
+            <button type="submit" name="action" value="next">Dalej →</button>
+          {% endif %}
+          {% if first_run %}<button type="submit" name="action" value="skip" class="btn-secondary" formnovalidate>Pomiń na razie</button>{% endif %}
+        </div>
+      </form>
+    </section>
+
+  </div>
+
+{% endblock %}

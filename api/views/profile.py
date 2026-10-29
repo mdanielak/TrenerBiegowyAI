@@ -20,8 +20,8 @@ _PROFILE_GOAL_FIELDS = (
     ("target_race", "Zawody docelowe", "", "tile_race"),
     ("target_date", "Data celu", "", "tile_date"),
     ("target_time", "Czas docelowy", "", "tile_time"),
-    ("target_hm", "Cel na półmaraton", "", "tile_finish"),
-    ("current_hm_record", "Obecny rekord półmaratonu", "", "tile_trophy"),
+    ("target_hm", "Cel (dystans i czas)", "", "tile_finish"),
+    ("current_hm_record", "Obecny rekord na dystansie celu", "", "tile_trophy"),
     ("training_frequency", "Liczba treningów w tygodniu", "", "tile_frequency"),
 )
 

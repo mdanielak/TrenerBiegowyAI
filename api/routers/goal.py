@@ -37,7 +37,8 @@ def get_goal_router(*, goal_report_provider: Callable[[], GoalReport], templates
         return templates.TemplateResponse(
             request=request,
             name="goal.html",
-            context={"goal": _goal_view(report), "active_nav": "goal"},
+            context={"goal": _goal_view(report), "active_nav": "goal",
+                     "wizard_done": request.query_params.get("wizard") == "done"},
             headers={"Cache-Control": "no-store"},
         )
 

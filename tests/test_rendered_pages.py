@@ -14,7 +14,7 @@ from tests.test_services_stats import TODAY, _data, _snapshot
 
 pytestmark = pytest.mark.usefixtures("testclient_sockets")
 
-PAGES = ("/", "/plan", "/week", "/analysis", "/settings", "/settings/ai", "/stats?weeks=4", "/goal", "/journal")
+PAGES = ("/", "/plan", "/week", "/analysis", "/settings", "/settings/ai", "/stats?weeks=4", "/goal", "/journal", "/wizard")
 
 _TAGS = re.compile(r"<(script|style)[^>]*>.*?</\1>|<[^>]+>", re.S)
 # Liczba z kropką dziesiętną tuż przed jednostką, np. „15.0 km”.

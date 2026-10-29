@@ -229,6 +229,20 @@
   .card-lead { margin: 0 0 12px; }
   /* Ikony kolorowe mają własny kształt, więc bez bladego kafelka pod spodem. */
   .tile-icon, .head-icon { flex: none; }
+  /* Kreator: pasek kroków; bieżący krok wyróżniony tekstem aria-current i kolorem. */
+  .wizard-steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 var(--gap); padding: 0; }
+  .wizard-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+                     background: var(--surface-alt); color: var(--fg-mid); font-size: 13px; }
+  .wizard-steps li.current { background: var(--accent-soft); color: var(--accent-strong); font-weight: 650; }
+  .wizard-steps li.done { color: var(--fg); }
+  .wizard-num { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+                background: var(--surface); font-size: 12px; font-weight: 700; }
+  .wizard-day { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; width: 100%; }
+  .wizard-day .choice { min-width: 150px; }
+  .field.inline { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; }
+  .text-input.mini { width: 84px; }
+  .text-input.narrow-time, .text-input.narrow-date { max-width: 220px; }
+  .wizard-week { margin: 0 0 8px; padding-left: 18px; }
   /* Baner zdrowia: najważniejsza informacja dnia; tekst niesie znaczenie, kolor je wzmacnia. */
   .health-alert { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px;
                   border-radius: var(--radius); border: 2px solid var(--warn-icon); background: var(--warn-bg); }

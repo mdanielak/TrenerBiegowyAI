@@ -27,11 +27,15 @@
       <p class="page-sub">
         {% if goal.target_label %}Start {{ goal.target_label }}{% endif %}
         {% if goal.days_left is not none and goal.days_left >= 0 %} · za {{ goal.days_left }} {{ goal.days_word }}{% endif %}
+        · <a href="/wizard">Zmień cel</a>
       </p>
     </div>
   </div>
 
   <div class="stack">
+    {% if wizard_done %}
+      <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Zapisano cel i dni treningowe. Kolejne „Ułóż plan” weźmie je pod uwagę.</p></div></div>
+    {% endif %}
 
     <div class="grid grid-4">
       <div class="tile">

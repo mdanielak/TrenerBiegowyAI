@@ -131,7 +131,8 @@ def _app(tmp_path, *, plan=None, report=None, ai_ready=True, plan_operation=None
     return create_app(
         report_provider=lambda: report or _report(),
         plan_provider=lambda monday: plan,
-        profile_provider=lambda: {"name": "Maciej", "hr_zone_floors": {"z1": 96, "z2": 122}},
+        profile_provider=lambda: {"name": "Maciej", "hr_zone_floors": {"z1": 96, "z2": 122},
+                                  "target_race": "półmaraton", "target_date": "2027-10-17"},
         ai_settings_provider=lambda: {"key_present": ai_ready, "export_enabled": ai_ready},
         availability_provider=lambda: {"mon": {"available": True, "min_minutes": 35, "max_minutes": 45}},
         review_loader=lambda **review_kwargs: None,

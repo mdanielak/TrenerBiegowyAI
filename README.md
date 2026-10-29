@@ -112,6 +112,14 @@ Dashboard wyłącznie pokazuje lokalne dane; ich odświeżanie wykonujesz w term
 
 Snapshot (`local/data_latest.json`) zawiera wszystkie aktywności z ostatnich 120 dni oraz 90 dni tętna spoczynkowego, stresu, snu i HRV. Okna liczone są od najnowszego rekordu w bazie GarminDB, więc starsza baza daje ten sam zakres. Strona statystyk i strona celu korzystają tylko z tego snapshotu; do AI trafiają wyłącznie agregaty (średnie z 7 dni wobec 12 tygodni, kilometry z 4 tygodni) oraz 7 ostatnich biegów.
 
+### Kreator celu
+
+Przy pierwszym uruchomieniu, gdy profil nie ma jeszcze celu, strona główna otwiera kreator (`/wizard`): cel (5 km, 10 km, półmaraton, maraton, inny dystans albo ogólna forma bez zawodów), nazwa i data wydarzenia, czas docelowy i obecny rekord, liczba treningów w tygodniu oraz dni z zakresem minut. Zmiany zapisują się dopiero po „Zapisz cel” — do profilu (`local/profile.json`) i do dostępności dni. Kreator uruchomisz w każdej chwili z Ustawienia → „Cel i tydzień” albo linkiem „Zmień cel” na stronie Cel. Fizjologię (tętno, strefy, VO2max) nadal pobiera `python -m trainer setup`.
+
+### Baner zdrowia
+
+Gdy gotowość wynosi „nie jesteś gotowy”, HRV od kilku dni jest niskie albo w dzienniku zapisano ból (dziś lub wczoraj), na samej górze strony głównej pojawia się baner z powodami: czerwony zaleca odpoczynek, pomarańczowy — tylko spokojny bieg.
+
 ### Stan AI
 
 Na stronie głównej i stronie planu plakietka pokazuje stan AI: „AI połączone · DeepSeek” tylko wtedy, gdy ostatni „Testuj połączenie” w Ustawienia → API AI udał się dla zapisanego adresu i modelu; „AI gotowe” — gdy klucz i zgoda są, ale połączenia nie testowano albo zmieniono model; „AI wyłączone” — gdy brakuje klucza lub zgody. Wynik testu (host, model, wynik, czas — bez klucza) zapisuje się w `local/ai_status.json`. Bez AI przyciski „Zapytaj AI” i „Ułóż plan” są nieaktywne i wyjaśniają, czego brakuje.
