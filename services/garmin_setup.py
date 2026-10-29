@@ -33,7 +33,14 @@ _LOCK = threading.Lock()
 
 
 class GarminSetupError(Exception):
-    """Komunikat dla użytkownika, bez hasła i bez szczegółów odpowiedzi Garmina."""
+    """Komunikat dla użytkownika, bez hasła i bez szczegółów odpowiedzi Garmina.
+
+    ``restart`` znaczy, że oczekujące logowanie przepadło i trzeba wpisać hasło od nowa.
+    """
+
+    def __init__(self, message: str, *, restart: bool = False) -> None:
+        super().__init__(message)
+        self.restart = restart
 
 
 def _friendly(exc) -> str:
@@ -81,17 +88,20 @@ def start_login(email: str, password: str, *, garmin_factory=None) -> tuple[str,
 def complete_mfa(pending_id: str, code: str) -> str:
     """Dokończ logowanie kodem MFA; zwraca e-mail konta."""
     _cleanup()
+    code = "".join(str(code or "").split())
+    if not code.isdigit():
+        # Przed zdjęciem logowania z kolejki: literówka pozwala wpisać kod jeszcze raz.
+        with _LOCK:
+            known = (pending_id or "") in _PENDING
+        raise GarminSetupError("Kod weryfikacyjny składa się z cyfr.", restart=not known)
     with _LOCK:
         pending = _PENDING.pop(pending_id or "", None)
     if pending is None:
-        raise GarminSetupError("Logowanie wygasło. Wpisz e-mail i hasło jeszcze raz.")
-    code = "".join(str(code or "").split())
-    if not code.isdigit():
-        raise GarminSetupError("Kod weryfikacyjny składa się z cyfr.")
+        raise GarminSetupError("Logowanie wygasło. Wpisz e-mail i hasło jeszcze raz.", restart=True)
     try:
         pending.api.resume_login(pending.state, code)
-    except Exception as exc:  # noqa: BLE001
-        raise GarminSetupError(_friendly(exc)) from None
+    except Exception as exc:  # noqa: BLE001 - Garmin unieważnia logowanie po odrzuconym kodzie
+        raise GarminSetupError(_friendly(exc), restart=True) from None
     _finish(pending.api, pending.email)
     return pending.email
 

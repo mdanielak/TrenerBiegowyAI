@@ -36,7 +36,7 @@ def get_wizard_router(
         except (FileNotFoundError, OSError, ValueError):
             return None
 
-    def render(request, *, step, values, error=None, status_code=200):
+    def render(request, *, step, values, error=None, error_field=None, status_code=200):
         token = csrf_token(request)
         profile = profile_or_none()
         context = {
@@ -48,6 +48,7 @@ def get_wizard_router(
             "values": values,
             "fields": _FIELDS,
             "error": error,
+            "error_field": error_field,
             "profile_missing": profile is None,
             "first_run": wizard.needs_onboarding(profile) if profile is not None else True,
             "distances": wizard.DISTANCES,
@@ -98,7 +99,8 @@ def get_wizard_router(
         except ValueError as error:
             failed = step if action != "save" else next(
                 (each for each in wizard.STEPS if _fails(each, values)), step)
-            return render(request, step=failed, values=values, error=str(error), status_code=400)
+            return render(request, step=failed, values=values, error=str(error),
+                          error_field=getattr(error, "field", None), status_code=400)
 
         if action == "save":
             if profile_or_none() is None:

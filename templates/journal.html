@@ -4,6 +4,8 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+{% macro attrs(field) %} id="{{ field }}"{% if error_field == field %} aria-invalid="true" aria-describedby="journal-field-error"{% endif %}{% endmacro %}
+{% macro field_error(field, message) %}{% if error_field == field %}<span class="field-error" id="journal-field-error">{{ message }}</span>{% endif %}{% endmacro %}
 
   <div class="page-head">
     <div>
@@ -15,9 +17,9 @@
   <div class="stack">
 
     {% if error_message %}
-      <div class="banner bad" role="alert">
+      <div class="banner bad" role="alert" tabindex="-1" autofocus>
         {{ ico.info() }}
-        <div class="banner-body"><p class="banner-title">{{ error_message }}</p></div>
+        <div class="banner-body"><p class="banner-title">{{ error_message }}</p><a href="#{{ error_field or 'journal-form' }}">Przejdź do {{ 'pola' if error_field else 'formularza' }}</a></div>
       </div>
     {% endif %}
     {% if saved %}
@@ -31,29 +33,34 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/01_navigation/journal.png" width="28" height="28" alt=""><span>Nowy wpis</span></h2>
       </div>
-      <form method="post" action="/journal" class="stack form-stack">
+      {% if not journal_guard_ready %}<div class="banner warn">Uruchom ponownie aplikację, aby zapisywać wpisy i bezpiecznie usuwać przerwy.</div>{% endif %}
+      <form method="post" action="/journal" class="stack form-stack" id="journal-form" tabindex="-1">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if confirm_entry %}<input type="hidden" name="confirm_date" value="{{ form.date }}">{% endif %}
+        {% if confirm_entry %}<div class="banner warn" role="alert" tabindex="-1" autofocus><div class="banner-body"><p class="banner-title">Wpis dla {{ format_date(form.date) }} już istnieje.</p><p>Sprawdź dane poniżej. Potwierdzenie zastąpi poprzedni wpis.</p></div></div>{% elif form.date in (existing_dates|default([])) %}<div class="banner info"><div class="banner-body"><p class="banner-title">Edytujesz wpis z wybranego dnia.</p><p>Przed zastąpieniem poprzedniego wpisu poproszę o potwierdzenie.</p></div></div>{% endif %}
 
         <label class="field">Dzień
-          <input class="text-input" type="date" name="date" value="{{ form.date }}" min="{{ earliest }}" max="{{ today }}" required>
+          <input class="text-input" type="date" name="date"{{ attrs('journal-date') }} value="{{ form.date }}" min="{{ earliest }}" max="{{ today }}" required>{{ field_error('journal-date', error_message) }}
         </label>
 
         <fieldset class="field-group">
           <legend>Jak się czujesz?</legend>
           {% for key, label in feelings.items() %}
-            <label class="choice"><input type="radio" name="feeling" value="{{ key }}"{% if form.feeling == key %} checked{% endif %} required> {{ label }}</label>
+            <label class="choice"><input type="radio" name="feeling"{% if loop.first %}{{ attrs('journal-feeling') }}{% endif %} value="{{ key }}"{% if form.feeling == key %} checked{% endif %} required> {{ label }}</label>
           {% endfor %}
+          {{ field_error('journal-feeling', error_message) }}
         </fieldset>
 
         <label class="field">Wysiłek ostatniego treningu (RPE 1–10, opcjonalnie)
-          <input class="text-input narrow" type="number" name="rpe" min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">
+          <input class="text-input narrow" type="number" name="rpe"{{ attrs('journal-rpe') }} min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">{{ field_error('journal-rpe', error_message) }}
         </label>
 
         <fieldset class="field-group">
           <legend>Ból — zaznacz, jeśli coś boli</legend>
           {% for key, label in pain_areas.items() %}
-            <label class="choice"><input type="checkbox" name="pain" value="{{ key }}"{% if key in (form.pain or []) %} checked{% endif %}> {{ label }}</label>
+            <label class="choice"><input type="checkbox" name="pain"{% if loop.first %}{{ attrs('journal-pain') }}{% endif %} value="{{ key }}"{% if key in (form.pain or []) %} checked{% endif %}> {{ label }}</label>
           {% endfor %}
+          {{ field_error('journal-pain', error_message) }}
         </fieldset>
 
         <label class="field">Opis bólu (opcjonalnie)
@@ -65,7 +72,8 @@
         </label>
 
         <div class="row">
-          <button type="submit" class="btn">{{ ico.check(18) }}<span>Zapisz wpis</span></button>
+          <button type="submit" class="btn"{% if not journal_guard_ready %} disabled{% endif %}{% if confirm_entry %} name="confirm" value="yes"{% endif %}>{{ ico.check(18) }}<span>{{ 'Potwierdź zastąpienie' if confirm_entry else 'Zapisz wpis' }}</span></button>
+          {% if confirm_entry %}<a href="/journal" class="btn btn-secondary">Anuluj</a>{% endif %}
           <span class="tile-foot">Ponowny wpis z tego samego dnia zastępuje poprzedni.</span>
         </div>
       </form>
@@ -76,7 +84,7 @@
         <h2><img class="asset head-icon" src="/assets/03_activity/kind_rest.png" width="28" height="28" alt=""><span>Przerwy: choroba, wyjazd, zabieg</span></h2>
       </div>
       {% if pause_error %}
-        <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ pause_error }}</p></div></div>
+        <div class="banner bad" role="alert" tabindex="-1" autofocus>{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ pause_error }}</p><a href="#{{ error_field or 'pause-form' }}">Przejdź do {{ 'pola' if error_field else 'formularza' }}</a></div></div>
       {% endif %}
       {% if pause_saved %}
         <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body">
@@ -104,7 +112,11 @@
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="start" value="{{ pause.start_date }}">
                   <input type="hidden" name="end" value="{{ pause.end_date }}">
-                  <button type="submit" class="btn-secondary">Usuń</button>
+                  {% if confirm_pause and confirm_pause.start == pause.start_date and confirm_pause.end == pause.end_date %}
+                    <span>Usunąć tę przerwę?</span>
+                    <button type="submit" name="confirm" value="yes" class="btn-danger">Tak, usuń</button>
+                    <a class="btn btn-secondary" href="/journal#przerwy">Anuluj</a>
+                  {% else %}<button type="submit" class="btn-secondary"{% if not journal_guard_ready %} disabled{% endif %} aria-label="Usuń przerwę: {{ pause.reason }}, {{ format_date(pause.start_date) }} – {{ format_date(pause.end_date) }}">Usuń</button>{% endif %}
                 </form>
               </span>
             </div>
@@ -114,17 +126,18 @@
         <p class="mid">Nie ma zaplanowanych przerw.</p>
       {% endif %}
 
-      <form method="post" action="/journal/pause" class="stack form-stack">
+      <form method="post" action="/journal/pause" class="stack form-stack" id="pause-form" tabindex="-1">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <fieldset class="field-group">
           <legend>Rodzaj przerwy</legend>
           {% for key, label in pause_types.items() %}
-            <label class="choice"><input type="radio" name="pause_type" value="{{ key }}"{% if pause_form.type == key %} checked{% endif %} required> {{ label }}</label>
+            <label class="choice"><input type="radio" name="pause_type"{% if loop.first %}{{ attrs('pause-type') }}{% endif %} value="{{ key }}"{% if pause_form.type == key %} checked{% endif %} required> {{ label }}</label>
           {% endfor %}
+          {{ field_error('pause-type', pause_error) }}
         </fieldset>
         <div class="row field-row">
-          <label class="field">Od<input class="text-input" type="date" name="start" value="{{ pause_form.start }}" required></label>
-          <label class="field">Do<input class="text-input" type="date" name="end" value="{{ pause_form.end }}" required></label>
+          <label class="field">Od<input class="text-input" type="date" name="start"{{ attrs('pause-start') }} value="{{ pause_form.start }}" required>{{ field_error('pause-start', pause_error) }}</label>
+          <label class="field">Do<input class="text-input" type="date" name="end"{{ attrs('pause-end') }} value="{{ pause_form.end }}" required>{{ field_error('pause-end', pause_error) }}</label>
         </div>
         <label class="field">Opis (opcjonalnie)
           <input class="text-input" type="text" name="note" maxlength="120" value="{{ pause_form.note or '' }}" placeholder="np. przeziębienie, urlop w górach">

@@ -34,7 +34,7 @@ def _sync_banner(store: JobStore, now: datetime) -> dict[str, str | bool | None]
         return {"message": None, "details_url": None, "refresh": False, "disabled": False}
     job = jobs[0]
     if job.status in {"accepted", "running"}:
-        return {"message": "Trwa synchronizacja danych. Strona odświeży się sama.",
+        return {"message": "Trwa synchronizacja danych.",
                 "details_url": None, "refresh": True, "disabled": True,
                 "progress": progress_view(store.directory, job.id, now)}
     completed_at = _job_timestamp(job.finished_at or job.created_at)

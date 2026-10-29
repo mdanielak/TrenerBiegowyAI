@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from trainer import config
 from trainer.env_file import read_env_file
+from services.form_errors import FieldError
 
 ENV_PATH = config.PROJECT_ROOT / ".env"
 _ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
@@ -42,11 +43,11 @@ def validate_ai_settings(*, base_url: str, model: str, api_key: str,
     except ValueError:
         valid = False
     if not valid or any(char.isspace() for char in base_url):
-        raise ValueError("Podaj adres API http(s) bez danych logowania, parametrów i fragmentu.")
+        raise FieldError("Podaj adres API http(s) bez danych logowania, parametrów i fragmentu.", "ai-base-url")
     if not model:
-        raise ValueError("Podaj nazwę modelu AI.")
+        raise FieldError("Podaj nazwę modelu AI.", "ai-model")
     if clear_key and api_key:
-        raise ValueError("Nie można jednocześnie ustawić i usunąć klucza.")
+        raise FieldError("Nie można jednocześnie ustawić i usunąć klucza.", "ai-key")
     return base_url, model
 
 
@@ -73,16 +74,16 @@ def same_api_provider(first: str, second: str) -> bool:
 def resolve_test_key(path: Path, *, base_url: str, api_key: str, clear_key: bool) -> str:
     """Używaj zapisanego klucza także po zmianie ścieżki u tego samego dostawcy."""
     if clear_key:
-        raise ValueError("Odznacz usuwanie klucza przed testem połączenia.")
+        raise FieldError("Odznacz usuwanie klucza przed testem połączenia.", "ai-clear-key")
     if api_key:
         return api_key
     values = read_env_file(path)
     saved_url = values.get("AI_BASE_URL", config.AI_BASE_URL)
     if not same_api_provider(base_url, saved_url):
-        raise ValueError("Zmieniono serwer API (domenę, protokół lub port). Wpisz klucz dla nowego dostawcy przed testem.")
+        raise FieldError("Zmieniono serwer API (domenę, protokół lub port). Wpisz klucz dla nowego dostawcy przed testem.", "ai-key")
     key = values.get("AI_API_KEY", config.AI_API_KEY)
     if not key:
-        raise ValueError("Wpisz klucz API. Dla lokalnego serwera bez uwierzytelniania możesz wpisać local.")
+        raise FieldError("Wpisz klucz API. Dla lokalnego serwera bez uwierzytelniania możesz wpisać local.", "ai-key")
     return key
 
 

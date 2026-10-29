@@ -410,12 +410,13 @@ def _sync_job(store, status, now):
 def test_dashboard_shows_running_sync_banner_refresh_and_disabled_button(tmp_path):
     now = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
     store = JobStore(tmp_path / "jobs")
-    _sync_job(store, "accepted", now)
     with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
                                now_provider=lambda: now)) as client:
+        _sync_job(store, "accepted", now)  # po starcie: start porzuca zadania z poprzedniego uruchomienia
         response = client.get("/")
-    assert "Trwa synchronizacja danych. Strona odświeży się sama." in response.text
-    assert '<meta http-equiv="refresh" content="5">' in response.text
+    assert "Trwa synchronizacja danych." in response.text
+    assert 'http-equiv="refresh"' not in response.text
+    assert "Odśwież stan synchronizacji" in response.text
     assert '<button type="submit" disabled>' in response.text
 
 
@@ -523,7 +524,7 @@ def test_sync_conflict_redirects_to_dashboard_banner_without_json(tmp_path):
     assert conflict.status_code == 303
     assert conflict.headers["location"] == "/"
     assert '"detail"' not in conflict.text
-    assert "Trwa synchronizacja danych. Strona odświeży się sama." in page.text
+    assert "Trwa synchronizacja danych." in page.text
 
 
 def test_cooldown_redirect_keeps_last_sync_time(tmp_path):
@@ -863,6 +864,9 @@ def test_ai_connection_rejects_unsafe_requests_without_calling_provider(tmp_path
         response = client.post('/settings/ai/test', data=data, headers={'Origin': 'http://testserver'})
         assert response.status_code == status
         assert 'saved-key' not in response.text
+        if case == 'csrf':
+            assert 'value="https://api.example/v1"' in response.text
+            assert 'value="model"' in response.text
     assert not calls
 
 

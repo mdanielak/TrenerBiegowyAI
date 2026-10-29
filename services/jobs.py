@@ -22,6 +22,8 @@ _ACTIVE_STATUSES = frozenset({"accepted", "running"})
 _SAFE_OPERATION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{20,}$")
 _GENERIC_FAILURE = "Operacja nie powiodła się."
+# Zakończone zadania są potrzebne tylko do pasków stanu z ostatnich minut i strony szczegółów.
+JOB_RETENTION = timedelta(days=30)
 PLAN_AI_DISABLED_MESSAGE = "Generowanie planu wymaga włączenia wysyłania danych do AI."
 PLAN_NO_PLAN_MESSAGE = "Najpierw ułóż plan na ten tydzień."
 GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego logowania."
@@ -174,12 +176,29 @@ class JobStore:
         return self._change_status(job_id, "failed", error_message=safe_message, now=now)
 
     def mark_abandoned_running_as_unknown(self, *, now: datetime | None = None) -> list[JobRecord]:
-        """Oznacz zadania przerwane przez restart jako nieznane, bez ponawiania."""
+        """Oznacz zadania przerwane przez restart jako nieznane, bez ponawiania.
+
+        Dotyczy też zadań czekających w kolejce: po restarcie nic ich już nie uruchomi,
+        a jako „przyjęte” blokowałyby przycisk tej operacji na zawsze.
+        """
         changed = []
         for job in self.list_jobs().jobs:
-            if job.status == "running":
+            if job.status in _ACTIVE_STATUSES:
                 changed.append(self._change_status(job.id, "unknown", now=now))
         return changed
+
+    def prune_finished(self, *, older_than: timedelta = JOB_RETENTION, now: datetime | None = None) -> int:
+        """Usuń zakończone zadania starsze niż ``older_than``; strony czytają przy każdym wejściu wszystkie."""
+        cutoff = _parse_timestamp(_utc_iso(now)) - older_than
+        removed = 0
+        for job in self.list_jobs().jobs:
+            if job.status in _ACTIVE_STATUSES:
+                continue
+            if _parse_timestamp(job.finished_at or job.created_at) < cutoff:
+                for path in (self._path_for_id(job.id), self.directory / "progress" / f"{job.id}.json"):
+                    path.unlink(missing_ok=True)
+                removed += 1
+        return removed
 
     def _change_status(self, job_id: str, status: str, *, error_message=None,
                        now: datetime | None) -> JobRecord:
@@ -188,8 +207,8 @@ class JobStore:
             raise JobError("Można uruchomić tylko zaakceptowane zadanie.")
         if status in {"succeeded", "failed"} and job.status != "running":
             raise JobError("Można zakończyć tylko wykonywane zadanie.")
-        if status == "unknown" and job.status != "running":
-            raise JobError("Jako nieznane można oznaczyć tylko wykonywane zadanie.")
+        if status == "unknown" and job.status not in _ACTIVE_STATUSES:
+            raise JobError("Jako nieznane można oznaczyć tylko przyjęte albo wykonywane zadanie.")
         timestamp = _utc_iso(now)
         updated = JobRecord(
             id=job.id, operation=job.operation, arguments_hash=job.arguments_hash, status=status,

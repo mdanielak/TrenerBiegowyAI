@@ -10,6 +10,7 @@ _READINESS_LABELS = {
     "ready": "możesz trenować",
     "ready_with_reserves": "trenuj z rezerwą",
     "not_ready": "dziś lepiej odpuść",
+    "no_data": "brak pomiarów z nocy",
 }
 _HRV_STATUSES = {
     "BALANCED": "zrównoważone",

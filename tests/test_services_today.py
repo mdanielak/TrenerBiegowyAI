@@ -7,6 +7,21 @@ from services import today
 from services.today import build_today_report
 
 
+def test_readiness_chart_does_not_connect_days_without_measurements():
+    from types import SimpleNamespace
+    from api.views.today import _readiness_chart
+
+    days = [SimpleNamespace(readiness={"score": value} if value is not None else None,
+                            weekday_index=index, temporal_state="past")
+            for index, value in enumerate([6, 7, None, 4, 5, None, 8])]
+    chart = _readiness_chart(days)
+    assert len(chart["lines"]) == 2
+    assert len(chart["areas"]) == 2
+    assert chart["lines"][0].split() == [f"{p['x']},{p['y']}" for p in chart["points"][:2]]
+    assert chart["lines"][1].split() == [f"{p['x']},{p['y']}" for p in chart["points"][3:5]]
+    assert chart["points"][2]["score"] is None
+
+
 def _snapshot(status=SnapshotStatus.FRESH, **data):
     return SnapshotReadResult(status, {"activities": [], "daily_health": [], "sleep": [], "hrv": [], **data})
 
@@ -46,15 +61,42 @@ def test_build_today_report_sorts_yesterday_and_uses_requested_weekday(tmp_path)
 @pytest.mark.parametrize(
     ("planned", "data", "expected"),
     [
-        ({"name": "Bieg"}, {"daily_health": [{"rhr": 45, "stress_avg": 20}], "sleep": [{"score": 95}], "hrv": [{"status": "BALANCED", "last_night": 50, "baseline_low": 40, "baseline_high": 60}]}, "follow_plan"),
+        ({"name": "Bieg"}, {"daily_health": [{"date": "2026-10-02", "rhr": 45, "stress_avg": 20}],
+                            "sleep": [{"date": "2026-10-02", "score": 95}],
+                            "hrv": [{"date": "2026-10-02", "status": "BALANCED", "last_night": 50,
+                                     "baseline_low": 40, "baseline_high": 60}]}, "follow_plan"),
+        ({"name": "Bieg"}, {"daily_health": [{"date": "2026-10-02", "rhr": 60, "stress_avg": 55}],
+                            "sleep": [{"date": "2026-10-02", "score": 40}]}, "rest"),
         (None, {}, "rest"),
-        ({"name": "Bieg"}, {}, "rest"),
+        # Brak pomiarów nie odwołuje treningu: to brak danych, a nie zła ocena.
+        ({"name": "Bieg"}, {}, "follow_plan"),
     ],
 )
 def test_build_today_report_suggestion_rule(planned, data, expected, tmp_path):
     report = build_today_report(snapshot=_snapshot(**data), planned=planned,
                                 availability={"available": False}, now=datetime(2026, 10, 2))
     assert report.suggestion == expected
+
+
+def test_yesterdays_measurements_never_count_as_today():
+    data = {"daily_health": [{"date": "2026-10-01", "rhr": 60, "stress_avg": 50}],
+            "sleep": [{"date": "2026-10-01", "score": 40}],
+            "hrv": [{"date": "2026-10-01", "status": "LOW", "last_night": 30, "baseline_low": 40, "baseline_high": 60}]}
+    report = build_today_report(snapshot=_snapshot(**data), planned=None,
+                                availability={"available": False}, now=datetime(2026, 10, 2))
+    assert report.readiness["level"] == "no_data"
+    assert report.signals == {"sleep_score": None, "hrv_status": None, "rhr": None, "stress_avg": None}
+
+
+def test_no_measurements_show_no_red_banner_and_no_zero_score(testclient_sockets):
+    from fastapi.testclient import TestClient
+    from api.main import create_app
+
+    report = build_today_report(snapshot=_snapshot(), planned=None, availability={"available": False},
+                                now=datetime(2026, 10, 2))
+    page = TestClient(create_app(report_provider=lambda: report)).get("/").text
+    assert "Brak pomiarów z nocy" in page and "health-alert" not in page
+    assert '<span class="ring-score">—</span>' in page
 
 
 def test_build_today_report_uses_none_for_missing_signals_and_keeps_stale_data(tmp_path):

@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from api.views.common import _format_date
-from services.journal import BACKDATE_DAYS, FEELINGS, PAIN_AREAS, add_entry, recent_entries, validate_entry
+from services.journal import BACKDATE_DAYS, FEELINGS, PAIN_AREAS, add_entry, entries_by_day, recent_entries, validate_entry
 from services.pauses import PAUSE_TYPES, pause_views, planned_workouts_in, validate_pause
 from services.plan_files import week_bounds
 from trainer import preferences
@@ -44,7 +44,7 @@ def get_journal_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    def page(request: Request, *, error=None, form=None, status_code=200, pause_error=None, pause_form=None):
+    def page(request: Request, *, error=None, form=None, status_code=200, pause_error=None, pause_form=None, error_field=None, confirm_entry=False, confirm_pause=None):
         token = csrf_token(request)
         today = date.today()
         entries = recent_entries(today=today, path=journal_path)
@@ -54,6 +54,11 @@ def get_journal_router(
             "format_date": _format_date,
             "csrf_token": token,
             "error_message": error,
+            "error_field": error_field,
+            "confirm_entry": confirm_entry,
+            "journal_guard_ready": True,
+            "confirm_pause": confirm_pause,
+            "existing_dates": [entry["date"] for entry in entries],
             "saved": request.method == "GET" and request.query_params.get("saved") == "1",
             "today": today.isoformat(),
             "earliest": (today - timedelta(days=BACKDATE_DAYS)).isoformat(),
@@ -97,7 +102,7 @@ def get_journal_router(
         try:
             pause = validate_pause(pause_type=pause_type, start=start, end=end, note=note, today=date.today())
         except ValueError as error:
-            return page(request, pause_error=str(error), pause_form=form, status_code=400)
+            return page(request, pause_error=str(error), pause_form=form, status_code=400, error_field=getattr(error, "field", None))
         preferences.add_planned_pause(pause["start_date"], pause["end_date"], pause["reason"], pause["type"])
         clash = planned_workouts_in(pause["start_date"], pause["end_date"], today=date.today())
         suffix = f"&clash={','.join(clash)}" if clash else ""
@@ -109,9 +114,12 @@ def get_journal_router(
         csrf_token: str = Form(default=""),
         start: str = Form(default=""),
         end: str = Form(default=""),
+        confirm: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
             return page(request, pause_error=_CSRF_ERROR, status_code=403)
+        if confirm != "yes":
+            return page(request, confirm_pause={"start": start, "end": end})
         preferences.remove_planned_pause(start, end)
         return RedirectResponse(url="/journal?pause=removed#przerwy", status_code=303)
 
@@ -125,6 +133,8 @@ def get_journal_router(
         pain: list[str] = Form(default=[]),
         pain_note: str = Form(default=""),
         note: str = Form(default=""),
+        confirm: str = Form(default=""),
+        confirm_date: str = Form(default=""),
     ):
         form = {"date": day, "feeling": feeling, "rpe": rpe, "pain": pain, "pain_note": pain_note, "note": note}
         if not csrf_valid(request, csrf_token):
@@ -133,7 +143,9 @@ def get_journal_router(
             entry = validate_entry(day=day, feeling=feeling, rpe=rpe, pain_areas=pain,
                                    pain_note=pain_note, note=note, today=date.today())
         except ValueError as error:
-            return page(request, error=str(error), form=form, status_code=400)
+            return page(request, error=str(error), form=form, status_code=400, error_field=getattr(error, "field", None))
+        if (confirm != "yes" or confirm_date != entry["date"]) and entry["date"] in entries_by_day(path=journal_path):
+            return page(request, form=form, confirm_entry=True)
         add_entry(entry, path=journal_path)
         return RedirectResponse(url="/journal?saved=1", status_code=303)
 

@@ -2,7 +2,6 @@
 
 {% block title %}TrenerBiegowyAI — dziś{% endblock %}
 
-{% block head_extra %}{% if sync_banner.refresh %}<meta http-equiv="refresh" content="{{ 5 if sync_banner.disabled else 15 }}">{% endif %}{% endblock %}
 
 {% block content %}
 {% import "_icons.html" as ico %}
@@ -54,7 +53,7 @@
           <ul class="health-alert-reasons">
             {% for reason in health_alert.reasons %}<li>{{ reason }}</li>{% endfor %}
           </ul>
-          <p class="mid">{{ health_alert.advice }} <a href="/analysis">Skąd ta ocena</a></p>
+          <p class="mid">{% if pause %}<strong class="health-alert-pause">Trwa przerwa treningowa — odpoczywaj zgodnie z jej planem.</strong>{% else %}{{ health_alert.advice }}{% endif %} <a href="/analysis">Skąd ta ocena</a></p>
         </div>
       </div>
     {% endif %}
@@ -85,6 +84,7 @@
         <div class="banner-body">
           <p class="banner-title">{{ sync_banner.message }}</p>
           {% if sync_banner.disabled %}{% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync_banner.progress) }}{% endif %}
+          {% if sync_banner.refresh %}<p><a href="/">Odśwież stan synchronizacji</a> — przed odświeżeniem wyślij lub skopiuj wpisaną wiadomość.</p>{% endif %}
           {% if sync_banner.details_url %}<p><a href="{{ sync_banner.details_url }}">Szczegóły</a></p>{% endif %}
         </div>
       </div>
@@ -92,7 +92,7 @@
 
     <div class="grid grid-main">
 
-      <section class="card">
+      <section class="card readiness-card">
         <div class="readiness">
           <div class="ring-wrap">
             <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"

@@ -292,14 +292,6 @@ def push_plan_to_garmin(*, week_start=None, workout_factory=None, workout_delete
         workout_deleter = workout_deleter or session_delete
     create = workout_factory
 
-    replaced = []
-    if replace:
-        for conflict in conflicts:
-            for existing in conflict["existing"]:
-                workout_deleter(existing["workout_id"], schedule_id=existing["schedule_id"],
-                                reason="zastąpiony planem")
-                replaced.append(existing["workout_id"])
-
     created = []
     skipped = 0
     for workout in plan.get("workouts", []):
@@ -316,6 +308,16 @@ def push_plan_to_garmin(*, week_start=None, workout_factory=None, workout_delete
         workout["garmin_workout_id"] = workout_id
         created.append(workout_id)
         plan_service.save_plan(plan)
+
+    # Stare treningi znikają dopiero, gdy nowe już są na zegarku: przerwana wysyłka
+    # zostawia najwyżej dwa treningi na dzień, nigdy żadnego.
+    replaced = []
+    if replace:
+        for conflict in conflicts:
+            for existing in conflict["existing"]:
+                workout_deleter(existing["workout_id"], schedule_id=existing["schedule_id"],
+                                reason="zastąpiony planem")
+                replaced.append(existing["workout_id"])
     return {"created": created, "skipped": skipped, "replaced": replaced}
 
 
@@ -324,7 +326,8 @@ def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_star
     """Wykonaj wysyłkę planu do Garmina pod blokadą i zapisz stan zadania."""
     store.mark_running(job_id)
     try:
-        with acquire_lock(name="plan-push", directory=lock_directory):
+        # Ta sama blokada co układanie planu: oba zadania zapisują ten sam plik tygodnia.
+        with acquire_lock(name="plan", directory=lock_directory):
             if on_conflict is None:
                 operation(week_start=week_start)
             else:

@@ -15,6 +15,7 @@ from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
 from services import plan_conflicts
 from services.ai_notes import WEEK_NOTE_LIMIT, note_for_week
+from trainer import preferences
 from api.views.common import _WEEK_WARNING_LABELS, _format_date
 from api.views.jobs import _plan_banner
 from api.views.plan import _conflict_view, _format_generated_at, _plan_load_chart, _plan_view, _variant_views
@@ -22,12 +23,12 @@ from api.views.plan import _conflict_view, _format_generated_at, _plan_load_char
 logger = logging.getLogger(__name__)
 
 PLAN_MESSAGES = {
-    "running": "Trwa układanie planu na ten tydzień. Strona odświeży się sama.",
+    "running": "Trwa układanie planu na ten tydzień.",
     "failed": "Nie udało się ułożyć planu. Spróbuj ponownie.",
     "succeeded": "Plan na ten tydzień jest gotowy.",
 }
 PLAN_PUSH_MESSAGES = {
-    "running": "Trwa wysyłka planu na zegarek. Strona odświeży się sama.",
+    "running": "Trwa wysyłka planu na zegarek.",
     "failed": "Nie udało się wysłać planu na zegarek.",
     "succeeded": "Plan trafił na zegarek.",
 }
@@ -47,10 +48,14 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         readiness_by_date=readiness_by_date,
         previous_week=previous_week,
     )
+    pause_conflicts = [day for day in plan.get("days", []) if day.get("date")
+                       and not day["is_rest"] and day["date"] >= today.date().isoformat()
+                       and preferences.get_active_pause(day["date"])]
     return {
         "active_nav": "plan",
         "csrf_token": csrf_token,
         "plan": plan,
+        "pause_conflicts": pause_conflicts,
         "plan_banner": banner or _EMPTY_BANNER,
         "push_banner": push_banner or _EMPTY_BANNER,
         "ai_ready": ai_ready,

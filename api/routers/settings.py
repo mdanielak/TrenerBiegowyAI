@@ -69,12 +69,14 @@ def get_settings_router(
         form_values=None,
         test_success=False,
         key_discarded=False,
+        error_field=None,
     ):
         token = csrf_token(request)
         context = {
             "active_nav": "settings",
             "csrf_token": token,
             "ai_error": ai_error,
+            "error_field": error_field,
             "ai_test_success": test_success,
             "ai_key_discarded": key_discarded,
             "ai_env_path": str(ai_env_path.resolve()),
@@ -191,10 +193,6 @@ def get_settings_router(
         export_enabled: str = Form(default=""),
         clear_key: str = Form(default=""),
     ):
-        if not csrf_valid(request, csrf_token):
-            return ai_settings_page(
-                request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403
-            )
         form_values = {
             "base_url": base_url,
             "model": model,
@@ -202,6 +200,10 @@ def get_settings_router(
             "clear_key": clear_key == "true",
         }
         result = {"form_values": form_values, "key_discarded": bool(api_key)}
+        if not csrf_valid(request, csrf_token):
+            return ai_settings_page(
+                request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403, **result
+            )
         try:
             base_url, model = validate_ai_settings(
                 base_url=base_url, model=model, api_key=api_key, clear_key=clear_key == "true"
@@ -220,7 +222,7 @@ def get_settings_router(
                     raise
                 _remember_test(ok=True, base_url=base_url, model=model)
         except ValueError as exc:
-            return ai_settings_page(request, ai_error=str(exc), status_code=400, **result)
+            return ai_settings_page(request, ai_error=str(exc), status_code=400, error_field=getattr(exc, "field", None), **result)
         except AIConnectionTestError as exc:
             return ai_settings_page(request, ai_error=str(exc), status_code=502, **result)
         except LockBusyError:
@@ -246,9 +248,13 @@ def get_settings_router(
         export_enabled: str = Form(default=""),
         clear_key: str = Form(default=""),
     ):
+        result = {"form_values": {"base_url": base_url, "model": model,
+                                  "export_enabled": export_enabled == "true",
+                                  "clear_key": clear_key == "true"},
+                  "key_discarded": bool(api_key)}
         if not csrf_valid(request, csrf_token):
             return ai_settings_page(
-                request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403
+                request, ai_error="Odśwież stronę i spróbuj ponownie.", status_code=403, **result
             )
         try:
             with acquire_lock(name="env.ai-settings", directory=ai_env_path.parent):
@@ -263,14 +269,14 @@ def get_settings_router(
             if apply_settings is not None:
                 apply_settings(ai_env_path)
         except ValueError as exc:
-            return ai_settings_page(request, ai_error=str(exc), status_code=400)
+            return ai_settings_page(request, ai_error=str(exc), status_code=400, error_field=getattr(exc, "field", None), **result)
         except LockBusyError:
-            return ai_settings_page(request, ai_error="Zapis już trwa. Spróbuj ponownie.", status_code=409)
+            return ai_settings_page(request, ai_error="Zapis już trwa. Spróbuj ponownie.", status_code=409, **result)
         except (OSError, UnicodeError):
             return ai_settings_page(
                 request,
                 ai_error="Nie można zapisać pliku .env. Sprawdź uprawnienia i kodowanie UTF-8.",
-                status_code=503,
+                status_code=503, **result,
             )
         return RedirectResponse(
             url="/settings/ai?saved=1", status_code=303, headers={"Cache-Control": "no-store"}

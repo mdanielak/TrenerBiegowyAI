@@ -104,7 +104,10 @@ def print_readiness(breakdown):
         print("  Wynik jest znormalizowany do dostepnych metryk i nie stanowi pelnej oceny fizjologicznej.")
 
     level = breakdown['level']
-    if level == "ready":
+    if level == "no_data":
+        print("\n[BRAK POMIAROW] Zegarek nie zmierzyl tej nocy snu, HRV, tetna ani stresu.")
+        print("   Zdecyduj po samopoczuciu albo zsynchronizuj dane ponownie.")
+    elif level == "ready":
         print("\n[GOTOWY] Organizm w pelni zregenerowany. Realizuj plan.")
     elif level == "ready_with_reserves":
         print("\n[GOTOWY Z REZERWA] Lekkie zmeczenie, trening OK.")

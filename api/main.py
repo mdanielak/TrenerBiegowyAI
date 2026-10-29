@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -62,6 +63,11 @@ _TEMPLATES.env.filters["num"] = _format_number
 _TEMPLATES.env.filters["plural"] = _plural
 # Plakietka AI w bocznym menu: każda aplikacja (także w testach) podaje własnego dostawcę
 # przez request.state, więc współdzielone szablony nie mieszają stanów różnych instancji.
+# Serwer odpowiada tylko pod adresami tego komputera. Bez tego strona obcej domeny, która
+# na chwilę wskazuje na 127.0.0.1 (DNS rebinding), byłaby dla przeglądarki „tą samą stroną”
+# i mogłaby czytać dane oraz wysyłać formularze. "testserver" to host klienta testowego.
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
+
 # Motyw z ciasteczka: "light"/"dark" na stałe, brak = zgodnie z systemem.
 THEME_COOKIE = "theme"
 THEMES = ("auto", "light", "dark")
@@ -183,6 +189,7 @@ def create_app(
         setup_logging(level=logging.INFO)
         logger.info("Trener Biegowy AI API starting")
         store.mark_abandoned_running_as_unknown()
+        store.prune_finished()
         app_instance.state.job_executor = ThreadPoolExecutor(max_workers=1)
         try:
             yield
@@ -195,6 +202,8 @@ def create_app(
         version=_app_version(),
         lifespan=lifespan,
     )
+
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
     @app.middleware("http")
     async def provide_ai_badge(request: Request, call_next):

@@ -2,7 +2,6 @@
 
 {% block title %}TrenerBiegowyAI — plan{% endblock %}
 
-{% block head_extra %}{% if plan_banner.refresh %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
 
 {% block content %}
 {% import "_icons.html" as ico %}
@@ -51,8 +50,15 @@
 
 <div class="stack">
 
+  {% if pause_conflicts %}
+    <div class="banner warn" role="status">{{ ico.info() }}<div class="banner-body">
+      <p class="banner-title">Plan zawiera treningi w dniach przerwy.</p>
+      <p>Dotyczy: {% for day in pause_conflicts %}{{ day.weekday }} {{ format_date(day.date) }}{% if not loop.last %}, {% endif %}{% endfor %}. Pomiń te treningi; podsumowanie pokazuje pierwotny plan. Użyj „Ułóż plan”, aby uwzględnić przerwę.</p>
+    </div></div>
+  {% endif %}
+
   {% if conflict %}
-    <section class="card confirm-panel" role="alertdialog" aria-labelledby="conflict-title">
+    <section class="card confirm-panel" aria-labelledby="conflict-title" tabindex="-1" autofocus>
       <div class="card-head">
         <h2 id="conflict-title">{{ ico.info(26) }}<span>{{ conflict.title }}</span></h2>
       </div>
@@ -80,7 +86,7 @@
 
   <section class="card" id="wiadomosc">
     <div class="card-head">
-      <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_message.png" width="28" height="28" alt=""><span>Wiadomość dla AI na ten tydzień</span></h2>
+      <h2 id="week-note-label"><img class="asset head-icon" src="/assets/07_ui_icons/tile_message.png" width="28" height="28" alt=""><span>Wiadomość dla AI na ten tydzień</span></h2>
     </div>
     {% if note_saved %}
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p></div></div>
@@ -88,8 +94,8 @@
     <form method="post" action="/actions/plan/note" class="stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="week_start" value="{{ week_start }}">
-      <textarea class="text-input" name="note" rows="2" maxlength="{{ week_note_limit }}" placeholder="np. w sobotę wesele, długi bieg w niedzielę; w środę mogę dopiero wieczorem">{{ week_note or '' }}</textarea>
-      <div class="row">
+      <textarea class="text-input" name="note" aria-labelledby="week-note-label" rows="2" maxlength="{{ week_note_limit }}" placeholder="np. w sobotę wesele, długi bieg w niedzielę; w środę mogę dopiero wieczorem">{{ week_note or '' }}</textarea>
+      <div class="row note-actions">
         <button type="submit" class="btn-secondary">{{ ico.check(18) }}<span>Zapisz wiadomość</span></button>
         <span class="tile-foot">Trafi do „Ułóż plan” i do rekomendacji dziennych w tym tygodniu. AI uwzględni ją, o ile nie przeczy zasadom bezpieczeństwa, dostępności i przerwom. Pusty tekst usuwa wiadomość.</span>
       </div>
@@ -140,6 +146,7 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ plan_banner.message }}</p>
+        {% if plan_banner.refresh %}<p><a href="{{ request.url }}">Odśwież stan planu</a> — przed odświeżeniem zapisz wpisaną wiadomość.</p>{% endif %}
         {% if plan_banner.details_url %}<p><a href="{{ plan_banner.details_url }}">Szczegóły</a></p>{% endif %}
       </div>
     </div>
@@ -150,6 +157,7 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ push_banner.message }}</p>
+        {% if push_banner.refresh %}<p><a href="{{ request.url }}">Odśwież stan wysyłki</a> — przed odświeżeniem zapisz wpisaną wiadomość.</p>{% endif %}
         {% if push_banner.details_url %}<p><a href="{{ push_banner.details_url }}">Szczegóły</a></p>{% endif %}
       </div>
     </div>
@@ -250,6 +258,11 @@
           {% endfor %}
         </svg>
         <p class="tile-foot">Zaplanowany czas na dzień.</p>
+        <details class="chart-data"><summary>Dane wykresu planu</summary>
+          <table><caption>Zaplanowany czas treningowy dzień po dniu</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Czas</th></tr></thead><tbody>
+            {% for bar in load_chart.bars %}<tr><th scope="row">{{ bar.label }}</th><td>{{ bar.minutes }} min</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
       {% else %}
         <span class="tile-value">—</span>
         <p class="tile-foot">Zaplanowany czas na dzień.</p>

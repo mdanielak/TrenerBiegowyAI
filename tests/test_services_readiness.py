@@ -77,7 +77,7 @@ class TestReadinessBreakdown:
         data = {'daily_health': [], 'sleep': [], 'hrv': []}
         result = compute_readiness_breakdown(data)
         assert result['score'] == 0
-        assert result['level'] == 'not_ready'
+        assert result['level'] == 'no_data'  # brak pomiarów to nie zła ocena
         assert {d['status'] for d in result['details']} == {'UNKNOWN'}
         assert result['missing_metrics'] == ['rhr', 'hrv', 'sleep', 'stress']
         assert result['available_max_score'] == 0

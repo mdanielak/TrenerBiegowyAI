@@ -12,6 +12,7 @@ import os
 from datetime import date, datetime, timedelta
 
 from trainer.config import SETTINGS
+from services.form_errors import FieldError
 
 logger = logging.getLogger(__name__)
 
@@ -35,24 +36,24 @@ def validate_entry(*, day, feeling, rpe, pain_areas, pain_note, note, today: dat
     try:
         entry_day = day if isinstance(day, date) else date.fromisoformat(str(day))
     except ValueError:
-        raise ValueError("Podaj datę wpisu w formacie RRRR-MM-DD.") from None
+        raise FieldError("Podaj datę wpisu w formacie RRRR-MM-DD.", "journal-date") from None
     if entry_day > today:
-        raise ValueError("Wpis nie może dotyczyć przyszłego dnia.")
+        raise FieldError("Wpis nie może dotyczyć przyszłego dnia.", "journal-date")
     if entry_day < today - timedelta(days=BACKDATE_DAYS):
-        raise ValueError(f"Wpis można dodać najwyżej {BACKDATE_DAYS} dni wstecz.")
+        raise FieldError(f"Wpis można dodać najwyżej {BACKDATE_DAYS} dni wstecz.", "journal-date")
     if feeling not in FEELINGS:
-        raise ValueError("Wybierz, jak się czujesz.")
+        raise FieldError("Wybierz, jak się czujesz.", "journal-feeling")
     rpe_value = None
     if rpe not in (None, ""):
         try:
             rpe_value = int(rpe)
         except (TypeError, ValueError):
-            raise ValueError("RPE to liczba od 1 do 10.") from None
+            raise FieldError("RPE to liczba od 1 do 10.", "journal-rpe") from None
         if not 1 <= rpe_value <= 10:
-            raise ValueError("RPE to liczba od 1 do 10.")
+            raise FieldError("RPE to liczba od 1 do 10.", "journal-rpe")
     areas = [area for area in dict.fromkeys(pain_areas or []) if area in PAIN_AREAS]
     if len(areas) != len(set(pain_areas or [])):
-        raise ValueError("Nieznane miejsce bólu.")
+        raise FieldError("Nieznane miejsce bólu.", "journal-pain")
     return {
         "date": entry_day.isoformat(),
         "feeling": feeling,

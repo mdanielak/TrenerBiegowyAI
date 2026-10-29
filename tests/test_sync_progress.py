@@ -101,9 +101,9 @@ def test_sync_job_passes_progress_and_removes_it_afterwards(tmp_path, monkeypatc
 
 def test_dashboard_and_job_page_show_the_bar(tmp_path):
     store = JobStore(tmp_path / "jobs")
-    job = store.submit("sync", {})
     with TestClient(create_app(report_provider=lambda: _report(), job_store=store)) as client:
         # Po starcie, bo start aplikacji oznacza przerwane zadania jako nieznane.
+        job = store.submit("sync", {})
         store.mark_running(job.id)
         SyncProgress(store.directory, job.id).stage("today")
         dashboard = client.get("/").text
@@ -115,8 +115,8 @@ def test_dashboard_and_job_page_show_the_bar(tmp_path):
 
 def test_bar_is_indeterminate_before_the_first_stage(tmp_path):
     store = JobStore(tmp_path / "jobs")
-    store.submit("sync", {})
     with TestClient(create_app(report_provider=lambda: _report(), job_store=store)) as client:
+        store.submit("sync", {})
         page = client.get("/").text
     assert '<progress aria-label="Postęp synchronizacji"></progress>' in page
     assert "Przygotowanie synchronizacji…" in page

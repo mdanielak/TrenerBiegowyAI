@@ -229,7 +229,7 @@ _CONFLICT_COPY = {
         "buttons": (("overwrite", "Zastąp na zegarku", ""), ("add", "Dodaj obok", "btn-secondary"),
                     ("cancel", "Anuluj", "btn-secondary")),
         "note": ("Zastąpione treningi zostaną usunięte z Garmina, ale zostają w lokalnym rejestrze "
-                 "i da się je odtworzyć. Treningi dodane ręcznie w Garmin Connect nie są tu widoczne."),
+                 "i da się je odtworzyć poleceniem python -m trainer workouts restore. Treningi dodane ręcznie w Garmin Connect nie są tu widoczne."),
     },
 }
 

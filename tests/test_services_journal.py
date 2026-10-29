@@ -95,3 +95,18 @@ def test_journal_rejects_missing_csrf_and_bad_input(tmp_path):
                           headers={"Origin": "http://testserver"})
     assert invalid.status_code == 400 and "RPE to liczba od 1 do 10." in invalid.text
     assert not path.exists()
+
+
+def test_replacing_entry_requires_confirmation_for_the_same_date(tmp_path):
+    path = tmp_path / "journal.jsonl"
+    client = TestClient(create_app(journal_path=path))
+    day = date.today().isoformat()
+    data = {"csrf_token": _csrf(client), "date": day, "feeling": "good", "note": "pierwszy"}
+    assert client.post('/journal', data=data, headers={"Origin": "http://testserver"}, follow_redirects=False).status_code == 303
+    data["note"] = "nowy"
+    pending = client.post('/journal', data=data, headers={"Origin": "http://testserver"})
+    assert "Potwierdź zastąpienie" in pending.text
+    assert entries_by_day(path=path)[day]["note"] == "pierwszy"
+    data.update(confirm="yes", confirm_date=day)
+    assert client.post('/journal', data=data, headers={"Origin": "http://testserver"}, follow_redirects=False).status_code == 303
+    assert entries_by_day(path=path)[day]["note"] == "nowy"

@@ -75,6 +75,7 @@ def _weekly_chart(weekly) -> dict | None:
             "width": bar_width,
             "height": height,
             "km": week.distance_km,
+            "date": week.monday.isoformat(),
             "sessions": week.sessions,
             "label": _short_date(week.monday.isoformat()),
             "is_current": week.is_current,
@@ -244,6 +245,7 @@ def _metric_views(metrics) -> list[dict]:
             "total_days": len(trend.points),
             "trend": _trend_tone(trend),
             "chart": _line_chart(trend, meta.get("domain")),
+            "points": trend.points,
         })
     return views
 

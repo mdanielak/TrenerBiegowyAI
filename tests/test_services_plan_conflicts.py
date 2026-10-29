@@ -290,3 +290,20 @@ def test_variant_card_and_activation(tmp_path):
 
     assert response.status_code == 303
     assert plan_files.load_plan(MONDAY)["workouts"][0]["name"] == "Nowy"
+
+
+def test_overwrite_deletes_old_workouts_only_after_new_ones_are_on_the_watch():
+    save_plan(_plan())
+    calls = []
+
+    def factory(kind, name, **kwargs):
+        calls.append("create")
+        if calls.count("create") == 2:
+            raise ConnectionError("zerwane połączenie")
+        return 7
+
+    with pytest.raises(ConnectionError):
+        push_plan_to_garmin(week_start=MONDAY, workout_factory=factory,
+                            workout_deleter=lambda *a, **k: calls.append("delete"),
+                            registry_entries=_registry(1), on_conflict="overwrite")
+    assert "delete" not in calls  # przerwana wysyłka nie zostawia pustego dnia na zegarku

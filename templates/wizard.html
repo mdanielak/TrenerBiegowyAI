@@ -4,6 +4,8 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+{% macro error_attrs(field) %}{% if error_field == field %} id="{{ field }}" aria-invalid="true" aria-describedby="wizard-field-error"{% else %} id="{{ field }}"{% endif %}{% endmacro %}
+{% macro field_error(field) %}{% if error_field == field %}<span class="field-error" id="wizard-field-error">{{ error }}</span>{% endif %}{% endmacro %}
 
   <div class="page-head">
     <div>
@@ -33,11 +35,11 @@
       </div>
     {% endif %}
     {% if error %}
-      <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
+      <div class="banner bad" role="alert" tabindex="-1" autofocus>{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p><a href="#{{ error_field or 'wizard-form' }}">Przejdź do {{ 'pola' if error_field else 'formularza' }}</a></div></div>
     {% endif %}
 
     <section class="card">
-      <form method="post" action="/wizard" class="stack form-stack">
+      <form method="post" action="/wizard" class="stack form-stack" id="wizard-form" tabindex="-1">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="step" value="{{ step }}">
 
@@ -46,17 +48,18 @@
           <fieldset class="field-group">
             <legend>Cel</legend>
             {% for key, label in distances.items() %}
-              <label class="choice"><input type="radio" name="distance" value="{{ key }}"{% if values.distance == key %} checked{% endif %} required> {{ label }}</label>
+              <label class="choice"><input type="radio" name="distance" value="{{ key }}"{% if loop.first %}{{ error_attrs('distance') }}{% endif %}{% if values.distance == key %} checked{% endif %} required> {{ label }}</label>
             {% endfor %}
+            {{ field_error('distance') }}
           </fieldset>
-          <label class="field">Jaki dystans? (gdy „inny dystans”)
-            <input class="text-input" type="text" name="distance_other" maxlength="80" value="{{ values.distance_other }}" placeholder="np. 15 km, bieg górski 25 km">
+          <label class="field" id="other-distance">Jaki dystans? (gdy „inny dystans”)
+            <input class="text-input" type="text" name="distance_other"{{ error_attrs('distance_other') }} maxlength="80" value="{{ values.distance_other }}" placeholder="np. 15 km, bieg górski 25 km">{{ field_error('distance_other') }}
           </label>
           <label class="field">Nazwa wydarzenia (opcjonalnie)
             <input class="text-input" type="text" name="event_name" maxlength="80" value="{{ values.event_name }}" placeholder="np. Półmaraton Warszawski">
           </label>
           <label class="field">Kiedy jest to wydarzenie?
-            <input class="text-input narrow-date" type="date" name="event_date" min="{{ today }}" value="{{ values.event_date }}">
+            <input class="text-input narrow-date" type="date" name="event_date"{{ error_attrs('event_date') }} min="{{ today }}" value="{{ values.event_date }}">{{ field_error('event_date') }}
           </label>
           <p class="tile-foot">Data może być orientacyjna. Przy celu „bez zawodów” zostaw ją pustą.</p>
         {% else %}
@@ -66,10 +69,10 @@
         {% if step == 'times' %}
           <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Jaki czas chcesz osiągnąć?</span></h2></div>
           <label class="field">Czas docelowy (opcjonalnie)
-            <input class="text-input narrow-time" type="text" name="target_time" inputmode="numeric" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">
+            <input class="text-input narrow-time" type="text" name="target_time"{{ error_attrs('target_time') }} inputmode="numeric" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">{{ field_error('target_time') }}
           </label>
           <label class="field">Obecny rekord na tym dystansie (opcjonalnie)
-            <input class="text-input narrow-time" type="text" name="record" inputmode="numeric" maxlength="8" value="{{ values.record }}" placeholder="np. 1:58:30">
+            <input class="text-input narrow-time" type="text" name="record"{{ error_attrs('record') }} inputmode="numeric" maxlength="8" value="{{ values.record }}" placeholder="np. 1:58:30">{{ field_error('record') }}
           </label>
           <p class="tile-foot">Nie znasz jeszcze celu czasowego? Zostaw puste — AI ułoży plan po samej dacie i Twojej formie.</p>
         {% else %}
@@ -79,15 +82,16 @@
         {% if step == 'week' %}
           <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_frequency.png" width="28" height="28" alt=""><span>Jak wygląda Twój tydzień?</span></h2></div>
           <label class="field">Ile treningów w tygodniu chcesz robić?
-            <input class="text-input narrow" type="number" name="frequency" min="1" max="7" value="{{ values.frequency }}" required>
+            <input class="text-input narrow" type="number" name="frequency"{{ error_attrs('frequency') }} min="1" max="7" value="{{ values.frequency }}" required>{{ field_error('frequency') }}
           </label>
           <fieldset class="field-group wizard-days">
             <legend>W które dni możesz trenować i ile minut?</legend>
             {% for day in days %}
               <div class="wizard-day">
-                <label class="choice"><input type="checkbox" name="day_{{ day }}" value="on"{% if values['day_' ~ day] == 'on' %} checked{% endif %}> {{ day_labels[day] }}</label>
-                <label class="field inline">od <input class="text-input mini" type="number" name="min_{{ day }}" min="10" max="300" value="{{ values['min_' ~ day] }}"> min</label>
-                <label class="field inline">do <input class="text-input mini" type="number" name="max_{{ day }}" min="10" max="300" value="{{ values['max_' ~ day] }}"> min</label>
+                <label class="choice"><input type="checkbox" name="day_{{ day }}"{{ error_attrs('day_' ~ day) }} value="on"{% if values['day_' ~ day] == 'on' %} checked{% endif %}> {{ day_labels[day] }}</label>
+                <label class="field inline">od <input class="text-input mini" type="number" name="min_{{ day }}"{{ error_attrs('min_' ~ day) }} aria-label="{{ day_labels[day]|capitalize }}: od ilu minut" min="10" max="300" value="{{ values['min_' ~ day] }}"> min</label>
+                <label class="field inline">do <input class="text-input mini" type="number" name="max_{{ day }}" aria-label="{{ day_labels[day]|capitalize }}: do ilu minut" min="10" max="300" value="{{ values['max_' ~ day] }}"> min</label>
+                {{ field_error('day_' ~ day) }}{{ field_error('min_' ~ day) }}
               </div>
             {% endfor %}
           </fieldset>
@@ -126,5 +130,17 @@
     </section>
 
   </div>
+
+  {% if step == 'goal' %}
+  <script>
+    const otherDistance = document.getElementById('other-distance');
+    function updateOtherDistance() {
+      const selected = document.querySelector('input[name="distance"]:checked');
+      otherDistance.hidden = !selected || selected.value !== 'other';
+    }
+    document.querySelectorAll('input[name="distance"]').forEach(input => input.addEventListener('change', updateOtherDistance));
+    updateOtherDistance();
+  </script>
+  {% endif %}
 
 {% endblock %}

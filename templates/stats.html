@@ -104,6 +104,11 @@
           {% endfor %}
         </svg>
         <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.{% if chart.has_bands %} Zielony pas to zakres kilometrów z fazy strategii.{% endif %}</p>
+        <details class="chart-data"><summary>Dane wykresu kilometrów</summary>
+          <table><caption>Kilometry biegowe w kolejnych tygodniach</caption><thead><tr><th scope="col">Początek tygodnia</th><th scope="col">Dystans</th></tr></thead><tbody>
+            {% for bar in chart.bars %}<tr><th scope="row">{{ format_date(bar.date) }}{% if bar.is_current %} (w toku){% endif %}</th><td>{{ bar.km|num }} km</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
       {% else %}
         <div class="empty-art compact">
           <img class="asset" src="/assets/09_illustrations/running.png" width="92" height="62" alt="">
@@ -187,6 +192,7 @@
             </div>
             {% set chart = metric.chart %}
             {% if chart %}
+              <div>
               <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
                    aria-label="{{ metric.label }} dzień po dniu.">
                 {% for line in chart.gridlines %}
@@ -203,6 +209,12 @@
                   <text class="chart-axis" x="{{ label.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ label.text }}</text>
                 {% endfor %}
               </svg>
+              <details class="chart-data"><summary>Dane wykresu: {{ metric.label }}</summary>
+                <table><caption>{{ metric.label }} dzień po dniu</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Wartość{% if metric.unit %} ({{ metric.unit }}){% endif %}</th></tr></thead><tbody>
+                  {% for day, value in metric.points %}<tr><th scope="row">{{ format_date(day) }}</th><td>{% if value is not none %}{{ value|num }}{% else %}Brak pomiaru{% endif %}</td></tr>{% endfor %}
+                </tbody></table>
+              </details>
+              </div>
             {% else %}
               <p class="mid metric-empty">Za mało pomiarów, żeby narysować wykres.</p>
             {% endif %}

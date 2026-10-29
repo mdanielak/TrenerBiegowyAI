@@ -109,6 +109,16 @@ def _registry_workout(name="Bieg z zegarka"):
     }
 
 
+def test_plan_warns_about_upcoming_workouts_during_a_pause(monkeypatch):
+    from api.routers.plans import plan_page_context
+    monkeypatch.setattr('trainer.preferences.get_active_pause',
+                        lambda day: {'reason': 'Przerwa'} if day == '2026-09-29' else None)
+    context = plan_page_context(today=datetime(2026, 9, 28), plan_data=_plan())
+    assert [day['date'] for day in context['pause_conflicts']] == ['2026-09-29']
+    past = plan_page_context(today=datetime(2026, 10, 2), plan_data=_plan())
+    assert past['pause_conflicts'] == []
+
+
 def _execution():
     return {
         "happened": False,

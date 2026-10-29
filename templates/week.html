@@ -117,8 +117,11 @@
             <line class="chart-grid" x1="{{ chart.grid_start }}" y1="{{ line.y }}" x2="{{ chart.grid_end }}" y2="{{ line.y }}"/>
             <text class="chart-axis" x="{{ chart.axis_x }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
           {% endfor %}
-          {% if chart.area %}<path class="chart-area" d="{{ chart.area }}"/>{% endif %}
-          {% if chart.polyline %}<polyline class="chart-line" points="{{ chart.polyline }}"/>{% endif %}
+          {% for area in chart.areas %}<path class="chart-area" d="{{ area }}"/>{% endfor %}
+          {% for line in chart.lines %}<polyline class="chart-line" points="{{ line }}"/>{% endfor %}
+          {% if chart.lines is not defined %}
+            {% for point in chart.points %}{% if not loop.first %}{% set previous = chart.points[loop.index0 - 1] %}{% if previous.y is not none and point.y is not none %}<line class="chart-line" x1="{{ previous.x }}" y1="{{ previous.y }}" x2="{{ point.x }}" y2="{{ point.y }}"/>{% endif %}{% endif %}{% endfor %}
+          {% endif %}
           {% for point in chart.points %}
             {% if point.y is not none %}
               <circle class="chart-dot{% if point.is_today %} today{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="4.5"/>
@@ -127,6 +130,11 @@
           {% endfor %}
         </svg>
         <p class="tile-foot">Punkty są tylko dla dni, w których zegarek zmierzył nocne dane. Zmierzone dni: {{ chart.measured_days }} z 7.</p>
+        <details class="chart-data"><summary>Dane wykresu gotowości</summary>
+          <table><caption>Gotowość w tym tygodniu</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Gotowość</th></tr></thead><tbody>
+            {% for point in chart.points %}<tr><th scope="row">{{ point.label }}{% if point.is_today %} (dzisiaj){% endif %}</th><td>{% if point.score is not none %}{{ point.score|num }}{% if chart.max_score is defined %} z {{ chart.max_score|num }}{% endif %}{% else %}Brak pomiaru{% endif %}</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
       </section>
     {% endif %}
 
@@ -156,7 +164,10 @@
               <span class="pill {{ pill.variant }}">{{ pill.score|num }} z {{ pill.max_score|num }}</span>
             {% endif %}
 
-            <span class="day-block-meta">{{ day_status_labels.get(day.status, '—') }}</span>
+            {% if day.availability and day.availability.pause_reason %}
+              <span class="pill warn pause-label">Przerwa: {{ day.availability.pause_reason }}</span>
+              {% if day.workouts and day.temporal_state != 'past' %}<span class="day-block-meta">Trening zapisany przed przerwą — pomiń go.</span>{% endif %}
+            {% else %}<span class="day-block-meta">{{ day_status_labels.get(day.status, '—') }}</span>{% endif %}
 
             {% for workout in day.workouts %}
               <div class="day-block">

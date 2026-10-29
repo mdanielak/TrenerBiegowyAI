@@ -109,7 +109,7 @@ Ani „Ułóż plan”, ani „Wyślij do Garmina” niczego nie nadpisują bez 
 | Akcja | Nadpisz | Dodaj obok | Anuluj |
 | --- | --- | --- | --- |
 | Ułóż plan | obecne pliki tygodnia trafiają do `training-plans/{RRRR-MM}/archive/`, nowy plan obowiązuje | nowy plan zapisuje się jako druga wersja w `variants/`; porównasz ją dzień po dniu | nic się nie zmienia |
-| Wyślij do Garmina | kolidujące treningi są usuwane z Garmina (zostają w rejestrze i da się je odtworzyć), potem wysyłka | nowe treningi trafiają obok istniejących | nic nie jest wysyłane |
+| Wyślij do Garmina | najpierw wysyłka, potem usunięcie kolidujących treningów z Garmina (zostają w rejestrze; odtworzysz je poleceniem `python -m trainer workouts restore`) | nowe treningi trafiają obok istniejących | nic nie jest wysyłane |
 
 Treningi na zegarku rozpoznawane są z lokalnego rejestru, więc trening dodany ręcznie w Garmin Connect nie zostanie wykryty. W skryptach użyj `--on-conflict overwrite|add|cancel`.
 

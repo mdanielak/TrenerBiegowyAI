@@ -105,7 +105,10 @@ def compute_readiness_breakdown(data):
     weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0}
     available_max_score = sum(weights[name] for name in available_metrics)
     score = round(raw_score / available_max_score * max_score, 1) if available_max_score else 0
-    if score >= 8:
+    if not available_metrics:
+        # Zegarek nic nie zmierzył (np. noc na ładowarce): to brak danych, a nie zła ocena.
+        level = "no_data"
+    elif score >= 8:
         level = "ready"
     elif score >= 5:
         level = "ready_with_reserves"

@@ -166,14 +166,22 @@ def _readiness_chart(days) -> dict | None:
         for value in (0.0, max_score / 2, max_score)
     ]
 
-    polyline = area = None
-    if len(plotted) > 1:
-        polyline = " ".join(f"{point['x']},{point['y']}" for point in plotted)
-        area = (
-            f"M {plotted[0]['x']},{baseline} "
-            + " ".join(f"L {point['x']},{point['y']}" for point in plotted)
-            + f" L {plotted[-1]['x']},{baseline} Z"
-        )
+    segments, segment = [], []
+    for point in points:
+        if point["y"] is None:
+            if segment:
+                segments.append(segment)
+                segment = []
+        else:
+            segment.append(point)
+    if segment:
+        segments.append(segment)
+    lines = [" ".join(f"{point['x']},{point['y']}" for point in part)
+             for part in segments if len(part) > 1]
+    areas = [f"M {part[0]['x']},{baseline} "
+             + " ".join(f"L {point['x']},{point['y']}" for point in part)
+             + f" L {part[-1]['x']},{baseline} Z"
+             for part in segments if len(part) > 1]
 
     return {
         "width": _CHART_WIDTH,
@@ -184,8 +192,9 @@ def _readiness_chart(days) -> dict | None:
         "grid_start": _CHART_PAD_LEFT,
         "grid_end": _CHART_WIDTH - _CHART_PAD_RIGHT,
         "points": points,
-        "polyline": polyline,
-        "area": area,
+        "lines": lines,
+        "areas": areas,
+        "max_score": max_score,
         "gridlines": gridlines,
         "measured_days": len(plotted),
     }

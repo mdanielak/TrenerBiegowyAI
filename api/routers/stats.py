@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from api.views.stats import _stats_view
+from api.views.common import _format_date
 from services.data_extract import SnapshotStatus
 from services.stats import WEEK_OPTIONS, StatsReport, normalize_weeks
 
@@ -42,6 +43,7 @@ def get_stats_router(
             name="stats.html",
             context={
                 "stats": _stats_view(report),
+                "format_date": _format_date,
                 "week_options": WEEK_OPTIONS,
                 "is_stale": report.snapshot_status is SnapshotStatus.STALE,
                 "active_nav": "stats",

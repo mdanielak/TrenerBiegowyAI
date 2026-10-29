@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from services import plan_files
+from services.form_errors import FieldError
 
 PAUSE_TYPES = {
     "illness": "Choroba",
@@ -27,17 +28,17 @@ OVERLAP_DAYS = 21
 def validate_pause(*, pause_type, start, end, note, today: date) -> dict:
     """Sprawdź pola formularza; błąd to ValueError z komunikatem dla użytkownika."""
     if pause_type not in PAUSE_TYPES:
-        raise ValueError("Wybierz rodzaj przerwy.")
+        raise FieldError("Wybierz rodzaj przerwy.", "pause-type")
     try:
         start_day, end_day = date.fromisoformat(str(start)), date.fromisoformat(str(end))
     except ValueError:
-        raise ValueError("Podaj daty w formacie RRRR-MM-DD.") from None
+        raise FieldError("Podaj daty w formacie RRRR-MM-DD.", "pause-start") from None
     if end_day < start_day:
-        raise ValueError("Koniec przerwy nie może być przed jej początkiem.")
+        raise FieldError("Koniec przerwy nie może być przed jej początkiem.", "pause-end")
     if start_day < today - timedelta(days=PAST_DAYS):
-        raise ValueError(f"Przerwa może zaczynać się najwyżej {PAST_DAYS} dni wstecz.")
+        raise FieldError(f"Przerwa może zaczynać się najwyżej {PAST_DAYS} dni wstecz.", "pause-start")
     if end_day > today + timedelta(days=FUTURE_DAYS):
-        raise ValueError("Przerwa może trwać najwyżej rok naprzód.")
+        raise FieldError("Przerwa może trwać najwyżej rok naprzód.", "pause-end")
     note = " ".join(str(note or "").split())[:NOTE_LIMIT]
     label = PAUSE_TYPES[pause_type]
     return {"start_date": start_day.isoformat(), "end_date": end_day.isoformat(), "type": pause_type,

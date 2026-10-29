@@ -110,7 +110,7 @@ def get_garmin_setup_router(
         try:
             account = garmin_setup.complete_mfa(pending, code)
         except garmin_setup.GarminSetupError as error:
-            stage = "login" if "wygasło" in str(error) else "mfa"
+            stage = "login" if error.restart else "mfa"
             return render(request, stage=stage, email=email, pending=pending, error=str(error), status_code=400)
         return _imported(request, account)
 

@@ -76,8 +76,13 @@ def test_journal_adds_and_removes_a_pause(tmp_path):
     page = client.get(added.headers["location"]).text
     assert "Zapisano przerwę." in page and "Wyjazd: Zakopane" in page and "trwa teraz" in page
 
-    removed = client.post("/journal/pause/remove", data={"csrf_token": _csrf(client), "start": data["start"],
+    pending = client.post("/journal/pause/remove", data={"csrf_token": _csrf(client), "start": data["start"],
                                                         "end": data["end"]},
+                          headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert pending.status_code == 200 and "Usunąć tę przerwę?" in pending.text
+    assert len(preferences.list_planned_pauses()) == 1
+    removed = client.post("/journal/pause/remove", data={"csrf_token": _csrf(client), "start": data["start"],
+                                                        "end": data["end"], "confirm": "yes"},
                           headers={"Origin": "http://testserver"}, follow_redirects=False)
     assert removed.status_code == 303 and preferences.list_planned_pauses() == []
 

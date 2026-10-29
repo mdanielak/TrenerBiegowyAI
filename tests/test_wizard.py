@@ -73,6 +73,16 @@ def _post(client, token, **data):
                        follow_redirects=False)
 
 
+def test_wizard_validation_links_error_to_the_specific_field(tmp_path):
+    client = _client(tmp_path, {"name": "Ala"}, {}, {})
+    token = _token(client.get("/wizard").text)
+    response = _post(client, token, step="goal", action="next", distance="other", event_date=FUTURE)
+    assert response.status_code == 400
+    assert 'href="#distance_other"' in response.text
+    assert 'id="distance_other" aria-invalid="true" aria-describedby="wizard-field-error"' in response.text
+    assert 'id="wizard-field-error">Wpisz, jaki to dystans.' in response.text
+
+
 def test_first_run_redirects_home_to_the_wizard(tmp_path):
     client = _client(tmp_path, {"name": "Ala"}, {}, {})
 

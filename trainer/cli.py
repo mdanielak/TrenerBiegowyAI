@@ -40,6 +40,9 @@ def build_parser() -> argparse.ArgumentParser:
     workout_commands = workouts.add_subparsers(dest='workout_command', required=True)
     usage = workout_commands.add_parser('usage', help='odświeża użycie treningów')
     usage.add_argument('--delete', action='store_true', help='usuń nieużywane treningi')
+    restore = workout_commands.add_parser('restore', help='odtwarza trening usunięty z Garmina')
+    restore.add_argument('workout_id', type=positive_int, nargs='?', help='numer z listy; bez niego lista usuniętych')
+    restore.add_argument('--date', type=iso_date, help='nowa data RRRR-MM-DD (domyślnie oryginalna)')
     create = workout_commands.add_parser('create', help='tworzy trening')
     kinds = create.add_subparsers(dest='kind', required=True)
 
@@ -120,6 +123,9 @@ def dispatch(args: argparse.Namespace) -> int:
     if args.command == 'plan':
         from .commands.plan import main as plan
         return plan(week=args.week, show=args.show, push=args.push, on_conflict=args.on_conflict)
+    if args.workout_command == 'restore':
+        from .commands.workout_restore import main as restore
+        return restore(args.workout_id, args.date)
     if args.workout_command == 'usage':
         from .commands.workout_usage import main as usage
         return usage(delete=args.delete) or 0

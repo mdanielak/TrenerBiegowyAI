@@ -131,7 +131,8 @@ def get_dashboard_router(
                         _HRV_STATUSES.get(report.signals["hrv_status"], report.signals["hrv_status"])
                         if report.signals["hrv_status"] is not None else None
                     ),
-                    "readiness_score": _format_score(readiness_data["score"]),
+                    "readiness_score": ("—" if readiness_data["level"] == "no_data"
+                                        else _format_score(readiness_data["score"])),
                     "readiness_max_score": _format_score(readiness_data["max_score"]),
                     "readiness_label": _READINESS_LABELS.get(readiness_data["level"], readiness_data["level"]),
                     "csrf_token": token,
@@ -242,7 +243,8 @@ def get_dashboard_router(
                 "weekday": _WEEKDAYS[report.weekday_index],
                 "is_stale": report.snapshot_status is SnapshotStatus.STALE,
                 "level": readiness_data["level"],
-                "readiness_score": _format_score(readiness_data["score"]),
+                "readiness_score": ("—" if readiness_data["level"] == "no_data"
+                                    else _format_score(readiness_data["score"])),
                 "readiness_max_score": _format_score(readiness_data["max_score"]),
                 "readiness_label": _READINESS_LABELS.get(readiness_data["level"], readiness_data["level"]),
                 "metric_rows": _analysis_rows(readiness_data),

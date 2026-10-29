@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta
+from services.form_errors import FieldError
 
 DISTANCES = {
     "5k": "5 km",
@@ -85,35 +86,40 @@ def validate_step(step: str, values: dict, *, today: date) -> dict:
     if step == "goal":
         distance = values.get("distance")
         if distance not in DISTANCES:
-            raise ValueError("Wybierz cel.")
+            raise FieldError("Wybierz cel.", "distance")
         cleaned = {"distance": distance, "distance_other": _clean(values.get("distance_other")),
                    "event_name": _clean(values.get("event_name")), "event_date": ""}
         if distance == "other" and not cleaned["distance_other"]:
-            raise ValueError("Wpisz, jaki to dystans.")
+            raise FieldError("Wpisz, jaki to dystans.", "distance_other")
         raw_date = str(values.get("event_date") or "").strip()
         if raw_date:
             try:
                 event = date.fromisoformat(raw_date)
             except ValueError:
-                raise ValueError("Podaj datę w formacie RRRR-MM-DD.") from None
+                raise FieldError("Podaj datę w formacie RRRR-MM-DD.", "event_date") from None
             if event < today:
-                raise ValueError("Data wydarzenia nie może być w przeszłości.")
+                raise FieldError("Data wydarzenia nie może być w przeszłości.", "event_date")
             if event > today + timedelta(days=3 * 366):
-                raise ValueError("Data wydarzenia może być najwyżej 3 lata naprzód.")
+                raise FieldError("Data wydarzenia może być najwyżej 3 lata naprzód.", "event_date")
             cleaned["event_date"] = event.isoformat()
         elif distance != "fitness":
-            raise ValueError("Podaj datę wydarzenia — nawet orientacyjną, później ją zmienisz.")
+            raise FieldError("Podaj datę wydarzenia — nawet orientacyjną, później ją zmienisz.", "event_date")
         return cleaned
     if step == "times":
-        return {"target_time": normalize_time(values.get("target_time")),
-                "record": normalize_time(values.get("record"))}
+        cleaned = {}
+        for field in ("target_time", "record"):
+            try:
+                cleaned[field] = normalize_time(values.get(field))
+            except ValueError as error:
+                raise FieldError(str(error), field) from None
+        return cleaned
     if step == "week":
         try:
             frequency = int(values.get("frequency") or 0)
         except ValueError:
             frequency = 0
         if not 1 <= frequency <= 7:
-            raise ValueError("Liczba treningów w tygodniu to od 1 do 7.")
+            raise FieldError("Liczba treningów w tygodniu to od 1 do 7.", "frequency")
         cleaned = {"frequency": str(frequency)}
         chosen = 0
         for day in DAYS:
@@ -122,12 +128,12 @@ def validate_step(step: str, values: dict, *, today: date) -> dict:
             try:
                 low, high = int(values.get(f"min_{day}") or 0), int(values.get(f"max_{day}") or 0)
             except ValueError:
-                raise ValueError(f"Minuty dla dnia {DAY_LABELS[day]} muszą być liczbą.") from None
+                raise FieldError(f"Minuty dla dnia {DAY_LABELS[day]} muszą być liczbą.", f"min_{day}") from None
             if on and not (10 <= low <= high <= 300):
-                raise ValueError(f"Dla dnia {DAY_LABELS[day]} podaj minuty od 10 do 300, „od” nie większe niż „do”.")
+                raise FieldError(f"Dla dnia {DAY_LABELS[day]} podaj minuty od 10 do 300, „od” nie większe niż „do”.", f"min_{day}")
             cleaned.update({f"day_{day}": "on" if on else "", f"min_{day}": str(low), f"max_{day}": str(high)})
         if chosen < frequency:
-            raise ValueError(f"Zaznacz co najmniej {frequency} dni, w które możesz trenować.")
+            raise FieldError(f"Zaznacz co najmniej {frequency} dni, w które możesz trenować.", "day_mon")
         return cleaned
     return {}
 
