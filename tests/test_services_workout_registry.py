@@ -2,8 +2,7 @@
 """Tests for services/workout_registry.py — append-only Garmin workout log."""
 import sys
 import os
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -288,34 +287,7 @@ class TestCleanupCandidates:
         assert reg.cleanup_candidates(days=90) == []
 
 
-class TestStale:
-    def test_old_active_workout_is_stale(self):
-        old = (datetime.now() - timedelta(days=200)).replace(microsecond=0).isoformat()
-        reg.record_added("stary", None, 111)
-        # rewrite the timestamp to simulate age
-        events = reg.load_events()
-        events[0]['ts'] = old
-        with open(reg.REGISTRY_PATH, 'w', encoding='utf-8') as f:
-            for e in events:
-                f.write(json.dumps(e, default=str) + '\n')
-
-        assert [w['workout_id'] for w in reg.stale_workouts(days=90)] == [111]
-
-    def test_fresh_workout_is_not_stale(self):
-        reg.record_added("nowy", "2026-09-17", 111)
-        assert reg.stale_workouts(days=90) == []
-
-    def test_deleted_workout_is_never_stale(self):
-        reg.record_added("A", "2020-01-01", 111)
-        reg.record_deleted(111)
-        assert reg.stale_workouts(days=1) == []
-
-    def test_training_plan_workout_is_never_stale(self):
-        """Garmin hides plan workouts from the library — they are archive, not clutter."""
-        reg._append({'event': 'added', 'workout_id': 111, 'name': 'Bieg',
-                     'ts': '2020-01-01T00:00:00', 'atp_plan_id': 1655847204})
-        assert reg.stale_workouts(days=1) == []
-
+class TestPlanId:
     def test_plan_id_survives_replay(self):
         reg._append({'event': 'added', 'workout_id': 111, 'name': 'Bieg',
                      'ts': '2020-01-01T00:00:00', 'atp_plan_id': 1655847204})

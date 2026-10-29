@@ -21,9 +21,9 @@ def test_active_pause_wins_over_a_workout_planned_before_it():
                      execution=_execution(happened=False, activity_id=None))
     page = TestClient(create_app(report_provider=lambda: report)).get("/").text
 
-    assert "Dziś trwa przerwa: Choroba: przeziębienie" in page
-    assert "pomiń go" in page and 'href="/plan?week=2026-09-28">Ułóż plan ponownie</a>' in page
-    assert '<span class="pill warn">Przerwa</span>' in page and "Do zrobienia" not in page
+    assert "Przerwa: Choroba: przeziębienie" in page
+    assert "Nie wykonuj go ani nie wysyłaj na zegarek" in page and 'href="/plan?week=2026-09-28">Ułóż plan ponownie</a>' in page
+    assert '<span class="pill warn">Nie wykonuj</span>' in page and "Do zrobienia" not in page
     assert "Dziś bez treningu." in page
 
 
@@ -108,4 +108,5 @@ def test_today_shows_the_workout_profile_and_greys_it_out_during_a_pause():
 
     paused = TestClient(create_app(report_provider=lambda: _report(
         planned=planned, active_pause=PAUSE, execution=_execution(happened=False, activity_id=None)))).get("/").text
-    assert '<div class="workout-profile is-skipped">' in paused and "pause-banner" in paused
+    assert 'workout-profile' not in paused and 'pause-banner' in paused
+    assert 'Szczegóły treningu ukryto na czas przerwy.' in paused

@@ -116,6 +116,7 @@ def _signal_cards(report) -> list:
             "icon": meta["icon"],
             "asset": meta["asset"],
             "value": value,
+            "description": details.get(metric, {}).get("message"),
             "state_class": _SIGNAL_STATE_CLASSES.get(status, "none"),
             "state_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
             "trend": _trend_view(trends.get(trend_key)) if trend_key else None,

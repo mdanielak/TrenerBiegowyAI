@@ -9,7 +9,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from trainer.core import (
-    parse_timedelta, pace_str, check_hrv_alert, compute_readiness_score,
+    parse_timedelta, pace_str, check_hrv_alert,
     find_current_plan, week_bounds, plan_filename,
 )
 
@@ -103,40 +103,6 @@ class TestHrvAlert:
 
     def test_no_alert_on_empty_data(self):
         assert check_hrv_alert([]) is None
-
-
-# ======================================================================
-# compute_readiness_score
-# ======================================================================
-class TestReadinessScore:
-    def test_perfect_score(self):
-        health = {'rhr': 48, 'stress_avg': 25}
-        sleep = {'score': 92}
-        hrv = {'status': 'BALANCED', 'last_night': 78, 'baseline_low': 67, 'baseline_high': 82}
-        assert compute_readiness_score(health, sleep, hrv) == 10.0
-
-    def test_zero_score(self):
-        health = {'rhr': 56, 'stress_avg': 45}
-        sleep = {'score': 65}
-        hrv = {'status': 'LOW', 'last_night': 55, 'baseline_low': 67, 'baseline_high': 82}
-        assert compute_readiness_score(health, sleep, hrv) == 0
-
-    def test_partial_score(self):
-        health = {'rhr': 52, 'stress_avg': 35}
-        sleep = {'score': 80}
-        hrv = {'status': 'BALANCED', 'last_night': 65, 'baseline_low': 67, 'baseline_high': 82}
-        score = compute_readiness_score(health, sleep, hrv)
-        assert 0 < score < 10
-
-    def test_score_wrapper_matches_breakdown(self):
-        from services.readiness import compute_readiness_breakdown
-        health = {'rhr': None, 'stress_avg': 25}
-        sleep = {'score': 92}
-        hrv = {'status': 'BALANCED', 'last_night': 78, 'baseline_low': 67, 'baseline_high': 82}
-        expected = compute_readiness_breakdown({
-            'daily_health': [health], 'sleep': [sleep], 'hrv': [hrv],
-        })['score']
-        assert compute_readiness_score(health, sleep, hrv) == expected
 
 
 # ======================================================================

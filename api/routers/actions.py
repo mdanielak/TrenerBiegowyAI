@@ -464,7 +464,7 @@ def get_actions_router(
             raise HTTPException(404, "Nie znaleziono zadania.")
         labels = {
             "accepted": "Zadanie przyjęte, za chwilę się zacznie.",
-            "running": "Trwa synchronizacja danych. Strona odświeży się sama.",
+            "running": "Trwa synchronizacja danych. Postęp aktualizuje się automatycznie.",
             "succeeded": "Gotowe. Dane są zaktualizowane.",
             "failed": "Nie udało się. Spróbuj ponownie.",
             "unknown": "Nie wiemy, czy operacja się dokończyła. Sprawdź dane, zanim spróbujesz ponownie.",

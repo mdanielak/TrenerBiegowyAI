@@ -102,8 +102,8 @@ def test_atomic_failure_preserves_old_file_and_cleans_temporary(tmp_path, monkey
     path.write_text('AI_API_KEY=old\n')
     def fail(*args):
         raise OSError('failure')
-    monkeypatch.setattr('trainer.ai_settings.os.replace', fail)
+    monkeypatch.setattr('trainer.files.os.replace', fail)
     with pytest.raises(OSError):
         save(path, api_key='new')
     assert path.read_text() == 'AI_API_KEY=old\n'
-    assert list(tmp_path.glob('.env.tmp-*')) == []
+    assert list(tmp_path.glob('*.tmp')) == []

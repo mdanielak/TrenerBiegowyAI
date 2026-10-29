@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 """Testy czystej logiki dopasowywania aktywności."""
 
-from services.activity_matching import match_activity_for_workout
-from services.activity_matching import assign_activities
+from services.activity_matching import assign_activities, find_activity_for_workout
+
+
+def match_activity_for_workout(*, workout, activities):
+    """Identyfikator dopasowanej aktywności i metoda — z funkcji, której używa aplikacja."""
+    activity, method = find_activity_for_workout(workout=workout, activities=activities)
+    return (activity or {}).get('activity_id'), method
 
 
 def _workout(**overrides):

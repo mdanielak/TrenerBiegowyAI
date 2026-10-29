@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
+
+from trainer.files import write_atomic
 from collections.abc import Mapping
 
 from .config import SETTINGS
@@ -28,20 +28,7 @@ def save_profile(data) -> None:
     """Atomowo zapisz profil jako UTF-8, bez zmiany kolejności kluczy."""
     if not isinstance(data, Mapping):
         raise ValueError("Profil biegacza musi być słownikiem.")
-    path = SETTINGS.runner_profile_local
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(dict(data), ensure_ascii=False, indent=2) + "\n"
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(payload)
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(SETTINGS.runner_profile_local, json.dumps(dict(data), ensure_ascii=False, indent=2) + "\n")
 
 
 def update_profile(**fields) -> dict:

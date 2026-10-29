@@ -83,3 +83,23 @@ def test_base_template_survives_a_missing_badge_helper():
     finally:
         env.globals["sidebar_ai_badge"] = helper
     assert "TrenerBiegowy" in html and "ai-badge" not in html
+
+
+def test_accessible_navigation_and_interface_script(client):
+    page = client.get('/').text
+    assert 'href="#main-content"' in page
+    assert 'id="main-content" tabindex="-1"' in page
+    assert 'aria-controls="primary-nav" aria-expanded="false"' in page
+    assert client.get('/static/js/interface.js').status_code == 200
+
+
+def test_goal_shows_profile_without_strategy(tmp_path):
+    from api.main import create_app
+    from services.goal import GoalReport
+    app = create_app(goal_report_provider=lambda: GoalReport(status='strategy_missing'),
+                     profile_provider=lambda: {'target_race': 'Bieg testowy 15 km', 'target_date': '2027-05-09'})
+    with TestClient(app) as browser:
+        page = browser.get('/goal').text
+    assert 'Bieg testowy 15 km' in page
+    assert '2027-05-09' in page
+    assert 'Możesz korzystać z planowania bez strategii' in page

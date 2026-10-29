@@ -8,10 +8,10 @@ Pliki leżą w podkatalogu magazynu zadań, więc nie mylą się z rekordami zad
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+from trainer.files import write_atomic
 
 STAGES = (
     ("garmin", "Łączenie z kontem Garmin"),
@@ -46,18 +46,7 @@ def _read_json(path: Path) -> dict:
 
 
 def _write_json(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(data, ensure_ascii=False))
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(path, json.dumps(data, ensure_ascii=False))
 
 
 class SyncProgress:

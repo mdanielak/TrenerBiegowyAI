@@ -329,7 +329,9 @@ def test_job_page_states_and_refresh_policy(tmp_path):
         unknown = store.mark_abandoned_running_as_unknown()[0]
         unknown_response = client.get(f"/jobs/{unknown.id}")
     assert "Zadanie przyjęte, za chwilę się zacznie." in accepted.text and "w kolejce" in accepted.text
-    assert 'http-equiv="refresh" content="5"' in accepted.text and 'http-equiv="refresh" content="5"' in running_response.text
+    assert 'data-poll="true"' in accepted.text and 'data-poll="true"' in running_response.text
+    assert 'http-equiv="refresh"' not in accepted.text
+    assert 'data-poll="false"' in succeeded_response.text
     assert "Gotowe. Dane są zaktualizowane." in succeeded_response.text
     assert 'http-equiv="refresh"' not in succeeded_response.text
     assert "Nie udało się. Spróbuj ponownie." in failed_response.text

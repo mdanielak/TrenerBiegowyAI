@@ -1,14 +1,13 @@
 """Konfiguracja AI w .env; zmiany obowiązują po restarcie procesu."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import re
-import tempfile
 from urllib.parse import urlsplit
 
 from trainer import config
 from trainer.env_file import read_env_file
+from trainer.files import write_atomic
 from services.form_errors import FieldError
 
 ENV_PATH = config.PROJECT_ROOT / ".env"
@@ -125,18 +124,7 @@ def save_ai_settings(path: Path, *, base_url: str, model: str, api_key: str,
         else:
             output.append(line)
     output.extend(assignment(key) for key in values if key not in seen)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # mkstemp creates a private (0600 on POSIX) file in the same filesystem.
-    fd, temporary = tempfile.mkstemp(prefix=".env.tmp-", dir=path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write("\n".join(output) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    write_atomic(path, "\n".join(output) + "\n")
 
 
 def apply_to_running_app(path: Path) -> None:

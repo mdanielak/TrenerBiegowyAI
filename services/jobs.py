@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import secrets
-import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from trainer.files import write_atomic
 
 
 _STATUSES = frozenset({"accepted", "running", "succeeded", "failed", "unknown"})
@@ -221,22 +221,7 @@ class JobStore:
 
     def _write(self, record: JobRecord) -> None:
         """Atomowo zapisz rekord; awaria zapisu zawsze trafia do wywołującego."""
-        path = self._path_for_id(record.id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(asdict(record), ensure_ascii=False, indent=2) + "\n"
-        descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True)
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-                handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, path)
-        except BaseException:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
-            raise
+        write_atomic(self._path_for_id(record.id), json.dumps(asdict(record), ensure_ascii=False, indent=2) + "\n")
 
     def _read(self, path: Path) -> JobRecord:
         data = json.loads(path.read_text(encoding="utf-8"))

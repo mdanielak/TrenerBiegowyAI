@@ -293,12 +293,3 @@ def compare_plan_vs_actual(plan, activities, today=None):
         })
 
     return results
-
-
-def get_today_workout(plan, today=None):
-    """Get today's planned workout from a training plan.
-
-    Returns workout dict or None (rest day / no plan).
-    """
-    from services.plan_files import get_today_workout_from_plan
-    return get_today_workout_from_plan(plan, today)

@@ -9,8 +9,8 @@ dla tej samej pary host + model się udało i nie jest starsze niż STALE_DAYS.
 from __future__ import annotations
 
 import json
-import os
-import tempfile
+
+from trainer.files import write_atomic
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -57,18 +57,7 @@ def record_test(*, ok: bool, base_url, model, error=None, source="test", path=No
         "source": source,
         "error": None if ok else " ".join(str(error or "").split())[:ERROR_LIMIT] or None,
     }
-    target.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=".ai_status.", suffix=".tmp", dir=target.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(record, handle, ensure_ascii=False)
-        os.replace(temporary, target)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(target, json.dumps(record, ensure_ascii=False))
     return record
 
 

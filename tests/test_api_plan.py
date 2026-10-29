@@ -231,13 +231,11 @@ def test_plan_page_lists_notes_only_for_days_that_have_them(tmp_path):
         response = client.get("/plan")
 
     assert response.status_code == 200
-    assert "Uwagi do planu" in response.text
-    notes_section = response.text.split("Uwagi do planu", 1)[1]
-    assert notes_section.count('class="list-item"') == 3
-    assert "Spokojne tempo, czuj rozmiar." in notes_section
-    assert "Zostaw siły na weekend." in notes_section
-    assert "Przerwa z powodu bólu kolana." in notes_section
-    assert "1 października 2026" not in notes_section
+    assert response.text.count('class="day-details"') == 3
+    assert "Spokojne tempo, czuj rozmiar." in response.text
+    assert "Zostaw siły na weekend." in response.text
+    assert "Przerwa z powodu bólu kolana." in response.text
+    assert "Uwagi do planu" not in response.text
 
 
 def test_plan_page_navigates_between_weeks_relative_to_the_displayed_one(tmp_path):

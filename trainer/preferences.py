@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import copy
 import json
-import os
-import tempfile
+
+from trainer.files import write_atomic
 from datetime import date
 from pathlib import Path
 
@@ -61,20 +61,7 @@ def save_preferences(data) -> None:
     """Atomowo zapisz preferencje, zachowując nieznane pola przekazane przez klienta."""
     if not isinstance(data, dict):
         raise ValueError("Preferencje treningowe muszą być słownikiem.")
-    path = _preferences_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(_normalize(data), ensure_ascii=False, indent=2) + "\n"
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(payload)
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(_preferences_path(), json.dumps(_normalize(data), ensure_ascii=False, indent=2) + "\n")
 
 
 def get_weekly_availability(day: str | None = None) -> dict:

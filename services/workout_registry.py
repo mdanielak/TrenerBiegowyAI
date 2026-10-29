@@ -360,21 +360,6 @@ def _entry_date(entry):
     return (entry.get('date') or (entry.get('added_at') or '')[:10]) or None
 
 
-def stale_workouts(days=90, today=None):
-    """Active workouts that entered the *visible* library more than `days` ago.
-
-    Candidates for cleanup. Workouts that belong to a Garmin adaptive training
-    plan (``atp_plan_id`` set) are excluded: Garmin does not list them in the
-    workout library at all, so they are archive, not clutter, and deleting them
-    would destroy the record of past plans.
-    """
-    if today is None:
-        today = datetime.now()
-    cutoff = (today - timedelta(days=days)).strftime('%Y-%m-%d')
-    return [w for w in list_workouts('active')
-            if not w.get('atp_plan_id') and (_entry_date(w) or '9999') < cutoff]
-
-
 def restore_entry(workout_id):
     """Return the full registry entry needed to re-upload a deleted workout.
 

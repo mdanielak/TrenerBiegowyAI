@@ -23,7 +23,8 @@ def test_only_this_computer_may_use_the_app(host, status):
     assert client.get("/health", headers={"host": host}).status_code == status
 
 
-def test_a_typo_in_the_mfa_code_can_be_corrected():
+def test_a_typo_in_the_mfa_code_can_be_corrected(monkeypatch):
+    monkeypatch.setattr("trainer.garmin_auth.ensure_garmindb_config", lambda email: True)
     _, pending = garmin_setup.start_login("ala@example.com", PASSWORD, garmin_factory=_factory(mfa=True))
     with pytest.raises(garmin_setup.GarminSetupError) as typo:
         garmin_setup.complete_mfa(pending, "12345a")

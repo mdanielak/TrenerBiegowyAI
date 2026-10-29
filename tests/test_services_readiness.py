@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.readiness import (
     compare_plan_vs_actual,
     compute_readiness_breakdown,
-    get_today_workout,
     readiness_for_day,
     signal_trends,
 )
@@ -262,30 +261,3 @@ class TestComparePlanVsActual:
         assert results[0]['is_today'] is False
 
 
-class TestGetTodayWorkout:
-    def test_found(self):
-        plan = {'workouts': [
-            {'date': '2026-09-16', 'name': 'Easy', 'type': 'easy'},
-        ]}
-        result = get_today_workout(plan, datetime(2026, 9, 16))
-        assert result is not None
-        assert result['name'] == 'Easy'
-
-    def test_not_found(self):
-        plan = {'workouts': [
-            {'date': '2026-09-15', 'name': 'Easy', 'type': 'easy'},
-        ]}
-        result = get_today_workout(plan, datetime(2026, 9, 16))
-        assert result is None
-
-    def test_empty_plan(self):
-        result = get_today_workout({'workouts': []}, datetime(2026, 9, 16))
-        assert result is None
-
-    def test_rest_day_returns_workout(self):
-        plan = {'workouts': [
-            {'date': '2026-09-16', 'name': 'Rest', 'type': 'rest'},
-        ]}
-        result = get_today_workout(plan, datetime(2026, 9, 16))
-        assert result is not None
-        assert result['type'] == 'rest'

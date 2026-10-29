@@ -8,13 +8,12 @@ Nie wykonuje on I/O poza zapisem planu i nie zna providera AI.
 from __future__ import annotations
 
 import json
-import os
 import re
-import tempfile
 from datetime import datetime, timedelta, timezone
 
 from services import plan_files
 from services.readiness import readiness_for_day
+from trainer.files import write_atomic
 from services.plan_files import week_bounds
 
 
@@ -516,22 +515,7 @@ def save_plan(plan, *, plans_dir=None):
     """Zapisz plan atomowo jako JSON i zapisz jego bliźniaczy CSV."""
     monday = datetime.strptime(plan["start_date"], "%Y-%m-%d")
     path = plan_files.plan_path(monday, plans_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(plan, ensure_ascii=False, indent=2) + "\n"
-    descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(path, json.dumps(plan, ensure_ascii=False, indent=2) + "\n")
     plan_files.write_plan_csv(plan, path.with_suffix(".csv"))
     return path
 

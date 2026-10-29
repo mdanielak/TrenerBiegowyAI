@@ -123,10 +123,10 @@ class TestSaveLoadJson:
         original = {"timestamp": "2026-09-16T10:00:00", "old": True}
         path.write_text(json.dumps(original), encoding="utf-8")
 
-        def fail_dump(*args, **kwargs):
+        def fail_replace(*args, **kwargs):
             raise OSError("simulated write failure")
 
-        monkeypatch.setattr("services.data_extract.json.dump", fail_dump)
+        monkeypatch.setattr("trainer.files.os.replace", fail_replace)
 
         with pytest.raises(OSError, match="simulated write failure"):
             save_json({"new": True}, path)

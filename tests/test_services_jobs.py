@@ -105,6 +105,6 @@ def test_write_failure_is_propagated(tmp_path, monkeypatch):
     def fail_replace(source, destination):
         raise OSError("disk full")
 
-    monkeypatch.setattr("services.jobs.os.replace", fail_replace)
+    monkeypatch.setattr("trainer.files.os.replace", fail_replace)
     with pytest.raises(OSError, match="disk full"):
         store.submit("sync", {}, now=at(8))

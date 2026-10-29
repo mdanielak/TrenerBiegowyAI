@@ -260,7 +260,7 @@ def create_app(
         )
     )
     app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
-    app.include_router(get_goal_router(goal_report_provider=goal_report_provider, templates=_TEMPLATES))
+    app.include_router(get_goal_router(goal_report_provider=goal_report_provider, templates=_TEMPLATES, profile_provider=profile_provider))
     from trainer import preferences as _preferences, profile_store as _profile_store
 
     from trainer import garmin_auth as _garmin_auth

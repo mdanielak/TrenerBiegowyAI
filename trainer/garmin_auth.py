@@ -13,6 +13,7 @@ from garminconnect import (
 )
 
 from .config import GARMIN_EMAIL
+from .files import write_atomic
 
 
 class GarminAuthError(RuntimeError):
@@ -117,8 +118,7 @@ def ensure_garmindb_config(email):
     config = json.loads(example_path.read_text(encoding="utf-8"))
     config["credentials"]["user"] = email
     config["credentials"]["password"] = ""
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    write_atomic(config_path, json.dumps(config, indent=2) + "\n")
     return True
 
 
@@ -176,7 +176,7 @@ def disconnect(*, env_path=None) -> list[str]:
     credentials = (config or {}).get("credentials")
     if isinstance(credentials, dict) and any(credentials.get(key) for key in ("user", "password")):
         credentials.update(user="", password="")
-        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        write_atomic(config_path, json.dumps(config, indent=2) + "\n")
         removed.append("dane logowania w konfiguracji GarminDB")
     if env_path is not None:
         try:
@@ -186,6 +186,6 @@ def disconnect(*, env_path=None) -> list[str]:
         kept = [line for line in lines
                 if line.split("=", 1)[0].removeprefix("export ").strip() not in ("GARMIN_EMAIL", "GARMIN_PASSWORD")]
         if len(kept) != len(lines):
-            Path(env_path).write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+            write_atomic(env_path, "\n".join(kept) + ("\n" if kept else ""))
             removed.append("e-mail konta w pliku .env")
     return removed

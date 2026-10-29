@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import subprocess
-import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -25,6 +24,7 @@ from trainer.config import (
     GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, SNAPSHOT_TTL_SECONDS,
     GARMIN_EMAIL,
 )
+from trainer.files import write_atomic
 from trainer.garmin_auth import ensure_garmindb_config, ensure_token
 
 # Okna danych w snapshocie liczone od najnowszego rekordu w bazie (nie od dziś),
@@ -363,22 +363,7 @@ def extract():
 def save_json(data, path=None):
     """Atomically save extracted data to JSON file."""
     path = path or DATA_LATEST
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, text=True
-    )
-    try:
-        with os.fdopen(descriptor, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
+    write_atomic(path, json.dumps(data, indent=2, ensure_ascii=False))
     print(f"Data saved to {path}")
 
 

@@ -48,15 +48,6 @@ def find_activity_for_workout(*, workout, activities):
     return best[2], 'heuristic'
 
 
-def match_activity_for_workout(*, workout, activities):
-    """Zwróć ``(activity_id albo None, match_method)`` dla treningu."""
-    activity, match_method = find_activity_for_workout(
-        workout=workout,
-        activities=activities,
-    )
-    return activity.get('activity_id') if activity else None, match_method
-
-
 def assign_activities(*, workouts, activities):
     """Przypisz biegi do treningów bez wielokrotnego zaliczania aktywności.
 

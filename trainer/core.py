@@ -47,16 +47,6 @@ def check_hrv_alert(hrv_data):
     return None
 
 
-def compute_readiness_score(latest_health, latest_sleep, latest_hrv):
-    """Compatibility wrapper around the canonical readiness implementation."""
-    from services.readiness import compute_readiness_breakdown
-    return compute_readiness_breakdown({
-        'daily_health': [latest_health or {}],
-        'sleep': [latest_sleep or {}],
-        'hrv': [latest_hrv or {}],
-    })['score']
-
-
 def week_bounds(day):
     """Compatibility wrapper for services.plan_files.week_bounds."""
     from services.plan_files import week_bounds as canonical_week_bounds
