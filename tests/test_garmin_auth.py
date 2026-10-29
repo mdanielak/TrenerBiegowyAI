@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import sys
 import types
 
@@ -157,6 +157,7 @@ def test_garmindb_downloads_only_the_history_the_app_uses(tmp_path, monkeypatch)
 
     # Istniejąca konfiguracja (jak u osoby testującej): przykład z 2019 r. przestawiony, własna data zostaje.
     monkeypatch.setattr(garmin_auth, "token_path", lambda: tmp_path / "garmin_tokens.json")
+    monkeypatch.setattr(garmin_auth, "_first_day_or_none", lambda: None)
     config = tmp_path / "GarminConnectConfig.json"
     config.write_text(json.dumps({"credentials": {"user": "ala@example.com", "password": ""},
                                   "data": {"monitoring_start_date": "12/31/2019", "sleep_start_date": "01/01/2024"}}),
@@ -166,3 +167,37 @@ def test_garmindb_downloads_only_the_history_the_app_uses(tmp_path, monkeypatch)
     assert saved["data"]["monitoring_start_date"] != "12/31/2019"
     assert saved["data"]["sleep_start_date"] == "01/01/2024"
     assert saved["credentials"] == {"user": "ala@example.com", "password": ""}
+
+
+class _Account:
+    def __init__(self, registered=(), activities=(), fail=False):
+        self.registered, self.activities, self.fail = registered, activities, fail
+
+    def get_devices(self):
+        if self.fail:
+            raise ConnectionError("offline")
+        return [{"registeredDate": int(datetime(*day).timestamp() * 1000)} for day in self.registered]
+
+    def get_activities_by_date(self, start, end):
+        return [{"startTimeLocal": f"{day} 07:00:00"} for day in self.activities]
+
+
+def test_account_start_is_the_earlier_of_watch_registration_and_first_activity():
+    today = date(2026, 10, 29)
+    # Zegarek od 6 tygodni, bez starszej historii (osoba testująca).
+    assert garmin_auth.account_start_date(_Account(registered=[(2026, 9, 17)]), today) == date(2026, 9, 17)
+    # Nowy zegarek, ale biegi ze starego w oknie: historia nie może zostać ucięta.
+    assert garmin_auth.account_start_date(
+        _Account(registered=[(2026, 10, 1)], activities=["2026-07-03"]), today) == date(2026, 7, 3)
+    assert garmin_auth.account_start_date(_Account(fail=True), today) is None
+    assert garmin_auth.account_start_date(_Account(), today) is None
+
+
+def test_download_starts_at_the_first_data_but_never_before_the_window():
+    today = date(2026, 10, 29)
+    recent = {"data": {"monitoring_start_date": "12/31/2019"}}
+    garmin_auth._recent_history(recent, today=today, first_day=date(2026, 9, 17))
+    assert recent["data"]["monitoring_start_date"] == "09/17/2026"
+    old = {"data": {"monitoring_start_date": "12/31/2019"}}
+    garmin_auth._recent_history(old, today=today, first_day=date(2024, 11, 26))  # zegarek starszy niż okno
+    assert old["data"]["monitoring_start_date"] == (today - timedelta(days=120)).strftime("%m/%d/%Y")

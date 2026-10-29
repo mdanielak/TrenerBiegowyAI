@@ -1,7 +1,7 @@
 """Wspólne uwierzytelnianie Garmin Connect i przygotowanie GarminDB."""
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import os
 import subprocess
 from pathlib import Path
@@ -116,16 +116,51 @@ _EXAMPLE_START = "12/31/2019"
 _START_KEYS = ("weight_start_date", "sleep_start_date", "rhr_start_date", "hrv_start_date", "monitoring_start_date")
 
 
-def _recent_history(config, today=None) -> bool:
-    """Przestaw nietknięte daty przykładu na okno aplikacji; własne daty zostają."""
-    start = ((today or date.today()) - timedelta(days=DOWNLOAD_HISTORY_DAYS)).strftime("%m/%d/%Y")
+def account_start_date(api, today=None):
+    """Pierwszy dzień z danymi z zegarka w oknie aplikacji albo None, gdy nie da się ustalić.
+
+    Wcześniejsza z dat: rejestracji urządzeń i najstarszej aktywności z okna. Sama data
+    rejestracji nowego zegarka ucięłaby historię zapisaną jeszcze starym.
+    """
+    today = today or date.today()
+    window_start = today - timedelta(days=DOWNLOAD_HISTORY_DAYS)
+    days = []
+    try:
+        for device in api.get_devices() or []:
+            registered = device.get("registeredDate")
+            if isinstance(registered, (int, float)) and registered > 0:
+                days.append(datetime.fromtimestamp(registered / 1000).date())
+        for activity in api.get_activities_by_date(window_start.isoformat(), today.isoformat()) or []:
+            try:
+                days.append(date.fromisoformat(str(activity.get("startTimeLocal") or "")[:10]))
+            except ValueError:
+                continue
+    except Exception:  # noqa: BLE001 - bez tej wiedzy pobieramy po prostu całe okno
+        _logger.warning("Could not read when the Garmin account started; downloading the full window")
+        return None
+    return min(days) if days else None
+
+
+def _recent_history(config, today=None, first_day=None) -> bool:
+    """Przestaw nietknięte daty przykładu na okno aplikacji, nie wcześniej niż pierwsze dane; własne daty zostają."""
+    start_day = (today or date.today()) - timedelta(days=DOWNLOAD_HISTORY_DAYS)
+    if first_day is not None and first_day > start_day:
+        start_day = first_day
     data = config.setdefault("data", {})
     changed = False
     for key in _START_KEYS:
         if data.get(key, _EXAMPLE_START) == _EXAMPLE_START:
-            data[key] = start
+            data[key] = start_day.strftime("%m/%d/%Y")
             changed = True
     return changed
+
+
+def _first_day_or_none():
+    """Zapytaj konto o pierwsze dane; bez działającego tokenu po prostu nie wiemy."""
+    try:
+        return account_start_date(ensure_token())
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def ensure_garmindb_config(email):
@@ -136,7 +171,10 @@ def ensure_garmindb_config(email):
             config = json.loads(config_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return False
-        if _recent_history(config):
+        data = config.get("data") or {}
+        # Pytamy konto tylko raz: po przestawieniu dat przykładu nic tu już nie pasuje.
+        if any(data.get(key, _EXAMPLE_START) == _EXAMPLE_START for key in _START_KEYS):
+            _recent_history(config, first_day=_first_day_or_none())
             write_atomic(config_path, json.dumps(config, indent=2) + "\n")
         return False
     import garmindb
@@ -144,7 +182,7 @@ def ensure_garmindb_config(email):
     config = json.loads(example_path.read_text(encoding="utf-8"))
     config["credentials"]["user"] = email
     config["credentials"]["password"] = ""
-    _recent_history(config)
+    _recent_history(config, first_day=_first_day_or_none())
     write_atomic(config_path, json.dumps(config, indent=2) + "\n")
     return True
 
