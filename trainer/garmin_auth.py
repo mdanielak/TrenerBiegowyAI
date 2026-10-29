@@ -1,5 +1,8 @@
 """Wspólne uwierzytelnianie Garmin Connect i przygotowanie GarminDB."""
 import json
+import logging
+import os
+import subprocess
 from pathlib import Path
 
 from garminconnect import (
@@ -75,6 +78,7 @@ def ensure_token(email=None, password=None, prompt_mfa=None):
         try:
             api = Garmin()
             api.login(str(path))
+            secure_token_dir()
             return api
         except (GarminConnectAuthenticationError, FileNotFoundError, ValueError):
             # Tylko nieprawidłowy/wygasły token uzasadnia logowanie hasłem.
@@ -97,6 +101,7 @@ def ensure_token(email=None, password=None, prompt_mfa=None):
         # Biblioteka sama obsługuje strategie SSO, w tym portal.
         # Nie uruchamiaj całego łańcucha ponownie po błędzie.
         api.login(str(path))
+        secure_token_dir()
         return api
     except Exception as exc:
         raise _auth_error(exc) from exc
@@ -115,3 +120,72 @@ def ensure_garmindb_config(email):
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     return True
+
+
+_logger = logging.getLogger(__name__)
+_SECURED = set()
+
+
+# Szerokie grupy, przez które token mógłby czytać ktoś inny na tym samym komputerze:
+# Wszyscy (Everyone), Użytkownicy (Users), Uwierzytelnieni użytkownicy.
+_BROAD_GROUPS = ("*S-1-1-0", "*S-1-5-32-545", "*S-1-5-11")
+
+
+def secure_token_dir(directory=None) -> bool:
+    """Na Windows: odbierz dostęp do katalogu tokenu innym użytkownikom komputera.
+
+    Dziedziczone uprawnienia zostają zamienione na jawne, a usuwane są tylko szerokie
+    grupy. Właściciel, administratorzy i SYSTEM zostają — celowo nie zostawiamy
+    „tylko bieżącego użytkownika”, bo to potrafi odciąć dostęp procesom w piaskownicy,
+    usłudze czy kopii zapasowej. Pliki tworzone później (odnowiony token) dziedziczą
+    to samo. Na Linux/macOS biblioteka sama ustawia 600/700. Błąd tylko trafia do logu.
+    """
+    if os.name != "nt":
+        return False
+    target = Path(directory or token_path().parent)
+    if str(target) in _SECURED or not target.is_dir():
+        return False
+    try:
+        subprocess.run(["icacls", str(target), "/inheritance:d", "/T", "/Q"],
+                       check=True, capture_output=True, timeout=30)
+        subprocess.run(["icacls", str(target), "/remove:g", *_BROAD_GROUPS, "/T", "/Q"],
+                       check=True, capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as exc:
+        _logger.warning("Could not restrict access to the Garmin token directory: %s", type(exc).__name__)
+        return False
+    _SECURED.add(str(target))
+    return True
+
+
+def disconnect(*, env_path=None) -> list[str]:
+    """Odłącz konto: usuń token, wyczyść dane logowania GarminDB i e-mail z .env.
+
+    Dane treningowe (bazy GarminDB, snapshot, plany) zostają. Zwraca listę tego,
+    co faktycznie usunięto, do pokazania użytkownikowi.
+    """
+    removed = []
+    path = token_path()
+    if path.exists():
+        path.unlink()
+        removed.append("token Garmina")
+    config_path = path.parent / "GarminConnectConfig.json"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        config = None
+    credentials = (config or {}).get("credentials")
+    if isinstance(credentials, dict) and any(credentials.get(key) for key in ("user", "password")):
+        credentials.update(user="", password="")
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        removed.append("dane logowania w konfiguracji GarminDB")
+    if env_path is not None:
+        try:
+            lines = Path(env_path).read_text(encoding="utf-8-sig").splitlines()
+        except FileNotFoundError:
+            lines = []
+        kept = [line for line in lines
+                if line.split("=", 1)[0].removeprefix("export ").strip() not in ("GARMIN_EMAIL", "GARMIN_PASSWORD")]
+        if len(kept) != len(lines):
+            Path(env_path).write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+            removed.append("e-mail konta w pliku .env")
+    return removed

@@ -14,6 +14,13 @@
 
   <div class="stack">
 
+    {% if request.query_params.get('disconnected') == '1' %}
+      <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body">
+        <p class="banner-title">Zegarek odłączony.</p>
+        <p class="mid">{% if removed %}Usunięto: {{ removed|join(', ') }}.{% else %}Na tym komputerze nie było już danych logowania.{% endif %} Twoje treningi i pomiary zostały na komputerze. Żeby znów pobierać dane, zaloguj się poniżej.</p>
+      </div></div>
+    {% endif %}
+
     {% if error %}
       <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
     {% endif %}
@@ -34,8 +41,33 @@
             <span class="tile-foot">Logowanie może potrwać do 2 minut — nie zamykaj strony.</span>
           </div>
         </form>
-        <p class="mid">Hasło służy tylko do jednorazowego logowania i nie jest nigdzie zapisywane. Na tym komputerze zostaje token Garmina, który odnawia się sam — tak samo jak w aplikacji Garmin Connect. Strona działa wyłącznie na tym komputerze.</p>
       </section>
+
+    <section class="card security-card">
+      <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></h2></div>
+      <ul class="security-list">
+        <li>
+          <strong class="point">Hasło wpisujesz tylko raz.</strong>
+          Jest w pamięci wyłącznie na czas logowania — nie trafia na dysk, do logów ani do pliku <code>.env</code>.
+        </li>
+        <li>
+          <strong class="point">Potem działa token, nie hasło.</strong>
+          Na tym komputerze zostaje token Garmina (<code>{{ token_location }}</code>), który odnawia się sam — podobnie jak po logowaniu przez OAuth. Kolejne synchronizacje nie potrzebują już hasła. Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
+        </li>
+        <li>
+          <strong class="point">Wszystko zostaje u Ciebie.</strong>
+          Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
+        </li>
+        <li>
+          <strong class="point">Dlaczego w ogóle hasło?</strong>
+          Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+        </li>
+        <li>
+          <strong class="point">Włącz weryfikację dwuetapową.</strong>
+          W ustawieniach konta Garmin Connect włącz kod weryfikacyjny przy logowaniu — wtedy samo hasło nie wystarczy, żeby ktoś wszedł na Twoje konto. Ta strona obsługuje taki kod.
+        </li>
+      </ul>
+    </section>
 
     {% elif stage == 'mfa' %}
       <section class="card">
@@ -78,6 +110,54 @@
         {% endif %}
         <p class="tile-foot"><a href="/setup/garmin?change=1">Połącz inne konto Garmin</a></p>
       </section>
+
+      {% if confirm_disconnect %}
+        <section class="card confirm-panel" role="alertdialog" aria-labelledby="disconnect-title">
+          <div class="card-head"><h2 id="disconnect-title">{{ ico.info(26) }}<span>Odłączyć zegarek i usunąć dane logowania?</span></h2></div>
+          <ul class="security-list">
+            <li>Usunę z tego komputera token Garmina, dane logowania w konfiguracji GarminDB i e-mail konta z pliku <code>.env</code>.</li>
+            <li>Twoje treningi, pomiary, plany i dziennik <strong>zostaną</strong> na komputerze.</li>
+            <li>Synchronizacja i wysyłanie treningów na zegarek przestaną działać, dopóki nie zalogujesz się ponownie.</li>
+          </ul>
+          <form method="post" action="/setup/garmin/disconnect" class="row confirm-actions">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Tak, odłącz i usuń</button>
+            <a class="btn btn-secondary" href="/setup/garmin">Anuluj</a>
+          </form>
+        </section>
+      {% else %}
+        <section class="card">
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_alert.png" width="28" height="28" alt=""><span>Odłącz zegarek i usuń dane logowania</span></h2></div>
+          <p class="mid">Przydatne po zmianie hasła do Garmina, przed oddaniem komputera albo gdy podejrzewasz, że ktoś miał do niego dostęp. Dane treningowe zostają.</p>
+          <div class="row"><a class="btn btn-secondary" href="/setup/garmin?disconnect=confirm#disconnect-title">Odłącz zegarek i usuń dane logowania</a></div>
+        </section>
+      {% endif %}
+
+    <details class="card security-card">
+      <summary class="security-summary"><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></summary>
+      <ul class="security-list">
+        <li>
+          <strong class="point">Hasło wpisujesz tylko raz.</strong>
+          Jest w pamięci wyłącznie na czas logowania — nie trafia na dysk, do logów ani do pliku <code>.env</code>.
+        </li>
+        <li>
+          <strong class="point">Potem działa token, nie hasło.</strong>
+          Na tym komputerze zostaje token Garmina (<code>{{ token_location }}</code>), który odnawia się sam — podobnie jak po logowaniu przez OAuth. Kolejne synchronizacje nie potrzebują już hasła. Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
+        </li>
+        <li>
+          <strong class="point">Wszystko zostaje u Ciebie.</strong>
+          Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
+        </li>
+        <li>
+          <strong class="point">Dlaczego w ogóle hasło?</strong>
+          Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+        </li>
+        <li>
+          <strong class="point">Włącz weryfikację dwuetapową.</strong>
+          W ustawieniach konta Garmin Connect włącz kod weryfikacyjny przy logowaniu — wtedy samo hasło nie wystarczy, żeby ktoś wszedł na Twoje konto. Ta strona obsługuje taki kod.
+        </li>
+      </ul>
+    </details>
     {% endif %}
 
   </div>

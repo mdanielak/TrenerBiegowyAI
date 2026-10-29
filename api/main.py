@@ -228,7 +228,7 @@ def create_app(
 
     app.include_router(get_garmin_setup_router(
         has_token=garmin_token_check or _garmin_auth.has_token,
-        profile_provider=profile_provider, snapshot_provider=snapshot_provider,
+        profile_provider=profile_provider, snapshot_provider=snapshot_provider, env_path=ai_env_path,
         templates=_TEMPLATES, attach_csrf=attach_csrf, csrf_token=csrf_token, csrf_valid=csrf_valid,
     ))
     app.include_router(get_wizard_router(

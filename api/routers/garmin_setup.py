@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from services import garmin_setup
+from trainer import garmin_auth
 
 _CSRF_ERROR = "Odśwież stronę i spróbuj ponownie."
 
@@ -18,6 +19,7 @@ def get_garmin_setup_router(
     has_token: Callable[[], bool],
     profile_provider: Callable[[], dict],
     snapshot_provider: Callable[[], object],
+    env_path=None,
     templates: Jinja2Templates,
     attach_csrf: Callable,
     csrf_token: Callable,
@@ -46,6 +48,9 @@ def get_garmin_setup_router(
             "pending": pending,
             "profile": profile,
             "snapshot_missing": snapshot_missing,
+            "confirm_disconnect": request.query_params.get("disconnect") == "confirm",
+            "removed": [item for item in (request.query_params.get("removed") or "").split("|") if item],
+            "token_location": str(garmin_auth.token_path()),
         }
         return attach_csrf(
             templates.TemplateResponse(request=request, name="garmin_setup.html", context=context,
@@ -57,6 +62,21 @@ def get_garmin_setup_router(
     def page(request: Request):
         connected = has_token() and request.query_params.get("change") != "1"
         return render(request, stage="connected" if connected else "login")
+
+    @router.post("/setup/garmin/disconnect", response_class=HTMLResponse)
+    def disconnect(request: Request, csrf_token: str = Form(default="")):
+        """Usuń token i dane logowania; dane treningowe zostają na komputerze."""
+        if not csrf_valid(request, csrf_token):
+            return render(request, stage="connected", error=_CSRF_ERROR, status_code=403)
+        try:
+            removed = garmin_auth.disconnect(env_path=env_path)
+        except OSError:
+            return render(request, stage="connected", status_code=500,
+                          error="Nie udało się usunąć danych logowania. Zamknij inne okna aplikacji i spróbuj ponownie.")
+        from urllib.parse import quote
+
+        return RedirectResponse(url="/setup/garmin?disconnected=1&removed=" + quote("|".join(removed)),
+                                status_code=303)
 
     @router.post("/setup/garmin", response_class=HTMLResponse)
     def login(request: Request, csrf_token: str = Form(default=""), email: str = Form(default=""),

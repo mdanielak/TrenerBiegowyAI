@@ -98,7 +98,7 @@ def complete_mfa(pending_id: str, code: str) -> str:
 
 def _finish(api, email) -> None:
     """Zapisz token jak kreator w terminalu i przygotuj konfigurację GarminDB."""
-    from trainer.garmin_auth import ensure_garmindb_config, token_path
+    from trainer.garmin_auth import ensure_garmindb_config, secure_token_dir, token_path
 
     path = token_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -106,6 +106,7 @@ def _finish(api, email) -> None:
         api.client.dump(str(path))
     except Exception as exc:  # noqa: BLE001
         raise GarminSetupError("Zalogowano, ale nie udało się zapisać tokenu na dysku.") from exc
+    secure_token_dir(path.parent)
     ensure_garmindb_config(email)
 
 

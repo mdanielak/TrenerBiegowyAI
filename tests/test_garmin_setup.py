@@ -126,3 +126,67 @@ def test_login_form_rejects_forged_posts(tmp_path):
     response = client.post("/setup/garmin", data={"csrf_token": "x", "email": "a@b.pl", "password": "p"},
                            headers={"Origin": "http://testserver"})
     assert response.status_code == 403
+
+
+def test_disconnect_removes_login_data_and_keeps_other_settings(tmp_path):
+    import json
+
+    from trainer.garmin_auth import disconnect, token_path
+
+    path = token_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}", encoding="utf-8")
+    config = path.parent / "GarminConnectConfig.json"
+    config.write_text(json.dumps({"credentials": {"user": "ala@example.com", "password": ""},
+                                  "data": {"download_days": 30}}), encoding="utf-8")
+    env = tmp_path / ".env"
+    env.write_text("GARMIN_EMAIL=ala@example.com\nAI_MODEL=m\n", encoding="utf-8")
+
+    removed = disconnect(env_path=env)
+
+    assert removed == ["token Garmina", "dane logowania w konfiguracji GarminDB", "e-mail konta w pliku .env"]
+    assert not path.exists()
+    stored = json.loads(config.read_text(encoding="utf-8"))
+    assert stored["credentials"] == {"user": "", "password": ""} and stored["data"] == {"download_days": 30}
+    assert env.read_text(encoding="utf-8") == "AI_MODEL=m\n"
+    assert disconnect(env_path=env) == []
+
+
+def test_disconnect_asks_for_confirmation_and_reports_what_was_removed(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr("trainer.garmin_auth.disconnect", lambda env_path=None: calls.append(env_path) or ["token Garmina"])
+    client = TestClient(create_app(report_provider=lambda: _report(), garmin_token_check=lambda: True,
+                                   ai_env_path=tmp_path / ".env",
+                                   snapshot_provider=lambda: SnapshotReadResult(status=SnapshotStatus.FRESH, data={})))
+
+    page = client.get("/setup/garmin").text
+    assert "Odłącz zegarek i usuń dane logowania" in page and "garminconnect" in page
+    confirm = client.get("/setup/garmin?disconnect=confirm").text
+    assert "Odłączyć zegarek i usunąć dane logowania?" in confirm and "zostaną" in confirm
+    token = re.search(r'name="csrf_token" value="([^"]+)"', confirm).group(1)
+
+    assert client.post("/setup/garmin/disconnect", data={"csrf_token": "x"},
+                       headers={"Origin": "http://testserver"}).status_code == 403
+    done = client.post("/setup/garmin/disconnect", data={"csrf_token": token},
+                       headers={"Origin": "http://testserver"}, follow_redirects=False)
+
+    assert calls == [tmp_path / ".env"]
+    assert "disconnected=1" in done.headers["location"]
+    assert "Usunięto: token Garmina." in client.get(done.headers["location"]).text
+
+
+def test_login_page_explains_why_a_password_is_needed():
+    client = TestClient(create_app(report_provider=lambda: _report(), garmin_token_check=lambda: False,
+                                   snapshot_provider=lambda: SnapshotReadResult(status=SnapshotStatus.MISSING, data=None)))
+    page = client.get("/setup/garmin").text
+
+    for text in ("Hasło wpisujesz tylko raz.", "Potem działa token, nie hasło.", "CSRF", "garminconnect",
+                 "Włącz weryfikację dwuetapową."):
+        assert text in page
+
+
+def test_token_dir_hardening_is_windows_only(monkeypatch, tmp_path):
+    from trainer import garmin_auth
+
+    monkeypatch.setattr(garmin_auth.os, "name", "posix")
+    assert garmin_auth.secure_token_dir(tmp_path) is False
