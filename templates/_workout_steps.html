@@ -1,17 +1,26 @@
-{# Rozpiska treningu krok po kroku (jak na zegarku) i uwagi trenera z planu AI. #}
-{% macro render(steps, description=None, notes=None, distance_km=None) %}
+{# Rozpiska treningu jak profil na zegarku: pasek z odcinkami w proporcji czasu, pod nim kroki
+   w kolejności wykonania. Kolor odcinka to faza albo strefa tętna; zawsze idzie z tekstem pod spodem.
+   `skipped` przygasza pasek, gdy trening przypada na przerwę. #}
+{% macro render(steps, description=None, notes=None, distance_km=None, skipped=False) %}
   {% if steps %}
-    <ol class="workout-steps" aria-label="Przebieg treningu">
-      {% for step in steps %}
-        <li class="workout-step {{ step.phase }}">
-          <span class="workout-step-time">{{ step.time }}</span>
-          <span class="workout-step-body">
+    <div class="workout-profile{% if skipped %} is-skipped{% endif %}">
+      <div class="profile-track" aria-hidden="true">
+        {% for step in steps %}
+          <span class="profile-seg phase-{{ step.phase }}{% if step.zone %} z{{ step.zone }}{% endif %}"
+                style="flex-grow: {{ step.minutes if step.minutes else 1 }}"></span>
+        {% endfor %}
+      </div>
+      <ol class="workout-steps" aria-label="Przebieg treningu">
+        {% for step in steps %}
+          <li class="workout-step phase-{{ step.phase }}{% if step.zone %} z{{ step.zone }}{% endif %}"
+              style="flex-grow: {{ step.minutes if step.minutes else 1 }}">
+            <span class="workout-step-time">{{ step.time }}</span>
             <span class="workout-step-label">{{ step.label }}</span>
             {% if step.target %}<span class="workout-step-target">{{ step.target }}</span>{% endif %}
-          </span>
-        </li>
-      {% endfor %}
-    </ol>
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
   {% endif %}
   {% if description or notes %}
     <div class="coach-notes">

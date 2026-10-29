@@ -41,3 +41,12 @@ def test_plan_workouts_become_the_same_steps_as_the_watch():
 
     assert _labels(workout_steps(spec, FLOORS)) == [("Rozgrzewka", "6 min"), ("Bieg w strefie", "34 min")]
     assert spec_from_plan({"type": "rest"}) is None
+
+
+def test_steps_carry_minutes_and_zone_for_the_profile_bar():
+    zone_run = workout_steps({"kind": "hr_zone_run", "duration_min": 40, "zone_number": 2, "warmup_min": 6}, FLOORS)
+    assert [(s["minutes"], s["zone"]) for s in zone_run] == [(6.0, None), (34.0, 2)]
+    intervals = workout_steps({"kind": "threshold_intervals", "num_intervals": 5, "work_sec": 360, "rest_sec": 120,
+                               "warmup_min": 10, "cooldown_min": 10})
+    assert [s["minutes"] for s in intervals] == [10.0, 30.0, 8.0, 10.0]  # 4 przerwy między 5 odcinkami
+    assert workout_steps({"kind": "easy_run_zoned", "warmup_km": 1, "main_min": 30})[0]["minutes"] == 0.0

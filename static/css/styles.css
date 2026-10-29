@@ -190,6 +190,7 @@
   }
 
   .page-head { margin-bottom: 22px; }
+  .page-head.spread { align-items: flex-start; }
   .page-head h1 { margin-bottom: 4px; }
   .page-sub { color: var(--fg-muted); font-size: 14px; }
 
@@ -252,19 +253,37 @@
   .security-summary { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px;
                       cursor: pointer; min-height: 44px; }
   details.security-card[open] .security-summary { margin-bottom: 12px; }
-  /* Rozpiska treningu: oś kroków, czas po lewej; faza ma też słowną etykietę. */
-  .workout-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  .workout-step { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; padding: 10px 0 10px 14px;
-                  border-left: 4px solid var(--border-strong); }
-  .workout-step + .workout-step { border-top: 1px solid var(--border); }
-  .workout-step.warmup, .workout-step.cooldown { border-left-color: var(--accent-soft-2); }
-  .workout-step.main { border-left-color: var(--accent); }
-  .workout-step.work { border-left-color: var(--warn-icon); }
-  .workout-step.rest { border-left-color: var(--ok-icon); }
-  .workout-step-time { font-weight: 700; font-size: 15px; }
-  .workout-step-body { display: flex; flex-direction: column; gap: 2px; }
+  /* Profil treningu jak na zegarku: odcinki w proporcji czasu, pod nimi kroki z tym samym kolorem.
+     Odcienie faz i stref są ciemne, żeby pasek był widoczny (>= 3:1) na jasnym i ciemnym tle. */
+  .workout-profile { --seg: #475569; display: flex; flex-direction: column; gap: 14px; }
+  .profile-track { display: flex; gap: 3px; height: 12px; }
+  .profile-seg { flex-basis: 0; min-width: 12px; border-radius: 6px; background: var(--seg); }
+  /* Kroki dzielą szerokość w tej samej proporcji co odcinki paska, więc opis stoi mniej więcej pod
+     swoim odcinkiem; gdy się nie mieszczą, zawijają się, a na wąskim ekranie idą pod sobą. */
+  .workout-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px 3px; }
+  .workout-step { flex-basis: 0; min-width: 190px; display: flex; flex-direction: column; gap: 2px;
+                  padding: 0 12px 0 12px; border-left: 4px solid var(--seg); }
+  @media (max-width: 640px) {
+    .workout-steps { flex-direction: column; }
+    .workout-step { min-width: 0; }
+  }
+  .profile-seg, .workout-step { --seg: #475569; }            /* rozgrzewka i schłodzenie: 7,6:1 */
+  .profile-seg.phase-work, .workout-step.phase-work { --seg: #C2410C; }  /* akcent bez strefy: 5,2:1 */
+  .profile-seg.phase-rest, .workout-step.phase-rest { --seg: #64748B; }  /* 4,8:1 */
+  .profile-seg.phase-main, .workout-step.phase-main { --seg: #1D4ED8; }  /* bieg bez strefy: 6,7:1 */
+  .profile-seg.z1, .workout-step.z1 { --seg: #0369A1; }      /* 5,9:1 */
+  .profile-seg.z2, .workout-step.z2 { --seg: #15803D; }      /* 5,0:1 */
+  .profile-seg.z3, .workout-step.z3 { --seg: #A16207; }      /* 4,9:1 */
+  .profile-seg.z4, .workout-step.z4 { --seg: #C2410C; }      /* 5,2:1 */
+  .profile-seg.z5, .workout-step.z5 { --seg: #B91C1C; }      /* 6,5:1 */
+  .workout-step-time { font-size: 22px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
   .workout-step-label { font-weight: 650; }
-  .workout-step-target { font-size: 13px; color: var(--fg-mid); }
+  .workout-step-target { font-size: 14px; color: var(--fg-mid); }
+  .pause-banner { margin-bottom: 16px; }
+  /* Trening w dniu przerwy: widać, jak wyglądałby, ale wyraźnie nie jest na dziś. */
+  .workout-profile.is-skipped .profile-seg { --seg: #CBD5E1; }
+  .workout-profile.is-skipped .workout-step { --seg: #CBD5E1; }
+  .workout-profile.is-skipped .workout-step-time { color: var(--fg-mid); }
   .coach-notes { background: var(--surface-alt); border-radius: var(--radius-sm); padding: 12px 14px; }
   .coach-notes p { margin: 0 0 6px; }
   .coach-notes p:last-child { margin-bottom: 0; }

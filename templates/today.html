@@ -159,7 +159,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
         <span class="row">
           {% if workout %}
             <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
@@ -171,7 +171,7 @@
       </div>
 
       {% if pause and not (workout and workout.execution.happened) %}
-        <div class="banner warn" role="status">
+        <div class="banner warn pause-banner" role="status">
           {{ ico.info() }}
           <div class="banner-body">
             <p class="banner-title">Dziś trwa przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.</p>
@@ -199,10 +199,10 @@
             </span>
           </div>
 
-          {% if not workout.execution.happened and not workout.paused %}
+          {% if not workout.execution.happened %}
             {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
                             workout.coach.notes if workout.coach else None,
-                            workout.coach.distance_km if workout.coach else None) }}
+                            workout.coach.distance_km if workout.coach else None, skipped=workout.paused) }}
           {% endif %}
           {% if workout.others %}
             <p class="mid">Na zegarku na dziś {{ 'jest' if workout.others|length == 1 else 'są' }} też: {{ workout.others|join(', ') }}. Jeśli to stary trening, usuń go w Garmin Connect, żeby nie pomylić się na starcie.</p>
@@ -308,7 +308,7 @@
             </span>
           </span>
         </div>
-        {% if not plan_workout.is_rest and not pause %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
+        {% if not plan_workout.is_rest %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km, skipped=pause is not none) }}{% endif %}
         {% if plan_workout.is_rest %}
           <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
         {% elif plan_workout.garmin_upload %}
