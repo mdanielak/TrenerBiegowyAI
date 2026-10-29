@@ -84,7 +84,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.bar_chart(26) }}<span>Kilometry tydzień po tygodniu</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/statistics.png" width="28" height="28" alt=""><span>Kilometry tydzień po tygodniu</span></h2>
       </div>
       {% set chart = stats.weekly_chart %}
       {% if chart %}
@@ -115,7 +115,7 @@
     {% if stats.phase %}
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.calendar(26) }}<span>Faza strategii: {{ stats.phase.name }}</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Faza strategii: {{ stats.phase.name }}</span></h2>
           <a href="/goal">Cel i kryteria</a>
         </div>
         <p class="mid card-lead">{{ stats.phase.dates }} · tydzień {{ stats.phase.week_number }} z {{ stats.phase.total_weeks }}{% if stats.phase.km %} · zwykle {{ stats.phase.km }} tygodniowo{% endif %}{% if stats.phase.long_km %} · najdłuższy bieg {{ stats.phase.long_km }}{% endif %}</p>
@@ -138,7 +138,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.clipboard(26) }}<span>Plan a wykonanie</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Plan a wykonanie</span></h2>
       </div>
       {% if stats.plan_rows %}
         <div class="list">
@@ -163,7 +163,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.line_chart(26) }}<span>Sygnały z organizmu</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
       </div>
       <p class="mid">Linia pokazuje pomiar dzień po dniu, a przerywana linia — średnią z całego zakresu. Przerwa w linii oznacza dzień bez pomiaru.</p>
       <div class="stack">

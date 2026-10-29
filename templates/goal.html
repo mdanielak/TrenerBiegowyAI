@@ -70,7 +70,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.calendar(26) }}<span>Fazy przygotowań</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Fazy przygotowań</span></h2>
       </div>
       {% set track = goal.timeline %}
       {% if track %}
@@ -104,7 +104,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.check(26) }}<span>Kryteria gotowości</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Kryteria gotowości</span></h2>
       </div>
       <div class="list">
         {% for criterion in goal.criteria %}

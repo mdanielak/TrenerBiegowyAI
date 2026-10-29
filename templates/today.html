@@ -37,6 +37,19 @@
 
   <div class="stack">
 
+    {% if health_alert %}
+      <div class="health-alert {{ health_alert.tone }}" role="alert">
+        <img class="asset" src="/assets/07_ui_icons/tile_alert.png" width="40" height="40" alt="">
+        <div class="banner-body">
+          <p class="health-alert-title">{{ health_alert.title }}</p>
+          <ul class="health-alert-reasons">
+            {% for reason in health_alert.reasons %}<li>{{ reason }}</li>{% endfor %}
+          </ul>
+          <p class="mid">{{ health_alert.advice }} <a href="/analysis">Skąd ta ocena</a></p>
+        </div>
+      </div>
+    {% endif %}
+
     {% if ai_off_notice %}
       <div class="banner warn" role="alert">
         {{ ico.info() }}
@@ -101,7 +114,7 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.pulse(26) }}<span>Sygnały z organizmu</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
         </div>
         <div class="signals">
           {% for card in signal_cards %}
@@ -280,7 +293,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.bulb(26) }}<span>Co dziś zrobić</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Co dziś zrobić</span></h2>
         {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
       {% if ai_recommendation %}
@@ -332,7 +345,7 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>{{ ico.clock(26) }}<span>Twoja dostępność</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Twoja dostępność</span></h2>
         </div>
         {% if report.availability and report.availability.available %}
           <div class="list-item">

@@ -29,7 +29,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.clipboard(26) }}<span>Nowy wpis</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/journal.png" width="28" height="28" alt=""><span>Nowy wpis</span></h2>
       </div>
       <form method="post" action="/journal" class="stack form-stack">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -73,7 +73,7 @@
 
     <section class="card" id="przerwy">
       <div class="card-head">
-        <h2>{{ ico.clock(26) }}<span>Przerwy: choroba, wyjazd, zabieg</span></h2>
+        <h2><img class="asset head-icon" src="/assets/03_activity/kind_rest.png" width="28" height="28" alt=""><span>Przerwy: choroba, wyjazd, zabieg</span></h2>
       </div>
       {% if pause_error %}
         <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ pause_error }}</p></div></div>
@@ -138,7 +138,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.calendar(26) }}<span>Ostatnie 14 dni</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Ostatnie 14 dni</span></h2>
       </div>
       {% if entries %}
         <div class="list">

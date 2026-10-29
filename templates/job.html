@@ -13,7 +13,7 @@
   <div class="stack">
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.refresh(18) }}<span>Status synchronizacji</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_signals.png" width="28" height="28" alt=""><span>Status synchronizacji</span></h2>
         <span class="pill {% if job.status == 'accepted' %}neutral{% elif job.status == 'running' %}info{% elif job.status == 'succeeded' %}ok{% elif job.status == 'failed' %}bad{% else %}warn{% endif %}">
           {% if job.status == 'succeeded' %}{{ ico.check(15) }}{% elif job.status in ('accepted', 'running') %}{{ ico.clock(15) }}{% else %}{{ ico.info(15) }}{% endif %}
           <span>{{ job.status }}</span>

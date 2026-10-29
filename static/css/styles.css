@@ -229,6 +229,14 @@
   .card-lead { margin: 0 0 12px; }
   /* Ikony kolorowe mają własny kształt, więc bez bladego kafelka pod spodem. */
   .tile-icon, .head-icon { flex: none; }
+  /* Baner zdrowia: najważniejsza informacja dnia; tekst niesie znaczenie, kolor je wzmacnia. */
+  .health-alert { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px;
+                  border-radius: var(--radius); border: 2px solid var(--warn-icon); background: var(--warn-bg); }
+  .health-alert.bad { border-color: var(--danger-icon); background: var(--danger-bg); }
+  .health-alert .asset { flex: none; }
+  .health-alert-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--warn-fg); }
+  .health-alert.bad .health-alert-title { color: var(--danger-fg); }
+  .health-alert-reasons { margin: 0 0 6px; padding-left: 18px; color: var(--fg); }
   .item-icon.kind-icon { width: 48px; height: 48px; background: var(--surface-alt); }
   /* Plakietka AI w bocznym menu. Tekst stanu jest zawsze; kolory to pary z tabeli stanów
      (ok #15803D na #DCFCE7, warn #B45309 na #FEF3C7, bad #B91C1C na #FEE2E2). */

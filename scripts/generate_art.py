@@ -106,6 +106,9 @@ ITEMS = {
         ("date", "a calendar with one circled day."),
         ("frequency", "a calendar week row with four filled dots."),
         ("finish", "a checkered finish flag."),
+        ("idea", "a light bulb with two short light rays."),
+        ("message", "a speech bubble with three dots."),
+        ("alert", "a rounded warning triangle with an exclamation mark, in amber #D97706 instead of blue."),
     )},
 }
 

@@ -10,6 +10,7 @@ from services.readiness import compute_readiness_breakdown, signal_trends
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
+from trainer.core import check_hrv_alert
 from trainer.profile_store import load_profile
 
 
@@ -35,6 +36,7 @@ class TodayReport:
     execution: dict | None = None
     active_pause: dict | None = None
     plan_workout: dict | None = None
+    hrv_alert: dict | None = None
 
 
 def _today_registry_entries(today: str):
@@ -152,6 +154,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         ),
         active_pause=active_pause,
         plan_workout=plan_workout,
+        hrv_alert=check_hrv_alert(data.get("hrv") or []),
     )
 
 

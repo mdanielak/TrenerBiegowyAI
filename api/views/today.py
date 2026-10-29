@@ -10,7 +10,10 @@ from typing import NoReturn, Optional, cast
 from fastapi import HTTPException
 
 from api.views.plan import _kind_icon
+from services.journal import PAIN_AREAS
 from api.views.common import (
+    _format_date,
+    _format_number,
     _HRV_STATUSES,
     _READINESS_LABELS,
     _SIGNAL_META,
@@ -264,6 +267,42 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
         "confidence_label": _SCORE_CONFIDENCE_LABELS.get(score["pewnosc"]) if score else None,
         "comment": (review or {}).get("comment"),
         "review_key": review_key,
+    }
+
+
+def _health_alert(report, journal_entries=()) -> Optional[dict]:
+    """Baner na górze strony głównej, gdy organizm wyraźnie potrzebuje odpoczynku.
+
+    Tylko twarde sygnały: gotowość „nie jesteś gotowy”, alert HRV z kilku dni albo ból
+    zgłoszony w dzienniku dziś lub wczoraj. Każdy powód jest zdaniem, nie samym kolorem.
+    """
+    reasons = []
+    severe = False
+    readiness = report.readiness or {}
+    if readiness.get("level") == "not_ready":
+        severe = True
+        score = readiness.get("score")
+        reasons.append(f"Gotowość {_format_number(score)} z {_format_number(readiness.get('max_score'))} — "
+                       "organizm jeszcze się regeneruje." if score is not None else
+                       "Ocena gotowości: nie jesteś gotowy do treningu.")
+    alert = getattr(report, "hrv_alert", None)
+    if alert:
+        reasons.append(f"HRV niskie lub niezrównoważone od {alert.get('days')} dni z rzędu.")
+    for entry in journal_entries or ():
+        if entry.get("pain"):
+            severe = True
+            areas = ", ".join(PAIN_AREAS.get(area, area) for area in entry["pain"])
+            reasons.append(f"W dzienniku zapisano ból: {areas} ({_format_date(entry['date'])}).")
+            break
+    if not reasons:
+        return None
+    return {
+        "tone": "bad" if severe else "warn",
+        "title": "Dziś lepiej odpuścić trening" if severe else "Uważaj dziś na intensywność",
+        "reasons": reasons,
+        "advice": ("Postaw na odpoczynek albo bardzo lekki ruch. Przy narastającym bólu lub nowych objawach "
+                   "skonsultuj się ze specjalistą." if severe else
+                   "Zostań przy spokojnym biegu w strefie Z1–Z2 i nie dokładaj akcentu."),
     }
 
 

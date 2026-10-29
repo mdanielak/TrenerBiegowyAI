@@ -80,7 +80,7 @@
 
   <section class="card" id="wiadomosc">
     <div class="card-head">
-      <h2>{{ ico.bulb(26) }}<span>Wiadomość dla AI na ten tydzień</span></h2>
+      <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_message.png" width="28" height="28" alt=""><span>Wiadomość dla AI na ten tydzień</span></h2>
     </div>
     {% if note_saved %}
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p></div></div>
@@ -99,7 +99,7 @@
   {% for variant in variants %}
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.clipboard(26) }}<span>Druga wersja planu</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Druga wersja planu</span></h2>
       </div>
       {% if variant.focus %}<p class="mid card-lead">{{ variant.focus }}</p>{% endif %}
       <div class="list">
@@ -177,7 +177,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.bulb(26) }}<span>Cel tygodnia</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Cel tygodnia</span></h2>
       </div>
       <div class="suggestion">
         <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
@@ -190,7 +190,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.bar_chart(26) }}<span>Podsumowanie</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_average.png" width="28" height="28" alt=""><span>Podsumowanie</span></h2>
       </div>
       <div class="grid grid-4">
         <div class="tile">
@@ -265,7 +265,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.calendar(26) }}<span>Dzień po dniu</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Dzień po dniu</span></h2>
       </div>
 
       <div class="week">
@@ -317,7 +317,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2>{{ ico.clipboard(26) }}<span>Uwagi do planu</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Uwagi do planu</span></h2>
       </div>
       <div class="list">
         {% for plan_day in plan.days if plan_day.description or plan_day.notes %}
