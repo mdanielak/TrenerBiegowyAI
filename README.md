@@ -1,8 +1,20 @@
-# Trener Biegowy AI
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.png">
+    <img src="docs/images/logo-light.png" alt="TrenerBiegowyAI" width="432">
+  </picture>
+</h1>
 
 Lokalny trener biegowy dla zegarków Garmin. Pobiera Twoje dane z Garmin Connect, codziennie ocenia gotowość do treningu (sen, HRV, tętno spoczynkowe, stres), układa z pomocą AI plan na tydzień i wysyła treningi na zegarek. Działa w przeglądarce, ale wyłącznie na Twoim komputerze — dane nie trafiają na żaden serwer aplikacji.
 
 > To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
+  <img src="docs/images/screenshot-light.png" alt="Strona główna: ocena gotowości 9 z 10, sygnały z organizmu i trening na dziś rozpisany na rozgrzewkę i bieg w strefie Z2" width="900">
+</picture>
+
+<sub>Zrzut na danych przykładowych (`python scripts/demo_server.py`).</sub>
 
 ## Zacznij tutaj (Windows, bez terminala)
 
@@ -20,6 +32,10 @@ Lokalny trener biegowy dla zegarków Garmin. Pobiera Twoje dane z Garmin Connect
 
 Bez AI działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu.
 
+### Aktualizacja
+
+Kliknij dwukrotnie **`update.bat`**. Sprawdzi najnowsze wydanie na GitHubie, pobierze je i podmieni pliki aplikacji, a potem zaktualizuje pakiety. Twoje dane — `local/`, `.env`, plany i własna strategia — zostają bez zmian. Możesz też pobrać paczkę ZIP ręcznie i **przeciągnąć ją na `update.bat`**. W kopii repozytorium git `update.bat` robi po prostu `git pull`.
+
 **Hasło do Garmina** wpisujesz raz; jest tylko w pamięci na czas logowania i nie trafia na dysk, do logów ani do `.env`. Zostaje token konta, który sam się odnawia. W **Ustawienia → Zegarek Garmin** możesz w każdej chwili odłączyć zegarek i usunąć dane logowania.
 
 ## Co potrafi
@@ -35,7 +51,7 @@ Bez AI działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem
 | `/goal` | cel długoterminowy: odliczanie, fazy strategii i kryteria gotowości |
 | `/settings` | połączenia (Garmin, AI), profil biegacza, strefy tętna, cele |
 
-Serwer działa tylko na `127.0.0.1` — nie ma go w sieci.
+Motyw jasny albo ciemny wybierzesz na dole menu (**Auto** dopasowuje się do ustawień systemu). Serwer działa tylko na `127.0.0.1` — nie ma go w sieci.
 
 ## Prywatność
 
@@ -133,10 +149,11 @@ Aplikacja korzysta z biblioteki `garminconnect`, która loguje się e-mailem i h
 python -m pip install -r requirements-dev.txt
 python -m pytest
 git config core.hooksPath .githooks   # privacy-check przed każdym commitem
+python scripts/demo_server.py         # aplikacja na danych przykładowych, http://127.0.0.1:8020
 ```
 
 Hook `.githooks/pre-commit` blokuje commit, jeśli śledzona albo dodawana jest prywatna ścieżka: `local/`, dane Garmin, bazy i pliki FIT/TCX/GPX, tokeny, plany tygodniowe, własna strategia albo zrzut ekranu w katalogu głównym. Treść plików nie jest czytana. Ręcznie: `python -m trainer privacy-check`.
 
 ## Licencja
 
-Kod udostępniony na licencji [MIT](LICENSE). Zależności mają własne licencje — m.in. `garmindb` (GPL-2.0), uruchamiany jako osobny program i instalowany przez `pip`, oraz `garminconnect` (MIT). Aplikacja nie jest powiązana z firmą Garmin.
+Kod udostępniony na licencji [MIT](LICENSE). Krój logo Archivo jest na licencji [SIL OFL 1.1](static/fonts/OFL-Archivo.txt). Zależności mają własne licencje — m.in. `garmindb` (GPL-2.0), uruchamiany jako osobny program i instalowany przez `pip`, oraz `garminconnect` (MIT). Aplikacja nie jest powiązana z firmą Garmin.
