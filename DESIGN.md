@@ -9,6 +9,7 @@ colors:
   bg: "#EEF2F6"
   surface: "#FCFDFE"
   surface-alt: "#E9EEF4"
+  sidebar-bg: "#E4EAF2"
   border: "#DAE1E9"
   border-strong: "#C3CDD8"
   fg: "#0F172A"
@@ -30,6 +31,7 @@ colors:
   dark-bg: "#131D30"
   dark-surface: "#1B273C"
   dark-surface-alt: "#223149"
+  dark-sidebar-bg: "#27364F"
   dark-border: "#2C3C56"
   dark-border-strong: "#435775"
   dark-fg: "#E6EDF5"
@@ -146,9 +148,9 @@ Sportowy kobalt prowadzi do działań, a chłodne neutralne tła utrzymują czyt
 
 ### Neutral
 
-- **Chłodne tło i powierzchnie** (`bg`, `surface`, `surface-alt`): oddzielają stronę, karty i elementy drugoplanowe.
+- **Chłodne tło i powierzchnie** (`bg`, `surface`, `surface-alt`, `sidebar-bg`): odróżniają stronę, karty i menu boczne.
 - **Grafit i przygaszony łupek** (`fg`, `fg-mid`, `fg-muted`): budują hierarchię tekstu; `border` i `border-strong` wyznaczają granice.
-- **Ciemny granat** (`dark-bg`, `dark-surface`, `dark-surface-alt`): odpowiedniki powierzchni w motywie ciemnym; jasne teksty i akcenty są zdefiniowane osobno.
+- **Ciemny granat** (`dark-bg`, `dark-surface`, `dark-surface-alt`, `dark-sidebar-bg`): odpowiedniki powierzchni w motywie ciemnym; sidebar ma własny odcień, żeby nie zlewał się z kartami. Jasne teksty i akcenty są zdefiniowane osobno.
 
 ### Named Rules
 

@@ -40,9 +40,9 @@ _TREND_LABELS = {
     "down": "niżej niż wczoraj",
     "flat": "tak samo jak wczoraj",
 }
-_RING_RADIUS = 52
-_RING_STROKE = 11
-_RING_SIZE = 128
+_RING_RADIUS = 66
+_RING_STROKE = 13
+_RING_SIZE = 160
 _CHART_WIDTH = 640
 _CHART_HEIGHT = 170
 _CHART_PAD_LEFT = 30

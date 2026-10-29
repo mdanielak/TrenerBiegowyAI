@@ -161,21 +161,21 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
         <span class="row">
-          {% if workout %}
+          {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
+            <span class="pill warn">Nie wykonuj</span>
+          {% elif workout %}
             <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
-          {% elif pause and plan_workout %}
-            <span class="pill warn">Przerwa</span>
           {% endif %}
           {% if plan_workout %}<a href="/plan">Plan tygodnia</a>{% endif %}
         </span>
       </div>
 
-      {% if pause and not (workout and workout.execution.happened) %}
+      {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
         <div class="banner warn pause-banner" role="status">
           {{ ico.info() }}
           <div class="banner-body">
-            <p class="banner-title">Dziś trwa przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.</p>
-            <p class="mid">Dziś odpoczynek. {% if workout or (plan_workout and not plan_workout.is_rest) %}Trening poniżej pochodzi z planu ułożonego przed dodaniem przerwy — pomiń go. {% if pause.week %}<a href="/plan?week={{ pause.week }}">Ułóż plan ponownie</a>, żeby uwzględnił przerwę.{% endif %}{% endif %}</p>
+            <p class="banner-title">Ten trening nie uwzględnia przerwy.</p>
+            <p class="mid">Nie wykonuj go ani nie wysyłaj na zegarek. Przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.{% if workout or (plan_workout and plan_workout.garmin_upload) %} Jeśli trening jest już na zegarku, usuń go w Garmin Connect.{% endif %} {% if pause.week %}<a href="/plan?week={{ pause.week }}">Ułóż plan ponownie</a>, żeby uwzględnił przerwę.{% endif %}</p>
           </div>
         </div>
       {% endif %}
@@ -199,12 +199,16 @@
             </span>
           </div>
 
-          {% if not workout.execution.happened %}
+          {% if not workout.execution.happened and not pause %}
             {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
                             workout.coach.notes if workout.coach else None,
                             workout.coach.distance_km if workout.coach else None, skipped=workout.paused) }}
+          {% elif not workout.execution.happened and pause %}
+            <p class="mid pause-workout-hidden">Szczegóły treningu ukryto na czas przerwy.</p>
           {% endif %}
-          {% if workout.others %}
+          {% if workout.others and pause %}
+            <p class="mid">Inne treningi zapisane na dziś w Garmin Connect: {{ workout.others|join(', ') }}. Podczas przerwy usuń je w Garmin Connect, żeby nie pomylić się na starcie.</p>
+          {% elif workout.others %}
             <p class="mid">Na zegarku na dziś {{ 'jest' if workout.others|length == 1 else 'są' }} też: {{ workout.others|join(', ') }}. Jeśli to stary trening, usuń go w Garmin Connect, żeby nie pomylić się na starcie.</p>
           {% endif %}
 
@@ -308,12 +312,12 @@
             </span>
           </span>
         </div>
-        {% if not plan_workout.is_rest %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km, skipped=pause is not none) }}{% endif %}
+        {% if not plan_workout.is_rest and not pause %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
         {% if plan_workout.is_rest %}
           <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
-        {% elif plan_workout.garmin_upload %}
+        {% elif not pause and plan_workout.garmin_upload %}
           <p class="mid">Ten trening jest już na zegarku.</p>
-        {% else %}
+        {% elif not pause %}
           <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
         {% endif %}
       {% endif %}

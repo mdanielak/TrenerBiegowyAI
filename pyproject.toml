@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trener-biegowy-ai"
-version = "0.3.1"
+version = "0.3.2"
 description = "Lokalne narzędzie do synchronizacji danych GarminDB, analizy gotowości i zarządzania treningami Garmin."
 readme = "README.md"
 requires-python = ">=3.11"

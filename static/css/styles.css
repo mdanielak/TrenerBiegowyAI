@@ -11,6 +11,7 @@
     --bg: #EEF2F6;
     --surface: #FCFDFE;
     --surface-alt: #E9EEF4;
+    --sidebar-bg: #E4EAF2;
     --border: #DAE1E9;
     --border-strong: #C3CDD8;
 
@@ -75,6 +76,7 @@
     :root:not([data-theme="light"]) {
       color-scheme: dark;
       --bg: #131D30; --surface: #1B273C; --surface-alt: #223149; --border: #2C3C56; --border-strong: #435775;
+      --sidebar-bg: #27364F;
       --fg: #E6EDF5;       /* 12.7:1 */
       --fg-mid: #B4C2D3;   /*  8.3:1 */
       --fg-muted: #8EA0B6; /*  5.6:1 */
@@ -96,6 +98,7 @@
   :root[data-theme="dark"] {
     color-scheme: dark;
     --bg: #131D30; --surface: #1B273C; --surface-alt: #223149; --border: #2C3C56; --border-strong: #435775;
+    --sidebar-bg: #27364F;
     --fg: #E6EDF5;
     --fg-mid: #B4C2D3;
     --fg-muted: #8EA0B6;
@@ -183,8 +186,8 @@
     flex: none;
     width: var(--sidebar-w);
     height: 100vh;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-strong);
     padding: 22px 14px;
     display: flex;
     flex-direction: column;
@@ -281,7 +284,7 @@
     box-shadow: var(--shadow);
     padding: 18px;
   }
-  .ring-caption { color: var(--fg-muted); font-size: 12.5px; }
+  .ring-caption { max-width: 27ch; color: var(--fg-muted); font-size: 13px; }
   .suggestion-row { align-items: flex-start; }
   .suggestion-row > .suggestion { flex: 1 1 auto; }
 
@@ -366,7 +369,9 @@
   .workout-step-time { font-size: 22px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
   .workout-step-label { font-weight: 650; }
   .workout-step-target { font-size: 14px; color: var(--fg-mid); }
-  .pause-banner { margin-bottom: 16px; }
+  .pause-banner { margin-bottom: 16px; padding: 15px 17px; }
+  .pause-banner .banner-title { font-size: 16px; }
+  .pause-banner .mid { color: var(--fg); }
   /* Trening w dniu przerwy: widać, jak wyglądałby, ale wyraźnie nie jest na dziś. */
   .workout-profile.is-skipped .profile-seg { --seg: var(--seg-skipped); }
   .workout-profile.is-skipped .workout-step { --seg: var(--seg-skipped); }
@@ -397,7 +402,7 @@
   .health-alert-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--warn-fg); }
   .health-alert.bad .health-alert-title { color: var(--danger-fg); }
   .health-alert-reasons { margin: 0 0 6px; padding-left: 18px; color: var(--fg); }
-  .health-alert-pause { color: var(--fg); font-weight: 700; }
+  .health-alert-pause { color: var(--warn-fg); font-size: 16px; font-weight: 750; }
   .item-icon.kind-icon { width: 48px; height: 48px; background: var(--surface-alt); }
   /* Plakietka AI w bocznym menu. Tekst stanu jest zawsze; kolory to pary z tabeli stanów
      (ok #15803D na #DCFCE7, warn #B45309 na #FEF3C7, bad #B91C1C na #FEE2E2). */
@@ -446,9 +451,10 @@
   /* ===================== pierścień gotowości ===================== */
 
   .readiness-card { display: flex; flex-direction: column; }
-  .readiness { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: center; gap: 14px; text-align: center; }
+  .readiness { display: flex; flex: 1; flex-direction: column; justify-content: space-evenly; align-items: center;
+               gap: 18px; padding: 12px 4px; text-align: center; }
 
-  .ring { display: block; transform: rotate(-90deg); }
+  .ring { display: block; width: 160px; height: 160px; transform: rotate(-90deg); }
   .ring-track { fill: none; stroke: var(--surface-alt); }
   .ring-value { fill: none; stroke-linecap: round; transition: stroke-dashoffset var(--motion); }
   .ring-value.ready { stroke: var(--ok-icon); }
@@ -461,7 +467,7 @@
     display: flex; flex-direction: column; align-items: center;
     line-height: 1.1;
   }
-  .ring-score { font-size: 34px; font-weight: 680; letter-spacing: -0.03em; }
+  .ring-score { font-size: 38px; font-weight: 680; letter-spacing: -0.03em; }
   .ring-max { font-size: 13px; color: var(--fg-muted); }
 
   .verdict {
