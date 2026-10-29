@@ -9,6 +9,7 @@ from ai.plan_generation import (
     build_system_prompt,
     generate_week_plan,
 )
+from services.strategy import STRATEGY_EXAMPLE_PATH
 
 
 WEEK = [
@@ -118,7 +119,8 @@ def test_system_prompt_reports_missing_strategy_and_keeps_rules(tmp_path):
 
 
 def test_system_prompt_contains_tracked_rules_and_strategy():
-    prompt = build_system_prompt()
+    # Przykład, a nie własna strategia: tamta jest nieśledzona i na czystej kopii jej nie ma.
+    prompt = build_system_prompt(strategy_path=STRATEGY_EXAMPLE_PATH)
 
     assert "ZASADY UKŁADANIA TYGODNIA" in prompt
     assert "półmaraton" in prompt.lower()
