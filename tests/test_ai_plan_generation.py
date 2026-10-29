@@ -44,7 +44,7 @@ def _context():
             "age": 36, "weight_kg": 75, "height_cm": 188, "hr_max": 192,
             "hr_rest": 50, "lactate_threshold_hr": 174, "hr_zones": "Z1 96-121, Z2 122-136",
         },
-        "goal": {"target": "półmaraton 1:49:00", "deadline": "2027-10-17", "current_record": "1:57:14"},
+        "goal": {"target": "półmaraton 1:49:00", "deadline": "2027-10-17", "current_record": "1:58:30"},
         "recent_activities": [{
             "date": "2026-10-20", "name": "Bieg poranny", "distance_km": 8.0,
             "duration_min": 44, "pace": "5:30", "avg_hr": 140, "max_hr": 155,

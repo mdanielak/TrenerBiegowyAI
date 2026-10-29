@@ -14,7 +14,7 @@ from tests.test_services_strategy import SAMPLE
 pytestmark = pytest.mark.usefixtures("testclient_sockets")
 
 TODAY = date(2026, 10, 28)
-PROFILE = {"target_date": "2027-10-17 (data robocza)", "target_time": "1:49:00", "current_hm_record": "1:57:14"}
+PROFILE = {"target_date": "2027-10-17 (data robocza)", "target_time": "1:49:00", "current_hm_record": "1:58:30"}
 
 
 def _run(day, km, minutes):
@@ -73,4 +73,7 @@ def test_goal_page_renders_phases_and_criteria():
 
 def test_goal_page_explains_a_missing_strategy():
     client = TestClient(create_app(goal_report_provider=lambda: GoalReport(status="strategy_missing")))
-    assert client.get("/goal").status_code == 404
+    response = client.get("/goal")
+    assert response.status_code == 404
+    assert "Nie masz jeszcze strategii długoterminowej." in response.text
+    assert "przyklad-strategii.md" in response.text and 'href="/wizard"' in response.text

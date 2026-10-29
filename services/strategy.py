@@ -12,7 +12,10 @@ from datetime import date
 
 from trainer.config import PROJECT_ROOT
 
+# Własna strategia zostaje na komputerze (git jej nie śledzi); do repozytorium trafia tylko przykład.
+# Przykład nigdy nie zastępuje własnej strategii: plan AI układany na cudzych celach byłby mylący.
 STRATEGY_PATH = PROJECT_ROOT / "training-plans" / "long-term" / "half-marathon-2027.md"
+STRATEGY_EXAMPLE_PATH = PROJECT_ROOT / "training-plans" / "long-term" / "przyklad-strategii.md"
 
 _DATE_RANGE = re.compile(
     r"(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\s*[—–-]+\s*(\d{1,2})\.(\d{1,2})\.(\d{4})")

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from trainer.commands import profile as profile_cmd
 
 _FULL = {
-    "name": "Maciej",
+    "name": "Ala",
     "age": 36,
     "weight_kg": 75,
     "height_cm": 188,
@@ -13,7 +13,7 @@ _FULL = {
     "lactate_threshold_hr": 174,
     "hr_zones": "Z1 96-121, Z2 122-136, Z3 137-154, Z4 155-172, Z5 173-192",
     "hr_zones_source": "Garmin Connect",
-    "device": "Garmin Fenix 7S Pro Solar",
+    "device": "Garmin Forerunner 265",
 }
 
 
@@ -64,7 +64,7 @@ def test_render_keeps_legacy_goal_field_when_structured_missing(monkeypatch, cap
 
 def test_render_lists_unknown_fields(monkeypatch, capsys):
     monkeypatch.setattr(profile_cmd.profile_store, "load_profile",
-                        lambda: {"name": "Maciej", "ulubiony_szlak": "Las"})
+                        lambda: {"name": "Ala", "ulubiony_szlak": "Las"})
     assert profile_cmd.main() == 0
     assert "ulubiony_szlak" in capsys.readouterr().out
 

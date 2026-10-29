@@ -17,6 +17,8 @@ class PrivacyPathMatchingTests(unittest.TestCase):
             "data_latest.json": "legacy private runtime data",
             "memory/history.json": "agent memory",
             "training-plans/2026-10/26-1.json": "athlete training plan",
+            "training-plans/long-term/half-marathon-2027.md": "personal long-term strategy",
+            "Zrzut ekranu 2026-10-29 142106.png": "root-level screenshot",
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
@@ -26,7 +28,8 @@ class PrivacyPathMatchingTests(unittest.TestCase):
         for path in (
             ".env.example",
             "runner_profile.example.json",
-            "training-plans/long-term/half-marathon-2027.md",
+            "training-plans/long-term/przyklad-strategii.md",
+            "trener_biegowy_ai_assets/07_ui_icons/tile_time.png",
             "services/tokenizer.py",
             "src/key_mapping.py",
             "docs/cookie-policy.md",

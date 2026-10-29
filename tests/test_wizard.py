@@ -24,7 +24,7 @@ def test_onboarding_only_without_any_goal_or_decision():
 
 def test_prefill_reads_the_existing_profile_and_days():
     values = wizard.prefill({"target_race": "półmaraton", "target_date": "2027-10-17 (robocza)",
-                             "target_time": "1:49:00", "current_hm_record": "1:57:14",
+                             "target_time": "1:49:00", "current_hm_record": "1:58:30",
                              "training_frequency": "5x/week"},
                             {"sun": {"available": True, "min_minutes": 60, "max_minutes": 90}})
 

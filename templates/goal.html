@@ -7,16 +7,30 @@
 {% if error_message %}
 
   <div class="page-head">
-    <h1>Nie można pokazać celu</h1>
+    <h1>{% if error_hint == 'strategy' %}Cel długoterminowy{% else %}Nie można pokazać celu{% endif %}</h1>
   </div>
-  <div class="banner bad">
-    {{ ico.info() }}
-    <div class="banner-body">
-      <p>{{ error_message }}</p>
-      {% if error_hint %}<p class="mid">Sprawdź: <code>{{ error_hint }}</code></p>{% endif %}
-      <p><a href="/">Wróć do widoku dnia</a></p>
+  {% if error_hint == 'strategy' %}
+    <div class="banner info">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">{{ error_message }}</p>
+        <p class="mid">Strategia opisuje fazy przygotowań do zawodów i kryteria gotowości. Skopiuj plik
+          <code>training-plans/long-term/przyklad-strategii.md</code> jako
+          <code>training-plans/long-term/half-marathon-2027.md</code> i wpisz własne daty oraz cele.
+          Plik zostaje na tym komputerze.</p>
+        <p class="mid">Do tego czasu cel i datę zawodów ustawisz w <a href="/wizard">kreatorze</a>.</p>
+      </div>
     </div>
-  </div>
+  {% else %}
+    <div class="banner bad">
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p>{{ error_message }}</p>
+        {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_hint) }}
+        <p><a href="/">Wróć do widoku dnia</a></p>
+      </div>
+    </div>
+  {% endif %}
 
 {% else %}
 

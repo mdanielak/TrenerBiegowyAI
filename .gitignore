@@ -38,9 +38,10 @@ build/
 /*.xlsx
 /*.csv
 
-# Root-level screenshots kept for local preview only
-/Dzien.png
-/Tydzien.png
+# Root-level screenshots kept for local preview only (often show health data)
+/*.png
+/*.jpg
+/*.jpeg
 
 # IDE / Editors
 .vscode/
@@ -69,6 +70,10 @@ runner_profile.local.json
 
 # Generated weekly training plans hold private volume, zones and dates
 training-plans/[0-9][0-9][0-9][0-9]-[0-9][0-9]/
+
+# Personal long-term strategy (age, body, run history, goals); only the example is public
+training-plans/long-term/*
+!training-plans/long-term/przyklad-strategii.md
 
 # Local Garmin upload registry and agent memory
 training-plans/_garmin_workouts.jsonl

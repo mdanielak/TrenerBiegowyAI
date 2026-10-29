@@ -12,8 +12,8 @@ from api.views.goal import _goal_view
 from services.goal import GoalReport
 
 _ERRORS = {
-    "strategy_missing": (404, "Brakuje strategii długoterminowej z tabelą faz.",
-                         "training-plans/long-term/half-marathon-2027.md"),
+    "strategy_missing": (404, "Nie masz jeszcze strategii długoterminowej.",
+                         "strategy"),
     "snapshot_missing": (404, "Brakuje lokalnego snapshotu danych.", "python -m trainer sync"),
     "snapshot_invalid": (503, "Lokalny snapshot danych jest niepoprawny.", "python -m trainer sync"),
 }

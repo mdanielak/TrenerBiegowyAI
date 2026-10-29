@@ -33,6 +33,10 @@ def privacy_reason(path: str) -> str | None:
         return "agent memory"
     if "training-plans" in parts and any(re.fullmatch(r"\d{4}-\d{2}", part) for part in parts):
         return "athlete training plan"
+    if "long-term" in parts and "training-plans" in parts and name != "przyklad-strategii.md":
+        return "personal long-term strategy"
+    if len(parts) == 1 and name.endswith((".png", ".jpg", ".jpeg")):
+        return "root-level screenshot"
     if any(part in {"healthdata", "garminDb".lower(), ".garmindb"} for part in parts):
         return "Garmin private data"
     if name.startswith("_garmin_workouts") and name.endswith(".jsonl"):

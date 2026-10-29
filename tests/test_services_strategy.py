@@ -2,7 +2,7 @@
 """Testy odczytu strategii długoterminowej z Markdownu."""
 from datetime import date
 
-from services.strategy import STRATEGY_PATH, load_strategy, parse_strategy
+from services.strategy import STRATEGY_EXAMPLE_PATH, load_strategy, parse_strategy
 
 SAMPLE = """# Plan: HM 1:49
 
@@ -52,8 +52,8 @@ def test_missing_or_unstructured_file_gives_none(tmp_path):
     assert load_strategy(other) is None
 
 
-def test_the_tracked_strategy_still_parses():
-    strategy = load_strategy(STRATEGY_PATH)
+def test_the_public_example_strategy_parses():
+    strategy = load_strategy(STRATEGY_EXAMPLE_PATH)
 
     assert strategy is not None and len(strategy.phases) >= 5
     assert strategy.long_run_target and strategy.test_10k_seconds

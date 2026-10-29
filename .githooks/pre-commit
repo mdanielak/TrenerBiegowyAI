@@ -1,0 +1,8 @@
+#!/bin/sh
+# Przed każdym commitem: blokada prywatnych ścieżek (local/, dane zdrowotne, tokeny,
+# własna strategia, zrzuty ekranu w katalogu głównym). Treść plików nie jest czytana.
+# Włączenie w kopii repozytorium: git config core.hooksPath .githooks
+PY=.venv/Scripts/python.exe
+[ -x "$PY" ] || PY=.venv/bin/python
+[ -x "$PY" ] || PY=python
+exec "$PY" scripts/check_privacy.py
