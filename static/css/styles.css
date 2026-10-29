@@ -8,16 +8,16 @@
     color-scheme: light;
 
     /* --- powierzchnie --- */
-    --bg: #F8FAFC;
-    --surface: #FFFFFF;
-    --surface-alt: #F1F5F9;
-    --border: #E2E8F0;
-    --border-strong: #CBD5E1;
+    --bg: #EEF2F6;
+    --surface: #FCFDFE;
+    --surface-alt: #E9EEF4;
+    --border: #DAE1E9;
+    --border-strong: #C3CDD8;
 
     /* --- tekst --- */
     --fg: #0F172A;        /* 17.85:1 na bieli */
     --fg-mid: #475569;    /*  7.58:1 na bieli */
-    --fg-muted: #64748B;  /*  4.76:1 na bieli — NIE używać na --surface-alt */
+    --fg-muted: #5B6A7E;  /*  5.4:1 na karcie, 4.9:1 na tle strony, 4.7:1 na --surface-alt */
 
     /* --- akcent --- */
     --accent: #2563EB;        /* 5.17:1 na bieli */
@@ -70,46 +70,46 @@
   /* ============================ motyw ciemny ============================
      Włącza się sam według ustawień systemu albo na stałe z przełącznika w menu
      (atrybut data-theme na <html>). Oba bloki muszą mieć te same wartości.
-     Kontrast liczony względem --surface #162133. */
+     Kontrast liczony względem --surface #1B273C. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #0E1626; --surface: #162133; --surface-alt: #1C2A40; --border: #26354D; --border-strong: #3A4D6B;
-      --fg: #E6EDF5;       /* 13.7:1 */
-      --fg-mid: #B4C2D3;   /*  8.9:1 */
-      --fg-muted: #8EA0B6; /*  6.0:1 */
-      --accent: #60A5FA; --accent-strong: #93C5FD; --accent-soft: #172A4A; --accent-soft-2: #1E3A66;
+      --bg: #131D30; --surface: #1B273C; --surface-alt: #223149; --border: #2C3C56; --border-strong: #435775;
+      --fg: #E6EDF5;       /* 12.7:1 */
+      --fg-mid: #B4C2D3;   /*  8.3:1 */
+      --fg-muted: #8EA0B6; /*  5.6:1 */
+      --accent: #60A5FA; --accent-strong: #93C5FD; --accent-soft: #1B3152; --accent-soft-2: #23406B;
       --on-accent: #0B1730;  /* 7.0:1 na --accent */
-      --ok-fg: #4ADE80; --ok-bg: #12321F; --ok-soft: #0F2618; --ok-icon: #22C55E; --ok-border: #1F5C36;
-      --warn-fg: #FBBF24; --warn-bg: #3A2A0C; --warn-soft: #2B200B; --warn-icon: #F59E0B; --warn-border: #6B4E12;
-      --danger-fg: #F87171; --danger-bg: #3B1517; --danger-soft: #2C1012; --danger-icon: #EF4444; --danger-border: #6B2426;
+      --ok-fg: #4ADE80; --ok-bg: #163A25; --ok-soft: #12301E; --ok-icon: #22C55E; --ok-border: #1F5C36;
+      --warn-fg: #FBBF24; --warn-bg: #3D2E10; --warn-soft: #30240D; --warn-icon: #F59E0B; --warn-border: #6B4E12;
+      --danger-fg: #F87171; --danger-bg: #3F1A1D; --danger-soft: #311517; --danger-icon: #EF4444; --danger-border: #6B2426;
       --fg-disabled: #64748B;
-      --z1-bg: #0C2E44; --z1-fg: #7DD3FC; --z4-bg: #3A1E0C; --z4-fg: #FDBA74;
+      --z1-bg: #0F3550; --z1-fg: #7DD3FC; --z4-bg: #42230F; --z4-fg: #FDBA74;
       --seg-base: #7C8BA1; --seg-work: #FB923C; --seg-rest: #68798F; --seg-main: #60A5FA;
       --seg-z1: #38BDF8; --seg-z2: #4ADE80; --seg-z3: #FACC15; --seg-z4: #FB923C; --seg-z5: #F87171;
-      --seg-skipped: #334155;
-      --brand-mark-ring: #3A4D6B;
+      --seg-skipped: #3A4A63;
+      --brand-mark-ring: #435775;
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
       --shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #0E1626; --surface: #162133; --surface-alt: #1C2A40; --border: #26354D; --border-strong: #3A4D6B;
+    --bg: #131D30; --surface: #1B273C; --surface-alt: #223149; --border: #2C3C56; --border-strong: #435775;
     --fg: #E6EDF5;
     --fg-mid: #B4C2D3;
     --fg-muted: #8EA0B6;
-    --accent: #60A5FA; --accent-strong: #93C5FD; --accent-soft: #172A4A; --accent-soft-2: #1E3A66;
+    --accent: #60A5FA; --accent-strong: #93C5FD; --accent-soft: #1B3152; --accent-soft-2: #23406B;
     --on-accent: #0B1730;
-    --ok-fg: #4ADE80; --ok-bg: #12321F; --ok-soft: #0F2618; --ok-icon: #22C55E; --ok-border: #1F5C36;
-    --warn-fg: #FBBF24; --warn-bg: #3A2A0C; --warn-soft: #2B200B; --warn-icon: #F59E0B; --warn-border: #6B4E12;
-    --danger-fg: #F87171; --danger-bg: #3B1517; --danger-soft: #2C1012; --danger-icon: #EF4444; --danger-border: #6B2426;
+    --ok-fg: #4ADE80; --ok-bg: #163A25; --ok-soft: #12301E; --ok-icon: #22C55E; --ok-border: #1F5C36;
+    --warn-fg: #FBBF24; --warn-bg: #3D2E10; --warn-soft: #30240D; --warn-icon: #F59E0B; --warn-border: #6B4E12;
+    --danger-fg: #F87171; --danger-bg: #3F1A1D; --danger-soft: #311517; --danger-icon: #EF4444; --danger-border: #6B2426;
     --fg-disabled: #64748B;
-    --z1-bg: #0C2E44; --z1-fg: #7DD3FC; --z4-bg: #3A1E0C; --z4-fg: #FDBA74;
+    --z1-bg: #0F3550; --z1-fg: #7DD3FC; --z4-bg: #42230F; --z4-fg: #FDBA74;
     --seg-base: #7C8BA1; --seg-work: #FB923C; --seg-rest: #68798F; --seg-main: #60A5FA;
     --seg-z1: #38BDF8; --seg-z2: #4ADE80; --seg-z3: #FACC15; --seg-z4: #FB923C; --seg-z5: #F87171;
-    --seg-skipped: #334155;
-    --brand-mark-ring: #3A4D6B;
+    --seg-skipped: #3A4A63;
+    --brand-mark-ring: #435775;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35);
   }
