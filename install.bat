@@ -59,7 +59,7 @@ if exist ".venv\Scripts\python.exe" (
 rem --- 3. Pakiety -----------------------------------------------------------
 echo [3/4] Instaluję pakiety. To może potrwać kilka minut - nie zamykaj okna...
 ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check --upgrade pip >> "%LOG%" 2>&1
-".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt >> "%LOG%" 2>&1
+".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt -c constraints.txt >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo       Instalacja pakietów się nie udała. Najczęstsza przyczyna: brak internetu.
     goto :fail_log

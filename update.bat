@@ -27,7 +27,7 @@ if errorlevel 1 goto :fail
 
 echo.
 echo Aktualizuję pakiety. To może potrwać kilka minut - nie zamykaj okna...
-".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt >> "%LOG%" 2>&1
+".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt -c constraints.txt >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo Aktualizacja pakietów się nie udała. Szczegóły: local\update.log
     goto :fail

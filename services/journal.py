@@ -54,6 +54,9 @@ def validate_entry(*, day, feeling, rpe, pain_areas, pain_note, note, today: dat
     areas = [area for area in dict.fromkeys(pain_areas or []) if area in PAIN_AREAS]
     if len(areas) != len(set(pain_areas or [])):
         raise FieldError("Nieznane miejsce bólu.", "journal-pain")
+    if not areas and _clean(pain_note, PAIN_NOTE_LIMIT):
+        # Opis bez zaznaczonego miejsca to wciąż ból: bez tego znikałby razem z informacją dla AI.
+        areas = ["other"]
     return {
         "date": entry_day.isoformat(),
         "feeling": feeling,

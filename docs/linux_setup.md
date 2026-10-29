@@ -7,7 +7,7 @@ Zainstaluj Python 3 oraz narzędzia wymagane do utworzenia środowiska wirtualne
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -c constraints.txt
 mkdir -p local
 cp runner_profile.example.json local/profile.json
 ```
@@ -53,7 +53,7 @@ python -m trainer doctor
 | `doctor` nie widzi danych | Ustaw i wyeksportuj `HEALTH_DATA_DIR`, potem otwórz nową powłokę. |
 | Błąd logowania Garmin | Uruchom `python -m trainer setup` i podaj hasło interaktywnie; nie zapisuj go w `.env`. |
 | Brak miejsca na dysku | Skrypt pokazuje wolne miejsce przed kopiowaniem; wybierz większy katalog docelowy przez `--target`. |
-| Brak modułu Pythona | Aktywuj `.venv` i ponownie uruchom `python -m pip install -r requirements.txt`. |
+| Brak modułu Pythona | Aktywuj `.venv` i ponownie uruchom `python -m pip install -r requirements.txt -c constraints.txt`. |
 
 ## Opcjonalna automatyzacja codziennej synchronizacji
 

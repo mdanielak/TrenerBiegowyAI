@@ -32,8 +32,15 @@ def test_validation_messages_are_for_people():
     assert _entry(rpe="")["rpe"] is None
 
 
-def test_pain_note_is_kept_only_with_pain_and_notes_are_trimmed():
-    assert _entry(pain_note="coś")["pain_note"] == ""
+def test_pain_note_without_an_area_counts_as_other_pain_and_notes_are_trimmed(tmp_path):
+    # Bez skryptu pole opisu jest zawsze widoczne: opis nie może zniknąć bez zaznaczonego miejsca.
+    unmarked = _entry(pain_note="lekko boli przy zbieganiu")
+    assert (unmarked["pain"], unmarked["pain_note"]) == (["other"], "lekko boli przy zbieganiu")
+    add_entry(unmarked, path=tmp_path / "journal.jsonl")
+    pain = summary_for_ai(today=TODAY, path=tmp_path / "journal.jsonl")["pain_days"]
+    assert pain[0]["areas"] == ["inne"] and pain[0]["note"] == "lekko boli przy zbieganiu"
+    assert _entry(pain_note="   ")["pain"] == []  # same spacje to brak opisu
+
     entry = _entry(pain_areas=["calf"], pain_note="  lekko \n przy zbieganiu ", note="x" * 400)
     assert entry["pain_note"] == "lekko przy zbieganiu"
     assert len(entry["note"]) == 300
