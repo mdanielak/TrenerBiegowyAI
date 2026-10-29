@@ -1,0 +1,12 @@
+{% macro sync_progress(progress) -%}
+  {# Bez znanego etapu pasek jest nieokreślony (animowany), zamiast udawać procenty. #}
+  <div class="sync-progress">
+    {% if progress %}
+      <progress max="100" value="{{ progress.percent }}" aria-label="Postęp synchronizacji">{{ progress.percent }}%</progress>
+      <p class="mid">Krok {{ progress.step }} z {{ progress.steps }}: {{ progress.label }} · około {{ progress.percent }}% · trwa {{ progress.elapsed }}</p>
+    {% else %}
+      <progress aria-label="Postęp synchronizacji"></progress>
+      <p class="mid">Przygotowanie synchronizacji…</p>
+    {% endif %}
+  </div>
+{%- endmacro %}

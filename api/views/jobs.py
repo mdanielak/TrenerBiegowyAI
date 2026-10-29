@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from services.jobs import JobStore
+from services.sync_progress import progress_view
 
 SYNC_COOLDOWN = timedelta(seconds=60)
 REVIEW_COOLDOWN = timedelta(seconds=30)
@@ -33,8 +34,9 @@ def _sync_banner(store: JobStore, now: datetime) -> dict[str, str | bool | None]
         return {"message": None, "details_url": None, "refresh": False, "disabled": False}
     job = jobs[0]
     if job.status in {"accepted", "running"}:
-        return {"message": "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama.",
-                "details_url": None, "refresh": True, "disabled": True}
+        return {"message": "Trwa synchronizacja danych. Strona odświeży się sama.",
+                "details_url": None, "refresh": True, "disabled": True,
+                "progress": progress_view(store.directory, job.id, now)}
     completed_at = _job_timestamp(job.finished_at or job.created_at)
     current = now.astimezone(timezone.utc)
     recent = completed_at is not None and current - completed_at <= timedelta(minutes=10)

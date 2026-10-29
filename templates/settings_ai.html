@@ -37,9 +37,10 @@
 {% endif %}
 <section class="card ai-guide" id="samouczek" aria-labelledby="guide-heading">
   <div class="card-head"><h2 id="guide-heading"><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Jak podłączyć AI — krok po kroku</span></h2></div>
-  <p class="mid">AI jest opcjonalne: bez niego działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu. Wybierz jedną z darmowych opcji:</p>
+  <p class="mid">AI jest opcjonalne: bez niego działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu. Wybierz jedną z opcji:</p>
   <nav class="guide-tabs" aria-label="Dostawca AI">
     <a class="btn btn-secondary{% if ai_guide == 'gemini' %} is-active{% endif %}" href="/settings/ai?guide=gemini#samouczek"{% if ai_guide == 'gemini' %} aria-current="page"{% endif %}>Google Gemini — zalecane</a>
+    <a class="btn btn-secondary{% if ai_guide == 'openrouter' %} is-active{% endif %}" href="/settings/ai?guide=openrouter#samouczek"{% if ai_guide == 'openrouter' %} aria-current="page"{% endif %}>DeepSeek Flash — przez OpenRouter</a>
     <a class="btn btn-secondary{% if ai_guide == 'ollama' %} is-active{% endif %}" href="/settings/ai?guide=ollama#samouczek"{% if ai_guide == 'ollama' %} aria-current="page"{% endif %}>Ollama — na Twoim komputerze</a>
   </nav>
 
@@ -52,6 +53,15 @@
       <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
     </ol>
     <p class="tile-foot"><strong>Prywatność:</strong> dane nie opuszczają Twojego komputera. Koszt: 0 zł, ale potrzebny jest w miarę mocny komputer.</p>
+  {% elif ai_guide == 'openrouter' %}
+    <ol class="guide-steps">
+      <li>Załóż konto na <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a> (można zalogować się kontem Google).</li>
+      <li>Doładuj konto w <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener">Settings → Credits</a>. Najmniejsze doładowanie wystarczy na długie miesiące.</li>
+      <li>W <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">Settings → API Keys</a> kliknij <strong>Create Key</strong> i skopiuj klucz (zaczyna się od <code>sk-or-</code>).</li>
+      <li>Kliknij <a class="btn btn-secondary" href="/settings/ai?preset=openrouter#ai-form">Wpisz ustawienia DeepSeek Flash</a>, wklej klucz w pole <strong>Klucz API</strong>, zaznacz zgodę na wysyłanie danych i kliknij <strong>Zapisz ustawienia AI</strong>.</li>
+      <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
+    </ol>
+    <p class="tile-foot"><strong>Koszt:</strong> to nie jest darmowa opcja, ale bardzo tania — ułożenie planu kosztuje zwykle ułamek centa. <strong>Prywatność:</strong> OpenRouter przekazuje zapytanie jednemu z dostawców modelu; w <a href="https://openrouter.ai/settings/privacy" target="_blank" rel="noopener">Settings → Privacy</a> wyłącz dostawców, którzy mogą używać danych do trenowania.</p>
   {% else %}
     <ol class="guide-steps">
       <li>Otwórz <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> i zaloguj się kontem Google (tym samym co do Gmaila).</li>

@@ -2,7 +2,7 @@
 
 {% block title %}Synchronizacja danych{% endblock %}
 
-{% block head_extra %}{% if job.status in ('accepted', 'running') %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
+{% block head_extra %}{% if job.status in ('accepted', 'running') %}<meta http-equiv="refresh" content="{{ 5 if job.operation == 'sync' else 15 }}">{% endif %}{% endblock %}
 
 {% block content %}
 {% import "_icons.html" as ico %}
@@ -24,6 +24,7 @@
         {% if job.status == 'succeeded' %}{{ ico.check(18) }}{% elif job.status in ('accepted', 'running') %}{{ ico.clock(18) }}{% else %}{{ ico.info(18) }}{% endif %}
         <div class="banner-body">
           <p class="banner-title">{{ message }}</p>
+          {% if job.operation == 'sync' and job.status in ('accepted', 'running') %}{% from "_sync_progress.html" import sync_progress %}{{ sync_progress(progress) }}{% endif %}
           {% if job.status == 'failed' and job.error_message %}<p class="muted">{{ job.error_message }}</p>{% endif %}
         </div>
       </div>

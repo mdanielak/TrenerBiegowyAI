@@ -2,7 +2,7 @@
 
 {% block title %}Trener Biegowy — dziś{% endblock %}
 
-{% block head_extra %}{% if sync_banner.refresh %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
+{% block head_extra %}{% if sync_banner.refresh %}<meta http-equiv="refresh" content="{{ 5 if sync_banner.disabled else 15 }}">{% endif %}{% endblock %}
 
 {% block content %}
 {% import "_icons.html" as ico %}
@@ -84,6 +84,7 @@
         {{ ico.info() }}
         <div class="banner-body">
           <p class="banner-title">{{ sync_banner.message }}</p>
+          {% if sync_banner.disabled %}{% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync_banner.progress) }}{% endif %}
           {% if sync_banner.details_url %}<p><a href="{{ sync_banner.details_url }}">Szczegóły</a></p>{% endif %}
         </div>
       </div>

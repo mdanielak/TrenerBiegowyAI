@@ -11,6 +11,7 @@ from services.jobs import (
 )
 from services.locking import LockBusyError, acquire_lock
 from services.plan import as_datetime
+from services.sync_progress import SyncProgress
 
 
 SYNC_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
@@ -22,31 +23,36 @@ GARMIN_CONFLICT_MESSAGE = ("Na niektóre dni są już treningi na zegarku. Wybie
                            "dodać nowe obok, czy anulować.")
 
 
-def synchronize_data(*, fresh=False):
+def synchronize_data(*, fresh=False, progress=None):
     """Wykonaj synchronizację i zapisz nowy lokalny snapshot.
 
     Argument ``fresh`` rozróżnia pełną synchronizację od zwykłej bez
-    wywoływania komendy CLI, która ma własną blokadę.
+    wywoływania komendy CLI, która ma własną blokadę; ``progress`` dostaje
+    nazwę każdego rozpoczętego etapu.
     """
     from services.data_extract import synchronize_and_save
 
-    return synchronize_and_save(fresh=fresh)
+    return synchronize_and_save(fresh=fresh, progress=progress)
 
 
 def run_sync_job(*, store: JobStore, job_id: str, operation=synchronize_data,
                  fresh=False, lock_directory=None):
     """Oznacz zadanie, wykonaj synchronizację pod blokadą i zapisz rezultat."""
     store.mark_running(job_id)
+    progress = SyncProgress(store.directory, job_id, fresh=fresh)
     try:
         with acquire_lock(name="sync", directory=lock_directory):
             if operation is synchronize_data:
-                operation(fresh=fresh)
+                operation(fresh=fresh, progress=progress.stage)
             else:
                 operation()
     except LockBusyError:
+        progress.finish(succeeded=False)
         return store.mark_failed(job_id, message=SYNC_BUSY_MESSAGE)
     except Exception:
+        progress.finish(succeeded=False)
         return store.mark_failed(job_id)
+    progress.finish(succeeded=True)
     return store.mark_succeeded(job_id)
 
 

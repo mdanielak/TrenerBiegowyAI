@@ -200,7 +200,7 @@ class TestSyncFailure:
     def test_partial_sync_status_is_saved_in_snapshot(self, monkeypatch):
         from services import data_extract
 
-        monkeypatch.setattr(data_extract, 'sync', lambda: SyncStatus.PARTIAL)
+        monkeypatch.setattr(data_extract, 'sync', lambda progress=None: SyncStatus.PARTIAL)
         monkeypatch.setattr(data_extract, 'extract', lambda: {"timestamp": "2026-09-16T10:00:00"})
         save_mock = MagicMock()
         monkeypatch.setattr(data_extract, 'save_json', save_mock)
@@ -216,8 +216,8 @@ class TestSynchronizeAndSave:
         from services import data_extract
 
         calls = []
-        monkeypatch.setattr(data_extract, 'sync', lambda: calls.append("sync") or SyncStatus.FULL)
-        monkeypatch.setattr(data_extract, 'sync_full', lambda: calls.append("sync_full") or SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'sync', lambda progress=None: calls.append("sync") or SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'sync_full', lambda progress=None: calls.append("sync_full") or SyncStatus.FULL)
         monkeypatch.setattr(data_extract, 'extract', lambda: calls.append("extract") or {"timestamp": "test"})
         monkeypatch.setattr(data_extract, 'save_json', lambda data: calls.append(("save", data)))
 
@@ -229,7 +229,7 @@ class TestSynchronizeAndSave:
     def test_does_not_acquire_a_second_lock(self, tmp_path, monkeypatch):
         from services import data_extract
 
-        monkeypatch.setattr(data_extract, 'sync', lambda: SyncStatus.FULL)
+        monkeypatch.setattr(data_extract, 'sync', lambda progress=None: SyncStatus.FULL)
         monkeypatch.setattr(data_extract, 'extract', lambda: {"timestamp": "test"})
         monkeypatch.setattr(data_extract, 'save_json', lambda data: None)
 

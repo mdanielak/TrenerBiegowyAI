@@ -44,7 +44,7 @@ def test_synchronize_data_delegates_to_shared_operation(monkeypatch):
     expected = {"sync_status": "full"}
     calls = []
     monkeypatch.setattr("services.data_extract.synchronize_and_save",
-                        lambda *, fresh=False: calls.append(fresh) or expected)
+                        lambda *, fresh=False, progress=None: calls.append(fresh) or expected)
 
     assert synchronize_data(fresh=True) is expected
     assert calls == [True]

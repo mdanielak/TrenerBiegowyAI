@@ -328,7 +328,7 @@ def test_job_page_states_and_refresh_policy(tmp_path):
         unknown = store.mark_abandoned_running_as_unknown()[0]
         unknown_response = client.get(f"/jobs/{unknown.id}")
     assert "Zadanie przyjęte, za chwilę się zacznie." in accepted.text and "w kolejce" in accepted.text
-    assert 'http-equiv="refresh" content="15"' in accepted.text and 'http-equiv="refresh" content="15"' in running_response.text
+    assert 'http-equiv="refresh" content="5"' in accepted.text and 'http-equiv="refresh" content="5"' in running_response.text
     assert "Gotowe. Dane są zaktualizowane." in succeeded_response.text
     assert 'http-equiv="refresh"' not in succeeded_response.text
     assert "Nie udało się. Spróbuj ponownie." in failed_response.text
@@ -413,8 +413,8 @@ def test_dashboard_shows_running_sync_banner_refresh_and_disabled_button(tmp_pat
     with TestClient(create_app(report_provider=lambda: _report(), job_store=store,
                                now_provider=lambda: now)) as client:
         response = client.get("/")
-    assert "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama." in response.text
-    assert '<meta http-equiv="refresh" content="15">' in response.text
+    assert "Trwa synchronizacja danych. Strona odświeży się sama." in response.text
+    assert '<meta http-equiv="refresh" content="5">' in response.text
     assert '<button type="submit" disabled>' in response.text
 
 
@@ -522,7 +522,7 @@ def test_sync_conflict_redirects_to_dashboard_banner_without_json(tmp_path):
     assert conflict.status_code == 303
     assert conflict.headers["location"] == "/"
     assert '"detail"' not in conflict.text
-    assert "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama." in page.text
+    assert "Trwa synchronizacja danych. Strona odświeży się sama." in page.text
 
 
 def test_cooldown_redirect_keeps_last_sync_time(tmp_path):

@@ -142,14 +142,23 @@ def download_today(timeout=300, cwd=None):
     return True
 
 
-def sync():
+def _report(progress, stage):
+    """Przekaż etap do paska postępu, jeśli wywołujący go śledzi."""
+    if progress is not None:
+        progress(stage)
+
+
+def sync(progress=None):
     """Run garmindb CLI incremental sync."""
+    _report(progress, "garmin")
     ensure_garmindb_config(GARMIN_EMAIL)
     ensure_token()
     python = _find_python()
     script = _find_garmindb_cli()
     log_dir = _garmindb_log_dir()
+    _report(progress, "today")
     today_downloaded = download_today(cwd=log_dir)
+    _report(progress, "history")
     cmd = [python, script, '--all', '--download', '--import', '--analyze', '--latest']
     logger.info("Starting incremental sync: %s", ' '.join(cmd[-3:]))
     print("  Syncing...", end=" ", flush=True)
@@ -178,13 +187,15 @@ def sync():
     return SyncStatus.FULL if today_downloaded else SyncStatus.PARTIAL
 
 
-def sync_full():
+def sync_full(progress=None):
     """Run garmindb CLI full sync (first time / rebuild)."""
+    _report(progress, "garmin")
     ensure_garmindb_config(GARMIN_EMAIL)
     ensure_token()
     python = _find_python()
     script = _find_garmindb_cli()
     log_dir = _garmindb_log_dir()
+    _report(progress, "history")
     cmd = [python, script, '--all', '--download', '--import', '--analyze']
     logger.info("Starting full sync (timeout: %ds)", GARMINDB_FRESH_TIMEOUT)
     print("Running full sync (this may take a while)...")
@@ -203,12 +214,13 @@ def sync_full():
     return SyncStatus.FULL
 
 
-def synchronize_and_save(*, fresh=False):
+def synchronize_and_save(*, fresh=False, progress=None):
     """Zsynchronizuj dane, zapisz snapshot i zwróć wyeksportowane dane.
 
     Wywołujący odpowiada za założenie blokady synchronizacji.
     """
-    sync_status = sync_full() if fresh else sync()
+    sync_status = sync_full(progress) if fresh else sync(progress)
+    _report(progress, "extract")
     logger.info("Extracting data from databases")
     data = extract()
     sync_status = sync_status or SyncStatus.FULL

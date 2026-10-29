@@ -24,6 +24,7 @@ from services.actions import (
 )
 from services.jobs import JobConflictError, JobCooldownError, JobNotFoundError, JobStore
 from services.locking import LockBusyError, acquire_lock
+from services.sync_progress import progress_view
 from api.views.jobs import (
     PLAN_COOLDOWN,
     PLAN_PUSH_COOLDOWN,
@@ -463,7 +464,7 @@ def get_actions_router(
             raise HTTPException(404, "Nie znaleziono zadania.")
         labels = {
             "accepted": "Zadanie przyjęte, za chwilę się zacznie.",
-            "running": "Trwa synchronizacja danych. Może potrwać około dwóch minut. Strona odświeży się sama.",
+            "running": "Trwa synchronizacja danych. Strona odświeży się sama.",
             "succeeded": "Gotowe. Dane są zaktualizowane.",
             "failed": "Nie udało się. Spróbuj ponownie.",
             "unknown": "Nie wiemy, czy operacja się dokończyła. Sprawdź dane, zanim spróbujesz ponownie.",
@@ -474,6 +475,8 @@ def get_actions_router(
             context={
                 "job": job,
                 "message": labels[job.status],
+                "progress": (progress_view(store.directory, job.id)
+                             if job.operation == "sync" and job.status in {"accepted", "running"} else None),
                 "status_label": {"accepted": "w kolejce", "running": "trwa", "succeeded": "gotowe",
                                  "failed": "błąd", "unknown": "nieznany"}.get(job.status, job.status),
                 "active_nav": "today",

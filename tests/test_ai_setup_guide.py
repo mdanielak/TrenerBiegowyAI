@@ -72,6 +72,10 @@ def test_guide_and_presets_fill_the_form_without_a_key(tmp_path):
     gemini = client.get("/settings/ai?preset=gemini").text
     assert 'value="https://generativelanguage.googleapis.com/v1beta/openai/"' in gemini
     assert 'value="gemini-3.8-flash"' in gemini and "sekret" not in gemini
+    openrouter = client.get("/settings/ai?preset=openrouter").text
+    assert 'value="https://openrouter.ai/api/v1"' in openrouter
+    assert 'value="~deepseek/deepseek-flash-latest"' in openrouter and "openrouter.ai/settings/keys" in openrouter
+    assert page.index("Google Gemini — zalecane") < page.index("DeepSeek Flash — przez OpenRouter") < page.index("Ollama — na Twoim")
     ollama = client.get("/settings/ai?guide=ollama").text
     assert "ollama.com/download" in ollama and "<code>local</code>" in ollama
 
