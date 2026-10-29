@@ -21,5 +21,7 @@ def test_demo_home_page_shows_sample_data_in_both_themes():
     client = TestClient(_demo_module().build_demo_app())
     page = client.get("/").text
     assert "Łatwy 45 min – Z2" in page and "AI połączone · Google" in page
+    assert "Uważaj dziś na intensywność" in page
+    assert page.index("Uważaj dziś na intensywność") < page.index("Sygnały z organizmu") < page.index("Trening na dziś")
     client.get("/theme?set=dark")
     assert 'data-theme="dark"' in client.get("/").text

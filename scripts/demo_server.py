@@ -39,8 +39,8 @@ def _snapshot(today):
                         "distance_km": 8.2, "duration_min": 49.0, "avg_hr": 136, "max_hr": 151}],
         "daily_health": [{"date": day(0), "rhr": 48, "stress_avg": 24}, {"date": day(1), "rhr": 50, "stress_avg": 29}],
         "sleep": [{"date": day(0), "score": 86, "total_h": 7.4}, {"date": day(1), "score": 84, "total_h": 7.1}],
-        "hrv": [{"date": day(0), "status": "BALANCED", "last_night": 64, "baseline_low": 55, "baseline_high": 70},
-                {"date": day(1), "status": "BALANCED", "last_night": 61, "baseline_low": 55, "baseline_high": 70}],
+        "hrv": [{"date": day(offset), "status": "LOW", "last_night": 48 + offset,
+                 "baseline_low": 55, "baseline_high": 70} for offset in range(6)],
     }
 
 

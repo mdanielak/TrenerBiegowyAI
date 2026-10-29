@@ -13,7 +13,7 @@ TrenerBiegowyAI to lokalna aplikacja dla biegaczy korzystających z Garmin Conne
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
-  <img src="docs/images/screenshot-light.png" alt="Widok dnia: sygnały z organizmu, ocena gotowości i szczegóły treningu" width="900">
+  <img src="docs/images/screenshot-light.png" alt="Widok dnia: ostrzeżenie o intensywności, sygnały z organizmu, ocena gotowości i szczegóły treningu" width="900">
 </picture>
 
 <sub>Widok dnia na danych demonstracyjnych. Motyw na GitHubie dopasowuje się do ustawień przeglądarki.</sub>
