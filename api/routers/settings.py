@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 # Gotowe ustawienia dla samouczka „Jak podłączyć AI”: tylko adres i model, nigdy klucz.
 AI_PRESETS = {
     "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/", "model": "gemini-3.8-flash"},
-    # Alias „latest” wskazuje najnowszy DeepSeek Flash, więc nazwa się nie zestarzeje.
-    "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "~deepseek/deepseek-flash-latest"},
+    # `deepseek-flash` to stała nazwa, pod którą DeepSeek podaje swój aktualny model Flash.
+    "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-flash"},
     "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3.1"},
 }
 

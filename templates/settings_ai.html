@@ -40,7 +40,7 @@
   <p class="mid">AI jest opcjonalne: bez niego działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu. Wybierz jedną z opcji:</p>
   <nav class="guide-tabs" aria-label="Dostawca AI">
     <a class="btn btn-secondary{% if ai_guide == 'gemini' %} is-active{% endif %}" href="/settings/ai?guide=gemini#samouczek"{% if ai_guide == 'gemini' %} aria-current="page"{% endif %}>Google Gemini — zalecane</a>
-    <a class="btn btn-secondary{% if ai_guide == 'openrouter' %} is-active{% endif %}" href="/settings/ai?guide=openrouter#samouczek"{% if ai_guide == 'openrouter' %} aria-current="page"{% endif %}>DeepSeek Flash — przez OpenRouter</a>
+    <a class="btn btn-secondary{% if ai_guide == 'deepseek' %} is-active{% endif %}" href="/settings/ai?guide=deepseek#samouczek"{% if ai_guide == 'deepseek' %} aria-current="page"{% endif %}>DeepSeek Flash — tani i szybki</a>
     <a class="btn btn-secondary{% if ai_guide == 'ollama' %} is-active{% endif %}" href="/settings/ai?guide=ollama#samouczek"{% if ai_guide == 'ollama' %} aria-current="page"{% endif %}>Ollama — na Twoim komputerze</a>
   </nav>
 
@@ -53,15 +53,15 @@
       <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
     </ol>
     <p class="tile-foot"><strong>Prywatność:</strong> dane nie opuszczają Twojego komputera. Koszt: 0 zł, ale potrzebny jest w miarę mocny komputer.</p>
-  {% elif ai_guide == 'openrouter' %}
+  {% elif ai_guide == 'deepseek' %}
     <ol class="guide-steps">
-      <li>Załóż konto na <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a> (można zalogować się kontem Google).</li>
-      <li>Doładuj konto w <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noopener">Settings → Credits</a>. Najmniejsze doładowanie wystarczy na długie miesiące.</li>
-      <li>W <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">Settings → API Keys</a> kliknij <strong>Create Key</strong> i skopiuj klucz (zaczyna się od <code>sk-or-</code>).</li>
-      <li>Kliknij <a class="btn btn-secondary" href="/settings/ai?preset=openrouter#ai-form">Wpisz ustawienia DeepSeek Flash</a>, wklej klucz w pole <strong>Klucz API</strong>, zaznacz zgodę na wysyłanie danych i kliknij <strong>Zapisz ustawienia AI</strong>.</li>
+      <li>Załóż konto na <a href="https://platform.deepseek.com" target="_blank" rel="noopener">platform.deepseek.com</a> (można zalogować się kontem Google).</li>
+      <li>Doładuj konto w zakładce <strong>Top up</strong>. Płacisz z góry, więc nie zapłacisz więcej, niż wpłacisz; najmniejsze doładowanie wystarczy na długie miesiące.</li>
+      <li>W <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">API keys</a> kliknij <strong>Create new API key</strong> i skopiuj klucz (zaczyna się od <code>sk-</code>). Klucz widać tylko raz — od razu go wklej.</li>
+      <li>Kliknij <a class="btn btn-secondary" href="/settings/ai?preset=deepseek#ai-form">Wpisz ustawienia DeepSeek</a>, wklej klucz w pole <strong>Klucz API</strong>, zaznacz zgodę na wysyłanie danych i kliknij <strong>Zapisz ustawienia AI</strong>.</li>
       <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
     </ol>
-    <p class="tile-foot"><strong>Koszt:</strong> to nie jest darmowa opcja, ale bardzo tania — ułożenie planu kosztuje zwykle ułamek centa. <strong>Prywatność:</strong> OpenRouter przekazuje zapytanie jednemu z dostawców modelu; w <a href="https://openrouter.ai/settings/privacy" target="_blank" rel="noopener">Settings → Privacy</a> wyłącz dostawców, którzy mogą używać danych do trenowania.</p>
+    <p class="tile-foot"><strong>Koszt:</strong> to nie jest darmowa opcja, ale bardzo tania — ułożenie planu kosztuje zwykle ułamek centa; aktualny cennik jest na <a href="https://api-docs.deepseek.com/quick_start/pricing" target="_blank" rel="noopener">stronie DeepSeek</a>. <strong>Prywatność:</strong> dane trafiają bezpośrednio do firmy DeepSeek, która według swojej polityki prywatności przetwarza je na serwerach w Chinach.</p>
   {% else %}
     <ol class="guide-steps">
       <li>Otwórz <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> i zaloguj się kontem Google (tym samym co do Gmaila).</li>
@@ -72,7 +72,7 @@
     </ol>
     <p class="tile-foot"><strong>Koszt:</strong> 0 zł w ramach darmowego limitu Google — aplikacja wysyła kilka zapytań dziennie, czyli daleko poniżej limitu. <strong>Prywatność:</strong> w Polsce i całym EOG Google stosuje do darmowego limitu te same zasady co do płatnej usługi, więc nie używa Twoich zapytań do ulepszania swoich produktów. Jeśli Google zmieni nazwę modelu, test połączenia to pokaże — aktualną nazwę znajdziesz w AI Studio.</p>
   {% endif %}
-  {% if ai_preset %}<p class="banner info" role="status">Wpisałem adres i model w formularzu poniżej — dodaj klucz i kliknij „Zapisz ustawienia AI”.</p>{% endif %}
+  {% if ai_preset %}<p class="banner info" role="status">Adres i model są już w formularzu poniżej — dodaj klucz i kliknij „Zapisz ustawienia AI”.</p>{% endif %}
 </section>
 <section class="card" aria-labelledby="ai-heading">
   <div class="card-head"><h2 id="ai-heading">Konfiguracja połączenia</h2></div>
