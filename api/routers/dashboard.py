@@ -42,6 +42,7 @@ from api.views.today import (
     _report_error,
     _ring_geometry,
     _health_alert,
+    _pause_view,
     _signal_cards,
     _workout_section,
 )
@@ -139,6 +140,7 @@ def get_dashboard_router(
                     "signal_cards": _signal_cards(report),
                     "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
                     "workout": _workout_section(report, profile_provider, review_loader),
+                    "pause": _pause_view(report),
                     "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None), floors=zone_floors),
                     "ai_recommendation": _recommendation_view(recommendation),
                     "journal_missing": report.date not in journal_by_day,

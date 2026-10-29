@@ -13,7 +13,7 @@
     {{ ico.info() }}
     <div class="banner-body">
       <p>{{ error_message }}</p>
-      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
       <p><a href="/">Wróć do widoku dnia</a></p>
     </div>
   </div>
@@ -29,19 +29,26 @@
 
   <div class="stack">
 
-    <section class="card">
-      <div class="card-head">
-        <h2>Integracje</h2>
-        <a class="btn" href="/settings/ai">API AI →</a>
+    <section class="card" aria-labelledby="connections-heading">
+      <div class="card-head"><h2 id="connections-heading">Połączenia</h2></div>
+      <div class="list">
+        <div class="list-item">
+          <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""></span>
+          <span class="item-body">
+            <span class="item-title">Zegarek Garmin</span>
+            <span class="item-meta"><span>{% if garmin_connected %}Połączony — profil, strefy tętna i treningi pobierają się z konta.{% else %}Niepołączony. Bez tego aplikacja nie ma danych z zegarka.{% endif %}</span></span>
+          </span>
+          <a class="btn btn-secondary" href="/setup/garmin">{% if garmin_connected %}Zarządzaj{% else %}Połącz zegarek{% endif %}</a>
+        </div>
+        <div class="list-item">
+          <span class="item-icon"><img class="asset" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""></span>
+          <span class="item-body">
+            <span class="item-title">AI</span>
+            <span class="item-meta"><span>{% set badge = sidebar_ai_badge(request) if sidebar_ai_badge is defined else None %}{% if badge %}{{ badge.label }} — układanie planu, rekomendacja dnia i komentarz do treningu.{% else %}Układanie planu, rekomendacja dnia i komentarz do treningu.{% endif %}</span></span>
+          </span>
+          <a class="btn btn-secondary" href="/settings/ai">Ustawienia AI</a>
+        </div>
       </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""><span>Zegarek Garmin</span></h2>
-        <a class="btn btn-secondary" href="/setup/garmin">Połącz zegarek →</a>
-      </div>
-      <p class="mid">Logowanie do Garmin Connect, pobranie tętna i stref z konta oraz pierwsze pobranie danych.</p>
     </section>
 
     <section class="card">
@@ -55,11 +62,10 @@
     <div class="banner info">
       {{ ico.info() }}
       <div class="banner-body">
-        <p class="banner-title">Profil biegacza jest tutaj tylko do odczytu.</p>
+        <p class="banner-title">Profil biegacza i strefy tętna pochodzą z konta Garmin.</p>
         <p class="mid">
-          Aby odświeżyć dane z zegarka, uruchom w terminalu: <code>python -m trainer profile --sync</code>.
-          Strefy tętna zaktualizujesz przez <code>python -m trainer zones --sync</code>,
-          a cały profil ustawisz od nowa przez <code>python -m trainer setup</code>.
+          Odświeżysz je w <a href="/setup/garmin">Zegarek Garmin</a> przyciskiem „Odśwież profil i strefy tętna”.
+          Cel, datę zawodów i dni treningowe zmienisz w <a href="/wizard">kreatorze</a>.
         </p>
       </div>
     </div>
@@ -135,7 +141,7 @@
       {% else %}
         <div class="empty-art">
           <img class="asset" src="/assets/03_activity/sports_watch.png" width="176" height="176" alt="">
-          <p>Nie zapisano jeszcze stref tętna. Uruchom <code>python -m trainer zones --sync</code>.</p>
+          <p>Nie zapisano jeszcze stref tętna. Pobierz je w <a href="/setup/garmin">Zegarek Garmin</a> przyciskiem „Odśwież profil i strefy tętna”.</p>
         </div>
       {% endif %}
     </section>

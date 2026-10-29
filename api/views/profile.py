@@ -2,6 +2,10 @@
 """Widok profilu biegacza na stronie ustawień."""
 from __future__ import annotations
 
+import re
+
+from api.views.common import _format_date
+
 # (klucz profilu, etykieta, jednostka, ikona wiersza w 07_ui_icons)
 _PROFILE_RUNNER_FIELDS = (
     ("name", "Imię", "", "tile_person"),
@@ -32,6 +36,23 @@ def profile_icon_references() -> list[str]:
     return sorted({f"07_ui_icons/{icon}.png" for *_rest, icon in fields})
 
 
+def _display_value(key: str, value):
+    """Starsze profile mają wartości z CLI („5x/week”, data ISO); pokaż je po polsku."""
+    if not isinstance(value, str):
+        return value
+    if key == "training_frequency":
+        match = re.fullmatch(r"\s*(\d+)\s*x\s*/\s*week\s*", value, flags=re.IGNORECASE)
+        if match:
+            count = int(match.group(1))
+            word = "raz" if count == 1 else "razy"
+            return f"{count} {word} w tygodniu"
+    if key == "target_date":
+        match = re.match(r"(\d{4}-\d{2}-\d{2})(.*)", value)
+        if match:
+            return _format_date(match.group(1)) + match.group(2)
+    return value
+
+
 def _profile_rows(profile: dict, fields) -> list[dict]:
     """Zbuduj wiersze profilu tylko z zapisanych pól. Nic nie jest domyślane."""
     rows = []
@@ -39,7 +60,7 @@ def _profile_rows(profile: dict, fields) -> list[dict]:
         value = profile.get(key)
         rows.append({
             "label": label,
-            "value": None if value is None or value == "" else value,
+            "value": None if value is None or value == "" else _display_value(key, value),
             "unit": unit,
             "icon": f"07_ui_icons/{icon}.png",
         })

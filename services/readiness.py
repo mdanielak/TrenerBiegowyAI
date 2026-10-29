@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from services.activity_matching import find_activity_for_workout
 
 
+# Oceny HRV z zegarka po polsku: te zdania trafiają na stronę Analiza i do kontekstu AI.
+_HRV_WORDS = {"UNBALANCED": "niezrównoważone", "LOW": "niskie", "POOR": "słabe", "UNKNOWN": "bez oceny zegarka"}
+
+
 def compute_readiness_breakdown(data):
     """Compute detailed readiness score with per-metric breakdown.
 
@@ -40,48 +44,48 @@ def compute_readiness_breakdown(data):
 
     # 1. RHR
     if rhr is None:
-        unavailable('rhr', 'RHR', "Brak pomiaru RHR")
+        unavailable('rhr', 'RHR', "Brak pomiaru tętna spoczynkowego")
     elif rhr <= 49:
         available_metrics.append('rhr')
         raw_score += 2.5
-        details.append({"metric": "RHR", "status": "OK", "message": f"RHR w normie ({rhr})"})
+        details.append({"metric": "RHR", "status": "OK", "message": f"Tętno spoczynkowe w normie ({rhr} bpm)"})
     elif rhr <= 53:
         available_metrics.append('rhr')
         raw_score += 1.5
-        details.append({"metric": "RHR", "status": "WARN", "message": f"RHR lekko podwyższone ({rhr})"})
+        details.append({"metric": "RHR", "status": "WARN", "message": f"Tętno spoczynkowe lekko podwyższone ({rhr} bpm)"})
     else:
         available_metrics.append('rhr')
-        details.append({"metric": "RHR", "status": "FAIL", "message": f"RHR podwyższone ({rhr}) — regeneracja"})
+        details.append({"metric": "RHR", "status": "FAIL", "message": f"Tętno spoczynkowe podwyższone ({rhr} bpm) — postaw na regenerację"})
 
     # 2. HRV
     if any(value is None for value in (hrv_status, hrv_last, hrv_baseline_low, hrv_baseline_high)):
-        unavailable('hrv', 'HRV', "Brak pełnych danych HRV (status, wartość lub baseline)")
+        unavailable('hrv', 'HRV', "Brak pełnych danych HRV (ocena zegarka, wartość lub zakres bazowy)")
     elif hrv_status == "BALANCED" and hrv_last is not None and hrv_baseline_low is not None and hrv_last >= hrv_baseline_low:
         available_metrics.append('hrv')
         raw_score += 3
-        details.append({"metric": "HRV", "status": "OK", "message": f"HRV zrównoważone ({hrv_last})"})
+        details.append({"metric": "HRV", "status": "OK", "message": f"HRV zrównoważone ({hrv_last} ms)"})
     elif hrv_status == "BALANCED":
         available_metrics.append('hrv')
         raw_score += 1
-        details.append({"metric": "HRV", "status": "WARN", "message": f"HRV w normie, ale poniżej baseline ({hrv_last})"})
+        details.append({"metric": "HRV", "status": "WARN", "message": f"HRV zrównoważone, ale poniżej zakresu bazowego ({hrv_last} ms)"})
     else:
         available_metrics.append('hrv')
-        details.append({"metric": "HRV", "status": "FAIL", "message": f"HRV niezrównoważone ({hrv_status}) — zwolnij"})
+        details.append({"metric": "HRV", "status": "FAIL", "message": f"HRV {_HRV_WORDS.get(hrv_status, 'niezrównoważone')} — zwolnij"})
 
     # 3. Sleep
     if sleep_score_val is None:
-        unavailable('sleep', 'Sleep', "Brak sleep score")
+        unavailable('sleep', 'Sleep', "Brak oceny snu")
     elif sleep_score_val >= 90:
         available_metrics.append('sleep')
         raw_score += 2.5
-        details.append({"metric": "Sleep", "status": "OK", "message": f"Sen bardzo dobry (score {sleep_score_val}, {sleep_total}h)"})
+        details.append({"metric": "Sleep", "status": "OK", "message": f"Sen bardzo dobry (ocena {sleep_score_val}/100, {sleep_total} h)"})
     elif sleep_score_val >= 70:
         available_metrics.append('sleep')
         raw_score += 1.5
-        details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen akceptowalny (score {sleep_score_val})"})
+        details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen w porządku (ocena {sleep_score_val}/100)"})
     else:
         available_metrics.append('sleep')
-        details.append({"metric": "Sleep", "status": "FAIL", "message": f"Słaby sen ({sleep_score_val})"})
+        details.append({"metric": "Sleep", "status": "FAIL", "message": f"Słaby sen (ocena {sleep_score_val}/100)"})
 
     # 4. Stress
     if stress is None:

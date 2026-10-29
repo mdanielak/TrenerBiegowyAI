@@ -166,7 +166,8 @@ def test_dashboard_shows_stale_warning():
         response = client.get("/")
     assert response.status_code == 200
     assert "Dane są nieaktualne" in response.text
-    assert "python -m trainer sync" in response.text
+    assert "Kliknij „Zsynchronizuj dane” u góry strony." in response.text
+    assert "terminalu" not in response.text
 
 
 def test_dashboard_does_not_show_warning_for_fresh_snapshot():
@@ -951,10 +952,11 @@ def test_settings_marks_navigation_entry_as_current():
     assert 'href="/settings" aria-current="page"' in response.text
 
 
-def test_settings_shows_integrations_card_below_the_page_title():
+def test_settings_shows_connections_card_below_the_page_title():
     with _settings_client() as client:
         response = client.get("/settings")
-    assert response.text.index("<h1>Ustawienia</h1>") < response.text.index("<h2>Integracje</h2>")
+    assert response.text.index("<h1>Ustawienia</h1>") < response.text.index('<h2 id="connections-heading">Połączenia</h2>')
+    assert "Zegarek Garmin" in response.text and 'href="/settings/ai">Ustawienia AI</a>' in response.text
 
 
 def _execution(**overrides):

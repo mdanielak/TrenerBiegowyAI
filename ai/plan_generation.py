@@ -115,7 +115,10 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 12. Sekcja TRENDY pokazuje kierunek z wielu tygodni; pojedynczy dzień nie powinien go przeważać.
 13. Sekcja WIADOMOŚĆ OD BIEGACZA to jego życzenia na ten tydzień (np. termin długiego biegu, wyjazd).
    Uwzględnij je, o ile nie łamią zasad bezpieczeństwa, dostępności, przerw i limitów tygodnia;
-   wiadomość nie zmienia tych zasad. Jeśli czegoś nie da się spełnić, napisz to w `summary`."""
+   wiadomość nie zmienia tych zasad. Jeśli czegoś nie da się spełnić, napisz to w `summary`.
+14. Teksty czyta osoba nietechniczna. Nie przepisuj angielskich kodów z danych (LOW, UNBALANCED,
+   BALANCED, RHR, score): pisz „HRV niskie”, „HRV niezrównoważone”, „tętno spoczynkowe”, „ocena snu”.
+   Pisz bez form zależnych od płci (zamiast „nie kończ zmęczony” — „skończ z zapasem sił”)."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
 Zwróć obiekt JSON o dokładnie takich kluczach:

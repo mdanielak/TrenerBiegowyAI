@@ -268,6 +268,7 @@ def create_app(
             ai_status_path=ai_status_path,
             # Konfiguracja działającej aplikacji zmienia się tylko przy zapisie jej własnego .env.
             apply_settings=apply_to_running_app if ai_env_path == ENV_PATH else None,
+            has_token=garmin_token_check or _garmin_auth.has_token,
         )
     )
     app.include_router(

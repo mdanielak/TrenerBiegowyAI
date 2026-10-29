@@ -78,6 +78,17 @@ def get_garmin_setup_router(
         return RedirectResponse(url="/setup/garmin?disconnected=1&removed=" + quote("|".join(removed)),
                                 status_code=303)
 
+    @router.post("/setup/garmin/profile", response_class=HTMLResponse)
+    def refresh_profile(request: Request, csrf_token: str = Form(default="")):
+        """Pobierz profil i strefy tętna z zapisanego tokenu, bez ponownego logowania."""
+        if not csrf_valid(request, csrf_token):
+            return render(request, stage="connected", error=_CSRF_ERROR, status_code=403)
+        try:
+            garmin_setup.import_profile(email=None)
+        except Exception:  # noqa: BLE001 - komunikat bez szczegółów integracji
+            return RedirectResponse(url="/setup/garmin?profile=failed", status_code=303)
+        return RedirectResponse(url="/setup/garmin?profile=refreshed", status_code=303)
+
     @router.post("/setup/garmin", response_class=HTMLResponse)
     def login(request: Request, csrf_token: str = Form(default=""), email: str = Form(default=""),
               password: str = Form(default="")):

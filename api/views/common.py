@@ -7,9 +7,9 @@ from datetime import date, datetime
 
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
 _READINESS_LABELS = {
-    "ready": "gotowy do treningu",
-    "ready_with_reserves": "gotowy, z rezerwą",
-    "not_ready": "nie jesteś gotowy do treningu",
+    "ready": "możesz trenować",
+    "ready_with_reserves": "trenuj z rezerwą",
+    "not_ready": "dziś lepiej odpuść",
 }
 _HRV_STATUSES = {
     "BALANCED": "zrównoważone",

@@ -105,6 +105,14 @@ def test_zero_default_availability_is_unconfigured():
     assert availability.configured is False
 
 
+def test_week_summary_counts_days_not_duplicate_watch_entries():
+    report = _report(
+        [_entry(1), _entry(2, name='Stary trening'), _entry(3, date='2026-12-29')],
+        [_activity(10)],
+    )
+    assert (report.summary.completed_workouts, report.summary.planned_workouts) == (1, 2)
+
+
 def test_week_summary_includes_activity_totals_heart_rate_and_workout_counts():
     report = _report(
         [_entry(1, spec={'kind': 'hr_zone_run', 'duration_min': 30, 'zone_number': 2}),
@@ -119,7 +127,7 @@ def test_week_summary_includes_activity_totals_heart_rate_and_workout_counts():
     assert report.summary is not None
     assert (report.summary.total_distance_km, report.summary.total_duration_min,
             report.summary.average_hr, report.summary.completed_workouts,
-            report.summary.planned_workouts) == (7.5, 51.0, 130, 1, 2)
+            report.summary.planned_workouts) == (7.5, 51.0, 130, 1, 1)
     assert _day(report, '2026-12-28').activities[0].avg_hr == 140
 
 

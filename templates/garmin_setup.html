@@ -88,7 +88,9 @@
       <section class="card ai-state ok">
         <div class="card-head"><h2><span class="ai-dot" aria-hidden="true"></span><span>Zegarek połączony</span></h2></div>
         {% if request.query_params.get('profile') == 'failed' %}
-          <p class="mid">Połączenie działa, ale nie udało się teraz pobrać danych profilu. Uzupełnią się przy następnej próbie.</p>
+          <p class="mid">Połączenie działa, ale nie udało się teraz pobrać danych profilu. Spróbuj przyciskiem „Odśwież profil i strefy tętna”.</p>
+        {% elif request.query_params.get('profile') == 'refreshed' %}
+          <p class="banner info" role="status">Pobrano aktualny profil i strefy tętna z Garmina.</p>
         {% endif %}
         <dl class="state-facts">
           <div><dt>Imię</dt><dd>{{ profile.name or '—' }}</dd></div>
@@ -108,6 +110,10 @@
           <p class="mid">Dane z zegarka są już pobrane. Kolejne synchronizacje uruchomisz przyciskiem na stronie głównej.</p>
           <div class="row"><a class="btn" href="/">Przejdź dalej →</a></div>
         {% endif %}
+        <form method="post" action="/setup/garmin/profile" class="row">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn-secondary">{{ ico.refresh(18) }}<span>Odśwież profil i strefy tętna</span></button>
+        </form>
         <p class="tile-foot"><a href="/setup/garmin?change=1">Połącz inne konto Garmin</a></p>
       </section>
 

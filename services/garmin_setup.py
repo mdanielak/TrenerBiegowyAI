@@ -110,8 +110,10 @@ def _finish(api, email) -> None:
     ensure_garmindb_config(email)
 
 
-def import_profile(*, email: str) -> dict:
+def import_profile(*, email: str | None) -> dict:
     """Pobierz profil z Garmina do local/profile.json i zapisz e-mail w .env.
+
+    Bez ``email`` (odświeżenie z zapisanego tokenu) plik .env zostaje nietknięty.
 
     Zwraca słownik tego, co udało się pobrać (do pokazania użytkownikowi).
     Dni treningowe ustawia tylko wtedy, gdy żaden dzień nie jest jeszcze dostępny.
@@ -153,5 +155,6 @@ def import_profile(*, email: str) -> dict:
                                                 slot.get("min_minutes", 0), slot.get("max_minutes", 0))
 
     # Tylko e-mail: inne wpisy .env (np. własny HEALTH_DATA_DIR) zostają bez zmian.
-    _write_env(Path(PROJECT_ROOT) / ".env", {"GARMIN_EMAIL": email})
+    if email:
+        _write_env(Path(PROJECT_ROOT) / ".env", {"GARMIN_EMAIL": email})
     return fields

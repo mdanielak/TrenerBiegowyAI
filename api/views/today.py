@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from datetime import date
 from collections.abc import Callable
 from typing import NoReturn, Optional, cast
 
@@ -21,6 +22,7 @@ from api.views.common import (
     _SIGNAL_STATE_LABELS,
     _WEEKDAYS_SHORT,
 )
+from services.plan_files import week_bounds
 from services.today import TodayReport
 from services.workout_scoring import planned_duration_min, score_execution
 
@@ -217,6 +219,23 @@ def _coach_notes(report, name) -> Optional[dict]:
             "distance_km": plan_workout.get("distance_km")}
 
 
+def _pause_view(report: TodayReport) -> Optional[dict]:
+    """Przerwa trwająca dziś: wygrywa z treningiem, nawet gdy plan ułożono przed jej dodaniem."""
+    pause = getattr(report, "active_pause", None)
+    if not isinstance(pause, dict):
+        return None
+    start, end = str(pause.get("start_date", "")), str(pause.get("end_date", ""))
+    try:
+        monday, _ = week_bounds(date.fromisoformat(report.date))
+    except (TypeError, ValueError):
+        monday = None
+    return {
+        "reason": pause.get("reason") or "Przerwa",
+        "dates": f"{_format_date(start)} – {_format_date(end)}" if start and end else "",
+        "week": monday.isoformat() if monday else None,
+    }
+
+
 def _workout_status(execution: dict) -> tuple[str, str]:
     """Opisz wykonanie treningu słowem i klasą koloru."""
     if execution.get("happened") is True:
@@ -260,6 +279,9 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
     band = (score or {}).get("zakres_docelowy")
     zone = (score or {}).get("strefa_docelowa")
     status_label, status_class = _workout_status(execution)
+    paused = _pause_view(report) is not None and not execution.get("happened")
+    if paused:
+        status_label, status_class = "Przerwa", "warn"
     score_rows = [
         {"label": label, "hint": hint, "value": score[key]}
         for key, label, hint in _SCORE_ROWS if score is not None
@@ -276,6 +298,7 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
         "target": f"Z{zone} ({band[0]}–{band[1]} bpm)" if zone is not None and band else None,
         "status_label": status_label,
         "status_class": status_class,
+        "paused": paused,
         "match_note": _MATCH_NOTES.get(execution.get("match_method")),
         "planned_count": execution.get("planned_count"),
         "score": score,
@@ -289,7 +312,7 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
 def _health_alert(report, journal_entries=()) -> Optional[dict]:
     """Baner na górze strony głównej, gdy organizm wyraźnie potrzebuje odpoczynku.
 
-    Tylko twarde sygnały: gotowość „nie jesteś gotowy”, alert HRV z kilku dni albo ból
+    Tylko twarde sygnały: gotowość „dziś lepiej odpuść”, alert HRV z kilku dni albo ból
     zgłoszony w dzienniku dziś lub wczoraj. Każdy powód jest zdaniem, nie samym kolorem.
     """
     reasons = []
@@ -300,7 +323,7 @@ def _health_alert(report, journal_entries=()) -> Optional[dict]:
         score = readiness.get("score")
         reasons.append(f"Gotowość {_format_number(score)} z {_format_number(readiness.get('max_score'))} — "
                        "organizm jeszcze się regeneruje." if score is not None else
-                       "Ocena gotowości: nie jesteś gotowy do treningu.")
+                       "Ocena gotowości: dziś lepiej odpuścić trening.")
     alert = getattr(report, "hrv_alert", None)
     if alert:
         reasons.append(f"HRV niskie lub niezrównoważone od {alert.get('days')} dni z rzędu.")

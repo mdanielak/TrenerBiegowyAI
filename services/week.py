@@ -238,13 +238,16 @@ def build_week_report(*, snapshot, registry_entries, registry_status, availabili
                  if isinstance(activity.duration_min, (int, float)) and not isinstance(activity.duration_min, bool)]
     heart_rates = [activity.avg_hr for activity in all_activities
                    if isinstance(activity.avg_hr, int) and not isinstance(activity.avg_hr, bool)]
-    all_workouts = [workout for day in days for workout in day.workouts]
+    # Liczymy dni, nie wpisy rejestru: stary trening zostawiony na zegarku obok nowego
+    # nie może podbijać liczby planowanych treningów ponad to, co pokazuje strona Planu.
+    planned_days = [day for day in days if day.workouts]
     summary = WeekSummary(
         total_distance_km=sum(distances) if distances else None,
         total_duration_min=sum(durations) if durations else None,
         average_hr=round(sum(heart_rates) / len(heart_rates)) if heart_rates else None,
-        completed_workouts=sum(workout.status == 'matched' for workout in all_workouts),
-        planned_workouts=len(all_workouts),
+        completed_workouts=sum(any(workout.status == 'matched' for workout in day.workouts)
+                               for day in planned_days),
+        planned_workouts=len(planned_days),
     )
     return WeekReport(monday.isoformat(), sunday.isoformat(), today, 'local_registry', registry_status,
                       snapshot_status, timestamp, warnings, days, summary)

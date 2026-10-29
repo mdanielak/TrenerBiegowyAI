@@ -13,7 +13,7 @@
     {{ ico.info() }}
     <div class="banner-body">
       <p>{{ error_message }}</p>
-      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
     </div>
   </div>
 
@@ -49,7 +49,7 @@
           <div class="banner-body">
             <p class="banner-title">{{ warning_labels[warning] }}</p>
             {% if warning in ('snapshot_stale', 'snapshot_activities_may_be_incomplete') %}
-              <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+              {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(False) }}
             {% endif %}
           </div>
         </div>
@@ -100,7 +100,7 @@
             <span class="tile-label"><span>Wykonane treningi</span></span>
           </span>
           <span class="tile-value">{{ report.summary.completed_workouts }}<span class="tile-unit">z {{ report.summary.planned_workouts }}</span></span>
-          <span class="tile-foot">Zapisane treningi z odnalezionym wykonaniem</span>
+          <span class="tile-foot">Dni z treningiem, w których zegarek zapisał wykonanie</span>
         </div>
       </div>
     {% endif %}
@@ -136,9 +136,9 @@
       </div>
 
       <div class="legend">
-        <span class="legend-item"><span class="legend-swatch ok"></span><span>gotowy do treningu</span></span>
-        <span class="legend-item"><span class="legend-swatch warn"></span><span>gotowy, z rezerwą</span></span>
-        <span class="legend-item"><span class="legend-swatch bad"></span><span>nie jesteś gotowy</span></span>
+        <span class="legend-item"><span class="legend-swatch ok"></span><span>możesz trenować</span></span>
+        <span class="legend-item"><span class="legend-swatch warn"></span><span>trenuj z rezerwą</span></span>
+        <span class="legend-item"><span class="legend-swatch bad"></span><span>dziś lepiej odpuść</span></span>
       </div>
 
       <div class="week">
@@ -161,7 +161,7 @@
             {% for workout in day.workouts %}
               <div class="day-block">
                 <img class="asset day-block-icon" src="/assets/07_ui_icons/plan.png" width="64" height="64" alt="">
-                <span class="day-block-label"><span>Plan</span></span>
+                <span class="day-block-label"><span>{% if loop.first %}Plan{% else %}Też na zegarku{% endif %}</span></span>
                 <span class="day-block-title">{{ workout.name or '—' }}</span>
                 {% if workout.planned_duration_min is not none %}
                   <span class="day-block-meta">{{ workout.planned_duration_min|round|int }} min</span>

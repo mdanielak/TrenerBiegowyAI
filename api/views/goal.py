@@ -5,7 +5,8 @@ from __future__ import annotations
 from api.views.common import _MONTHS_GENITIVE, _plural
 
 _TRACK_WIDTH = 1060
-_TRACK_HEIGHT = 46
+# Pod paskiem jest miejsce na podpis „dziś” przy znaczniku.
+_TRACK_HEIGHT = 62
 _TRACK_Y = 8
 _TRACK_BAR = 22
 _GAP = 4
@@ -40,7 +41,10 @@ def _timeline(report) -> dict | None:
         fraction = min(max(((report.week_number - 1) * 7 + 3) / length, 0), 1)
         marker = round(segment["x"] + segment["width"] * fraction, 2)
     return {"width": _TRACK_WIDTH, "height": _TRACK_HEIGHT, "y": _TRACK_Y, "bar": _TRACK_BAR,
-            "text_y": _TRACK_Y + _TRACK_BAR / 2 + 5, "segments": segments, "marker": marker}
+            "text_y": _TRACK_Y + _TRACK_BAR / 2 + 5, "segments": segments, "marker": marker,
+            # Podpis nie może wyjść poza wykres, gdy „dziś” jest na samym początku lub końcu osi.
+            "marker_label_x": None if marker is None else min(max(marker, 18), _TRACK_WIDTH - 18),
+            "marker_label_y": _TRACK_Y + _TRACK_BAR + 24}
 
 
 def _goal_view(report) -> dict:

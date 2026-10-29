@@ -16,7 +16,7 @@
     {{ ico.info() }}
     <div class="banner-body">
       <p>{{ error_message }}</p>
-      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
       {% if error_sync %}
         <form method="post" action="/actions/sync" class="row">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -74,7 +74,7 @@
         {{ ico.info() }}
         <div class="banner-body">
           <p class="banner-title">Dane są nieaktualne.</p>
-          <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+          {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(True) }}
         </div>
       </div>
     {% endif %}
@@ -163,10 +163,22 @@
         <span class="row">
           {% if workout %}
             <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
+          {% elif pause and plan_workout %}
+            <span class="pill warn">Przerwa</span>
           {% endif %}
           {% if plan_workout %}<a href="/plan">Plan tygodnia</a>{% endif %}
         </span>
       </div>
+
+      {% if pause and not (workout and workout.execution.happened) %}
+        <div class="banner warn" role="status">
+          {{ ico.info() }}
+          <div class="banner-body">
+            <p class="banner-title">Dziś trwa przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.</p>
+            <p class="mid">Dziś odpoczynek. {% if workout or (plan_workout and not plan_workout.is_rest) %}Trening poniżej pochodzi z planu ułożonego przed dodaniem przerwy — pomiń go. {% if pause.week %}<a href="/plan?week={{ pause.week }}">Ułóż plan ponownie</a>, żeby uwzględnił przerwę.{% endif %}{% endif %}</p>
+          </div>
+        </div>
+      {% endif %}
 
       {% if not workout and not plan_workout %}
         <div class="empty-art">
@@ -187,7 +199,7 @@
             </span>
           </div>
 
-          {% if not workout.execution.happened %}
+          {% if not workout.execution.happened and not workout.paused %}
             {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
                             workout.coach.notes if workout.coach else None,
                             workout.coach.distance_km if workout.coach else None) }}
@@ -296,7 +308,7 @@
             </span>
           </span>
         </div>
-        {% if not plan_workout.is_rest %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
+        {% if not plan_workout.is_rest and not pause %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
         {% if plan_workout.is_rest %}
           <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
         {% elif plan_workout.garmin_upload %}
@@ -363,12 +375,17 @@
         <div class="card-head">
           <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Twoja dostępność</span></h2>
         </div>
-        {% if report.availability and report.availability.available %}
+        {% if pause %}
+          <div class="empty-art compact">
+            <img class="asset" src="/assets/03_activity/rest_day.png" width="72" height="72" alt="">
+            <p>Trwa przerwa{% if pause.dates %} ({{ pause.dates }}){% endif %}. Dziś bez treningu.</p>
+          </div>
+        {% elif report.availability and report.availability.available %}
           <div class="list-item">
             <span class="item-icon">{{ ico.clock(18) }}</span>
             <span class="item-body">
               <span class="item-title">{{ report.availability.min_minutes }}–{{ report.availability.max_minutes }} min</span>
-              <span class="item-meta"><span>Tyle czasu zaplanowałeś na ruch w ten dzień tygodnia.</span></span>
+              <span class="item-meta"><span>Tyle czasu masz na ruch w ten dzień tygodnia.</span></span>
             </span>
           </div>
         {% else %}
@@ -412,7 +429,7 @@
       </section>
     </div>
 
-    <footer>To nie jest porada medyczna. Decyzję o treningu podejmujesz sam.</footer>
+    <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>
 
   </div>
 

@@ -23,7 +23,8 @@ ZASADY BEZWZGLĘDNE
 7. Nie diagnozuj medycznie. Nie sugeruj chorób ani kontuzji. Przy wzmiance
    o bólu napisz jedynie, żeby skonsultować się ze specjalistą.
 8. Bez wykrzykników, bez emoji, bez pochwał na siłę, bez haseł motywacyjnych.
-9. Nie zaczynaj od słów "Dzisiejszy trening" ani "Twój trening".'''
+9. Nie zaczynaj od słów "Dzisiejszy trening" ani "Twój trening".
+10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score) i bez form zależnych od płci.'''
 
 
 def _value(value):

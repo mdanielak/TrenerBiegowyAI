@@ -57,7 +57,9 @@ Uwzględnij:
 - wiadomość od biegacza, jeśli jest: uwzględnij życzenia, o ile nie przeczą zdrowiu i regeneracji;
   ból i objawy z dziennika mają pierwszeństwo
 
-Bądź konkretny ale ostrożny — priorytetem jest zdrowie i regeneracja."""
+Bądź konkretny ale ostrożny — priorytetem jest zdrowie i regeneracja.
+Pisz dla osoby nietechnicznej: bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score) —
+„HRV niskie”, „tętno spoczynkowe”, „ocena snu” — i bez form zależnych od płci."""
 
 
 def get_daily_recommendation(provider: AIProvider, context: dict) -> DailyRecommendation:

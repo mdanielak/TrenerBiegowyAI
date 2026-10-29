@@ -560,6 +560,7 @@
   .phase-num { font-size: 12px; font-weight: 650; fill: var(--fg-mid); }
   .phase-num.current { fill: var(--surface); }
   .phase-marker { stroke: var(--fg); stroke-width: 2; }
+  .phase-today { fill: var(--fg); font-size: 13px; font-weight: 700; }
   .goal-phase { font-size: 17px; }
   .goal-head { flex: 1 1 auto; }
   .goal-hero { order: 2; flex: none; }

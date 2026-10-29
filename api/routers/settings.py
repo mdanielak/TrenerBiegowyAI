@@ -50,6 +50,7 @@ def get_settings_router(
     csrf_valid: Callable,
     ai_status_path=None,
     apply_settings=None,
+    has_token: Callable[[], bool] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -103,7 +104,11 @@ def get_settings_router(
 
     def settings_page(request: Request, *, status_code=200):
         token = csrf_token(request)
-        context = {"active_nav": "settings"}
+        try:
+            garmin_connected = bool(has_token()) if has_token is not None else False
+        except OSError:
+            garmin_connected = False
+        context = {"active_nav": "settings", "garmin_connected": garmin_connected}
         try:
             profile = profile_provider()
         except FileNotFoundError:

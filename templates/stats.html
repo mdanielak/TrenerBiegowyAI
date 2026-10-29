@@ -13,7 +13,7 @@
     {{ ico.info() }}
     <div class="banner-body">
       <p>{{ error_message }}</p>
-      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
       <p><a href="/">Wróć do widoku dnia</a></p>
     </div>
   </div>
@@ -40,7 +40,7 @@
         {{ ico.info() }}
         <div class="banner-body">
           <p class="banner-title">Dane są nieaktualne.</p>
-          <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+          {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(False) }}
         </div>
       </div>
     {% endif %}

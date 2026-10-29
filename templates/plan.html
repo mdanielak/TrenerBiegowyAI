@@ -12,7 +12,7 @@
     {{ ico.info() }}
     <div class="banner-body">
       <p>{{ error_message }}</p>
-      {% if error_command %}<p class="mid">Uruchom w terminalu: <code>{{ error_command }}</code></p>{% endif %}
+      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
     </div>
   </div>
 {% endif %}
@@ -130,7 +130,7 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ snapshot_warning }}</p>
-        <p class="mid">Aby je odświeżyć, uruchom w terminalu: <code>python -m trainer sync</code></p>
+        {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(False) }}
       </div>
     </div>
   {% endif %}
@@ -344,7 +344,7 @@
 
   {% endif %}
 
-  <footer>To nie jest porada medyczna. Decyzję o treningu podejmujesz sam.</footer>
+  <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>
 
 </div>
 

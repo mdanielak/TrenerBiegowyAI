@@ -1,0 +1,20 @@
+{# Co zrobić z poziomu aplikacji; polecenie terminala zostaje jako druga droga dla osób, które go używają. #}
+{% macro fix_hint(command) -%}
+  {% if command == 'python -m trainer setup' %}
+    <p class="mid">Połącz zegarek w <a href="/setup/garmin">Ustawienia → Zegarek Garmin</a> — aplikacja utworzy profil z danych konta.</p>
+    <p class="tile-foot">Albo w terminalu: <code>{{ command }}</code></p>
+  {% elif command == 'python -m trainer sync' %}
+    <p class="mid">Pobierz dane z zegarka w <a href="/setup/garmin">Ustawienia → Zegarek Garmin</a>.</p>
+    <p class="tile-foot">Albo w terminalu: <code>{{ command }}</code></p>
+  {% elif command %}
+    <p class="mid">Uruchom w terminalu: <code>{{ command }}</code></p>
+  {% endif %}
+{%- endmacro %}
+
+{% macro stale_hint(here=False) -%}
+  {% if here %}
+    <p class="mid">Kliknij „Zsynchronizuj dane” u góry strony.</p>
+  {% else %}
+    <p class="mid">Kliknij „Zsynchronizuj dane” na <a href="/">stronie głównej</a>.</p>
+  {% endif %}
+{%- endmacro %}
