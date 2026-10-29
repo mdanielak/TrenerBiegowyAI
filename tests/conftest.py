@@ -132,3 +132,11 @@ def _isolate_preferences(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> N
 def _isolate_ai_notes(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Wiadomości dla AI w testach nie trafiają do prawdziwego local/ai-notes.jsonl."""
     monkeypatch.setattr("services.ai_notes.NOTES_PATH", tmp_path_factory.mktemp("ai_notes") / "ai-notes.jsonl")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_locks(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Blokady w testach nie mogą kolidować z działającym dashboardem lub synchronizacją w local/."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr("services.locking.SETTINGS", SimpleNamespace(local_dir=tmp_path_factory.mktemp("locks")))
