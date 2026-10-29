@@ -20,7 +20,8 @@
         <span class="brand-sub">Dane z Twojego zegarka</span>
       </span>
     </div>
-    {% if request is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
+    {# Strażnik: serwer uruchomiony na starszym kodzie nie zna tej funkcji, a szablony przeładowują się same. #}
+    {% if request is defined and sidebar_ai_badge is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
 
     <nav class="nav" aria-label="Nawigacja główna">
       <span class="nav-label">Widoki</span>

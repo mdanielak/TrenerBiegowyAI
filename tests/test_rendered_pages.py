@@ -68,3 +68,18 @@ def test_detectors_catch_known_slips(bad):
 @pytest.mark.parametrize("good", ["15 km", "6,1 h", "1 trening", "3 treningi", "12 treningów", "21 treningów", "4 tygodnie"])
 def test_detectors_accept_correct_polish(good):
     assert not (_DOT_DECIMAL.search(good) or _BAD_PLURAL.search(good) or _PLACEHOLDERS.search(good))
+
+
+def test_base_template_survives_a_missing_badge_helper():
+    """Serwer na starszym kodzie (bez funkcji plakietki) nie może zwracać 500 na każdej stronie."""
+    from types import SimpleNamespace
+
+    from api.main import _TEMPLATES
+
+    env = _TEMPLATES.env
+    helper = env.globals.pop("sidebar_ai_badge")
+    try:
+        html = env.get_template("_base.html").render(request=SimpleNamespace(state=SimpleNamespace()))
+    finally:
+        env.globals["sidebar_ai_badge"] = helper
+    assert "Trener Biegowy" in html and "ai-badge" not in html
