@@ -45,10 +45,6 @@ def _load_runner_profile(local_path=RUNNER_PROFILE_LOCAL, example_path=RUNNER_PR
     return _validate_runner_profile(profile)
 
 
-# Public import retained for callers that previously imported this constant.
-RUNNER_PROFILE = _load_runner_profile()
-
-
 def _goal_from_profile(profile):
     """Build the goal view from profile fields without duplicate constants."""
     return {
@@ -86,11 +82,13 @@ def _get_recent_activities(data, n=7):
     ]
 
 
-def _get_health_snapshot(data):
-    """Get current health metrics as a compact dict."""
-    health = data.get('daily_health', [{}])[0] if data.get('daily_health') else {}
-    sleep = data.get('sleep', [{}])[0] if data.get('sleep') else {}
-    hrv = data.get('hrv', [{}])[0] if data.get('hrv') else {}
+def _get_health_snapshot(data, day: str):
+    """Pomiary z podanego dnia; brak dzisiejszego pomiaru to None, nie wczorajsza wartość."""
+    from services.readiness import record_for_day
+
+    health = record_for_day(data.get('daily_health'), day)
+    sleep = record_for_day(data.get('sleep'), day)
+    hrv = record_for_day(data.get('hrv'), day)
 
     return {
         "rhr": health.get('rhr'),
@@ -140,7 +138,7 @@ def build_training_context(data, plan=None, today=None):
 
     system_prompt = _load_important_prompt()
     recent = _get_recent_activities(data)
-    health = _get_health_snapshot(data)
+    health = _get_health_snapshot(data, today.date().isoformat())
     weekly = _compute_weekly_load(data, today)
     hrv_alert = check_hrv_alert(data.get('hrv', []))
 
@@ -152,10 +150,12 @@ def build_training_context(data, plan=None, today=None):
     from services.journal import summary_for_ai
     journal = summary_for_ai(today=(today or datetime.now()).date())
 
+    # Za każdym razem z dysku: cel zmieniony w kreatorze ma trafić do najbliższego planu.
+    profile = _load_runner_profile()
     return {
         "system_prompt": system_prompt,
-        "runner_profile": RUNNER_PROFILE,
-        "goal": _goal_from_profile(RUNNER_PROFILE),
+        "runner_profile": profile,
+        "goal": _goal_from_profile(profile),
         "recent_activities": recent,
         "weekly_load": weekly,
         "today_plan": today_workout,

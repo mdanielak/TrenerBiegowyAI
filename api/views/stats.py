@@ -120,7 +120,7 @@ def _phase_view(report) -> dict | None:
         rows.append({"label": "Kilometry w ostatnim pełnym tygodniu", "value": last.distance_km, "unit": "km",
                      "target": _range_text(phase.km), "status": _versus(last.distance_km, phase.km)})
     if last is not None and phase.long_km:
-        rows.append({"label": "Najdłuższy bieg w tym tygodniu", "value": last.longest_km, "unit": "km",
+        rows.append({"label": "Najdłuższy bieg w ostatnim pełnym tygodniu", "value": last.longest_km, "unit": "km",
                      "target": _range_text(phase.long_km), "status": _versus(last.longest_km, phase.long_km)})
     return {
         "name": phase.name,

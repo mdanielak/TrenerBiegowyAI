@@ -56,6 +56,7 @@ def _goal_view(report) -> dict:
         "days_word": _plural(report.days_left, "dzień", "dni", "dni") if report.days_left is not None else "",
         "target_time": report.target_time,
         "target_pace": report.target_pace,
+        "distance_label": report.distance_label,
         "record": report.record,
         "timeline": _timeline(report),
         "phases": [{

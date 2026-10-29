@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 import getpass
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ import re
 from . import profile_store, preferences
 from .config import PROJECT_ROOT
 from .errors import env_hint
+from .files import write_atomic
 from .garmin_profile import fetch_snapshot
 from .garmin_auth import GarminAuthError, ensure_garmindb_config, ensure_token, has_token
 
@@ -119,20 +119,8 @@ def _write_env(path: Path, values: dict[str, str]):
         else:
             result.append(line)
     result.extend(f"{key}={serialize(key, value)}" for key, value in values.items() if key not in seen)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=".env.", dir=path.parent, text=True)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write("\n".join(result) + "\n")
-        if os.name != "nt":
-            os.chmod(temporary, 0o600)
-        os.replace(temporary, path)
-        if os.name != "nt":
-            os.chmod(path, 0o600)
-    except BaseException:
-        try: os.unlink(temporary)
-        except FileNotFoundError: pass
-        raise
+    # mkstemp w write_atomic daje 0600, a os.replace przenosi te uprawnienia na .env.
+    write_atomic(path, "\n".join(result) + "\n")
 
 
 def _weekly_proposal(local_days: dict, snapshot: dict) -> dict | None:

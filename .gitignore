@@ -96,3 +96,9 @@ graphify-out/
 
 # Robocze wyniki generowania grafik (przegląd przed --promote)
 trener_biegowy_ai_assets/_generated/
+
+# Local AI tooling: browser profiles, audit screenshots (may show health data), agent settings
+.impeccable/
+.agents/
+.codex/
+.claude/settings.local.json

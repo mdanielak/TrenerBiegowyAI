@@ -76,7 +76,7 @@
           <span class="tile-label"><span>Wymagane tempo</span></span>
         </span>
         <span class="tile-value">{% if goal.target_pace %}{{ goal.target_pace }}<span class="tile-unit">/km</span>{% else %}—{% endif %}</span>
-        <span class="tile-foot">Średnio na 21,1 km</span>
+        <span class="tile-foot">{% if goal.distance_label %}Średnio na {{ goal.distance_label }}{% else %}Tylko dla 5 km, 10 km, półmaratonu i maratonu{% endif %}</span>
       </div>
       <div class="tile">
         <span class="tile-head">
@@ -84,7 +84,7 @@
           <span class="tile-label"><span>Obecny rekord</span></span>
         </span>
         <span class="tile-value">{{ goal.record or '—' }}</span>
-        <span class="tile-foot">Półmaraton</span>
+        <span class="tile-foot">Na dystansie celu</span>
       </div>
       <div class="tile">
         <span class="tile-head">

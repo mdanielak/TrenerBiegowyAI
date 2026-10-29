@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai.context import (
     build_training_context, format_context_for_user,
     _get_recent_activities, _get_health_snapshot, _compute_weekly_load,
-    RUNNER_PROFILE, _load_runner_profile,
+    _load_runner_profile,
 )
 from ai.recommendation import DailyRecommendation, get_daily_recommendation
 
@@ -76,16 +76,20 @@ class TestGetRecentActivities:
 class TestGetHealthSnapshot:
     def test_returns_metrics(self):
         data = _make_sample_data()
-        result = _get_health_snapshot(data)
+        result = _get_health_snapshot(data, "2026-09-16")
         assert result["rhr"] == 50
         assert result["hrv_status"] == "BALANCED"
         assert result["sleep_score"] == 85
         assert result["stress_avg"] == 30
 
     def test_empty_data(self):
-        result = _get_health_snapshot({"daily_health": [], "sleep": [], "hrv": []})
+        result = _get_health_snapshot({"daily_health": [], "sleep": [], "hrv": []}, "2026-09-16")
         assert result["rhr"] is None
         assert result["hrv_status"] is None
+
+    def test_yesterdays_measurements_are_not_sent_as_today(self):
+        result = _get_health_snapshot(_make_sample_data(), "2026-09-17")
+        assert (result["rhr"], result["hrv_status"], result["sleep_score"]) == (None, None, None)
 
 
 class TestComputeWeeklyLoad:
@@ -123,7 +127,15 @@ class TestBuildContext:
         assert "health_metrics" in context
 
     def test_runner_profile_has_formatter_fields(self):
-        assert {"age", "target_hm", "hr_max", "target_date"} <= RUNNER_PROFILE.keys()
+        assert {"age", "target_hm", "hr_max", "target_date"} <= _load_runner_profile().keys()
+
+    def test_goal_changed_in_the_wizard_reaches_the_next_context(self, monkeypatch):
+        profiles = iter([{"target_hm": "półmaraton 1:55:00"}, {"target_hm": "półmaraton 1:50:00"}])
+        monkeypatch.setattr("ai.context._load_runner_profile", lambda: next(profiles))
+        monkeypatch.setattr("ai.context._goal_from_profile", lambda profile: profile["target_hm"])
+        first = build_training_context(_make_sample_data(), plan={"workouts": []}, today=datetime(2026, 9, 16))
+        second = build_training_context(_make_sample_data(), plan={"workouts": []}, today=datetime(2026, 9, 16))
+        assert (first["goal"], second["goal"]) == ("półmaraton 1:55:00", "półmaraton 1:50:00")
 
 
 class TestRunnerProfileLoading:

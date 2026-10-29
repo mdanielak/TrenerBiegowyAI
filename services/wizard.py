@@ -36,7 +36,8 @@ def needs_onboarding(profile: dict | None) -> bool:
 def _distance_key(race: str) -> str:
     text = str(race or "").lower()
     for key, label in DISTANCES.items():
-        if key != "other" and label.split(" —")[0] in text:
+        # Całe słowo: „15 km” to nie „5 km”, a „ultramaraton” to nie „maraton”.
+        if key != "other" and re.search(r"(?<![\w,.])" + re.escape(label.split(" —")[0]) + r"(?!\w)", text):
             return key
     return "other" if text else "hm"
 

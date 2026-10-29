@@ -14,8 +14,10 @@ from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan_files import week_bounds
 from services.stats import _is_run, _number
 from services.strategy import Strategy, load_strategy
+from services.wizard import _distance_key
 
-HALF_MARATHON_KM = 21.0975
+# Dystanse celów z kreatora; „inny dystans” i „bez zawodów” nie mają tempa.
+RACE_KM = {"5k": (5.0, "5 km"), "10k": (10.0, "10 km"), "hm": (21.0975, "21,1 km"), "marathon": (42.195, "42,2 km")}
 LONG_RUN_WINDOW_DAYS = 56
 FREQUENCY_WEEKS = 4
 TEST_DISTANCE_KM = (9.8, 10.5)
@@ -47,6 +49,7 @@ class GoalReport:
     days_left: int | None = None
     target_time: str | None = None
     target_pace: str | None = None
+    distance_label: str | None = None
     record: str | None = None
     phases: list = field(default_factory=list)
     current_phase: PhaseStep | None = None
@@ -172,6 +175,7 @@ def build_goal_report(*, snapshot, strategy: Strategy | None, profile: dict, tod
     current = next((step for step in steps if step.is_current), None)
     target_day = _target_date(profile, strategy)
     target_seconds = _seconds(profile.get("target_time"))
+    race = RACE_KM.get(_distance_key(profile.get("target_race")))
     activities = [a for a in data.get("activities") or [] if isinstance(a, dict)]
 
     return GoalReport(
@@ -180,7 +184,8 @@ def build_goal_report(*, snapshot, strategy: Strategy | None, profile: dict, tod
         target_date=target_day,
         days_left=(target_day - today).days if target_day else None,
         target_time=profile.get("target_time") or None,
-        target_pace=(_clock(target_seconds / HALF_MARATHON_KM) if target_seconds else None),
+        target_pace=(_clock(target_seconds / race[0]) if target_seconds and race else None),
+        distance_label=race[1] if race else None,
         record=profile.get("current_hm_record") or None,
         phases=steps,
         current_phase=current,

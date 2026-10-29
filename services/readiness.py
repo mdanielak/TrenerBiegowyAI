@@ -14,6 +14,11 @@ from services.activity_matching import find_activity_for_workout
 _HRV_WORDS = {"UNBALANCED": "niezrównoważone", "LOW": "niskie", "POOR": "słabe", "UNKNOWN": "bez oceny zegarka"}
 
 
+def record_for_day(records, day: str) -> dict:
+    """Rekord z podanego dnia albo pusty słownik: starszy pomiar nie udaje dzisiejszego."""
+    return next((record for record in records or [] if str(record.get("date", ""))[:10] == day), {})
+
+
 def compute_readiness_breakdown(data):
     """Compute detailed readiness score with per-metric breakdown.
 

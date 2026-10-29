@@ -6,7 +6,7 @@ from datetime import datetime
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
-from services.readiness import compute_readiness_breakdown, signal_trends
+from services.readiness import compute_readiness_breakdown, record_for_day, signal_trends
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
@@ -75,11 +75,6 @@ def _execution(*, workouts, today_activities, today):
     return execution
 
 
-def _for_day(records, day: str) -> dict:
-    """Rekord z podanego dnia albo pusty słownik."""
-    return next((record for record in records or [] if str(record.get("date", ""))[:10] == day), {})
-
-
 def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now,
                        active_pause: dict | None = None, plan_workout: dict | None = None) -> TodayReport:
     """Zbuduj raport wyłącznie z przekazanych danych, bez efektów ubocznych."""
@@ -123,9 +118,9 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
     planned_workouts = planned if isinstance(planned, list) else [planned] if planned else []
     # Tylko pomiary z dzisiejszą datą: gdy pobranie dzisiejszych danych się nie uda,
     # wczorajszy sen nie może udawać dzisiejszego.
-    health = _for_day(data.get("daily_health"), today)
-    sleep = _for_day(data.get("sleep"), today)
-    hrv = _for_day(data.get("hrv"), today)
+    health = record_for_day(data.get("daily_health"), today)
+    sleep = record_for_day(data.get("sleep"), today)
+    hrv = record_for_day(data.get("hrv"), today)
     readiness = compute_readiness_breakdown({
         "daily_health": [health] if health else [], "sleep": [sleep] if sleep else [], "hrv": [hrv] if hrv else []})
     trends = signal_trends(data, today)

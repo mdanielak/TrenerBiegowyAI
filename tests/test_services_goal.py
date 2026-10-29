@@ -77,3 +77,18 @@ def test_goal_page_explains_a_missing_strategy():
     assert response.status_code == 404
     assert "Nie masz jeszcze strategii długoterminowej." in response.text
     assert "przyklad-strategii.md" in response.text and 'href="/wizard"' in response.text
+
+
+@pytest.mark.parametrize(("race", "time", "pace", "label"), [
+    ("półmaraton", "1:49:00", "5:10", "21,1 km"),
+    ("10 km", "50:00", "5:00", "10 km"),
+    ("5 km", "25:00", "5:00", "5 km"),
+    ("maraton", "3:30:00", "4:59", "42,2 km"),
+    ("inny dystans: 15 km", "1:20:00", None, None),
+    ("bez zawodów — ogólna forma", "", None, None),
+])
+def test_required_pace_uses_the_goal_distance(race, time, pace, label):
+    snapshot = SnapshotReadResult(status=SnapshotStatus.FRESH, data={"activities": []})
+    report = build_goal_report(snapshot=snapshot, strategy=parse_strategy(SAMPLE), today=TODAY,
+                               profile={**PROFILE, "target_race": race, "target_time": time})
+    assert (report.target_pace, report.distance_label) == (pace, label)
