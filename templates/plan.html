@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
 
-{% block title %}Trener Biegowy — plan{% endblock %}
+{% block title %}TrenerBiegowyAI — plan{% endblock %}
 
 {% block head_extra %}{% if plan_banner.refresh %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
 
@@ -220,7 +220,7 @@
             <span class="tile-label"><span>Czas</span></span>
           </span>
           <span class="tile-value">
-            {% if plan.totals.duration_min is not none %}{{ plan.totals.duration_min }}<span class="tile-unit">min</span>
+            {% if plan.totals.duration_min is not none %}{{ plan.totals.duration_min|num }}<span class="tile-unit">min</span>
             {%- else %}—{% endif %}
           </span>
           <span class="tile-foot">Suma czasu treningów</span>
@@ -293,7 +293,7 @@
                 <span class="day-block-title">{{ plan_day.name or '—' }}</span>
               {% endif %}
               <span class="day-block-meta">
-                {% if plan_day.duration_min is not none %}{{ plan_day.duration_min }} min{% endif %}
+                {% if plan_day.duration_min is not none %}{{ plan_day.duration_min|num }} min{% endif %}
                 {% if plan_day.distance_km is not none %}{{ plan_day.distance_km|num }} km{% endif %}
               </span>
               {% if plan_day.hr_zone or plan_day.pace_target %}

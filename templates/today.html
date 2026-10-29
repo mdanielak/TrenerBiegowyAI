@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
 
-{% block title %}Trener Biegowy — dziś{% endblock %}
+{% block title %}TrenerBiegowyAI — dziś{% endblock %}
 
 {% block head_extra %}{% if sync_banner.refresh %}<meta http-equiv="refresh" content="{{ 5 if sync_banner.disabled else 15 }}">{% endif %}{% endblock %}
 
@@ -215,7 +215,7 @@
                   <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
                   <span class="tile-label"><span>Czas</span></span>
                 </span>
-                <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
+                <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min|num }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
               </div>
               <div class="tile">
                 <span class="tile-head">
@@ -301,7 +301,7 @@
             <span class="item-title">{{ plan_workout.name }}</span>
             <span class="item-meta">
               <span>Z planu AI</span>
-              {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min }} min</span>{% endif %}
+              {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min|num }} min</span>{% endif %}
               {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km|num }} km</span>{% endif %}
               {% if plan_workout.hr_zone %}<span>{{ plan_workout.hr_zone }}</span>{% endif %}
               {% if plan_workout.pace_target %}<span>{{ plan_workout.pace_target }}</span>{% endif %}
@@ -410,7 +410,7 @@
                 <span class="item-meta">
                   <span>{{ activity.date[11:16] }}</span>
                   <span>{% if activity.distance_km is not none %}{{ activity.distance_km|num }} km{% else %}—{% endif %}</span>
-                  <span>{% if activity.duration_min is not none %}{{ activity.duration_min }} min{% else %}—{% endif %}</span>
+                  <span>{% if activity.duration_min is not none %}{{ activity.duration_min|num }} min{% else %}—{% endif %}</span>
                 </span>
               </span>
               <span class="item-side">

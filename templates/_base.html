@@ -1,10 +1,12 @@
 <!doctype html>
-<html lang="pl">
+{% set theme = ui_theme(request) if ui_theme is defined and request is defined else 'auto' %}
+<html lang="pl"{% if theme != 'auto' %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="{{ 'light dark' if theme == 'auto' else theme }}">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Trener Biegowy{% endblock %}</title>
-  <link rel="icon" type="image/png" href="/assets/07_ui_icons/app_mark.png">
+  <title>{% block title %}TrenerBiegowyAI{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo-mark.svg">
   {% block head_extra %}{% endblock %}
   {% include "_styles.html" %}
 </head>
@@ -13,13 +15,13 @@
 <div class="app">
 
   <aside class="sidebar">
-    <div class="brand">
-      <img class="asset brand-mark" src="/assets/07_ui_icons/app_mark.png" width="36" height="36" alt="">
+    <a class="brand" href="/" aria-label="TrenerBiegowyAI — strona główna">
+      <img class="brand-mark" src="/static/logo-mark.svg" width="36" height="36" alt="">
       <span>
-        <span class="brand-name">Trener Biegowy</span>
+        <span class="brand-name">TrenerBiegowy<span class="brand-ai">AI</span></span>
         <span class="brand-sub">Dane z Twojego zegarka</span>
       </span>
-    </div>
+    </a>
     {# Strażnik: serwer uruchomiony na starszym kodzie nie zna tej funkcji, a szablony przeładowują się same. #}
     {% if request is defined and sidebar_ai_badge is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
 
@@ -58,6 +60,18 @@
         <img class="asset" src="/assets/01_navigation/settings.png" width="34" height="34" alt=""><span>Ustawienia</span>
       </a>
     </nav>
+
+    {% if request is defined and request.url is defined %}
+      {% set here = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
+      <nav class="theme-switch" aria-label="Motyw">
+        <span class="nav-label">Motyw</span>
+        <span class="theme-options">
+          {% for value, label in (('auto', 'Auto'), ('light', 'Jasny'), ('dark', 'Ciemny')) %}
+            <a href="/theme?set={{ value }}&amp;next={{ here|urlencode }}"{% if theme == value %} aria-current="true" class="is-active"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </span>
+      </nav>
+    {% endif %}
 
   </aside>
 

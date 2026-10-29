@@ -82,4 +82,4 @@ def test_base_template_survives_a_missing_badge_helper():
         html = env.get_template("_base.html").render(request=SimpleNamespace(state=SimpleNamespace()))
     finally:
         env.globals["sidebar_ai_badge"] = helper
-    assert "Trener Biegowy" in html and "ai-badge" not in html
+    assert "TrenerBiegowy" in html and "ai-badge" not in html

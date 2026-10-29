@@ -14,6 +14,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -61,6 +62,25 @@ _TEMPLATES.env.filters["num"] = _format_number
 _TEMPLATES.env.filters["plural"] = _plural
 # Plakietka AI w bocznym menu: każda aplikacja (także w testach) podaje własnego dostawcę
 # przez request.state, więc współdzielone szablony nie mieszają stanów różnych instancji.
+# Motyw z ciasteczka: "light"/"dark" na stałe, brak = zgodnie z systemem.
+THEME_COOKIE = "theme"
+THEMES = ("auto", "light", "dark")
+
+
+def _theme(request) -> str:
+    cookies = getattr(request, "cookies", None) or {}
+    value = cookies.get(THEME_COOKIE)
+    return value if value in THEMES else "auto"
+
+
+def _safe_next(value: str | None) -> str:
+    """Powrót po zmianie motywu tylko na stronę tej aplikacji, nigdy na obcy adres."""
+    if not value or not value.startswith("/") or value.startswith("//") or "\\" in value:
+        return "/"
+    return value
+
+
+_TEMPLATES.env.globals["ui_theme"] = _theme
 _TEMPLATES.env.globals["sidebar_ai_badge"] = lambda request: (
     getattr(request.state, "ai_badge_provider", None) or (lambda: None))()
 
@@ -180,6 +200,16 @@ def create_app(
     async def provide_ai_badge(request: Request, call_next):
         request.state.ai_badge_provider = ai_badge
         return await call_next(request)
+
+    @app.get("/theme", include_in_schema=False)
+    def set_theme(request: Request, set: str = "auto", next: str = "/"):
+        """Zapamiętaj motyw w ciasteczku i wróć na stronę, z której przyszło kliknięcie."""
+        response = RedirectResponse(url=_safe_next(next), status_code=303)
+        if set in ("light", "dark"):
+            response.set_cookie(THEME_COOKIE, set, max_age=365 * 24 * 3600, samesite="lax", httponly=True)
+        else:
+            response.delete_cookie(THEME_COOKIE)
+        return response
 
     static_dir = Path(__file__).resolve().parents[1] / "static"
     if static_dir.is_dir():
