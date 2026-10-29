@@ -35,6 +35,35 @@
   {% endif %}
 </section>
 {% endif %}
+<section class="card ai-guide" id="samouczek" aria-labelledby="guide-heading">
+  <div class="card-head"><h2 id="guide-heading"><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Jak podłączyć AI — krok po kroku</span></h2></div>
+  <p class="mid">AI jest opcjonalne: bez niego działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu. Wybierz jedną z darmowych opcji:</p>
+  <nav class="guide-tabs" aria-label="Dostawca AI">
+    <a class="btn btn-secondary{% if ai_guide == 'gemini' %} is-active{% endif %}" href="/settings/ai?guide=gemini#samouczek"{% if ai_guide == 'gemini' %} aria-current="page"{% endif %}>Google Gemini — zalecane</a>
+    <a class="btn btn-secondary{% if ai_guide == 'ollama' %} is-active{% endif %}" href="/settings/ai?guide=ollama#samouczek"{% if ai_guide == 'ollama' %} aria-current="page"{% endif %}>Ollama — na Twoim komputerze</a>
+  </nav>
+
+  {% if ai_guide == 'ollama' %}
+    <ol class="guide-steps">
+      <li>Pobierz i zainstaluj Ollamę ze strony <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>.</li>
+      <li>Po instalacji otwórz Ollamę i pobierz model <strong>llama3.1</strong> (w aplikacji Ollama albo poleceniem <code>ollama pull llama3.1</code>). To kilka GB — przy wolniejszym komputerze odpowiedzi mogą trwać dłużej.</li>
+      <li>Kliknij <a class="btn btn-secondary" href="/settings/ai?preset=ollama#ai-form">Wpisz ustawienia Ollamy</a> — adres i model pojawią się w formularzu poniżej.</li>
+      <li>W polu „Klucz API” wpisz słowo <code>local</code> (Ollama nie wymaga klucza), zaznacz zgodę na wysyłanie danych i kliknij <strong>Zapisz ustawienia AI</strong>.</li>
+      <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
+    </ol>
+    <p class="tile-foot"><strong>Prywatność:</strong> dane nie opuszczają Twojego komputera. Koszt: 0 zł, ale potrzebny jest w miarę mocny komputer.</p>
+  {% else %}
+    <ol class="guide-steps">
+      <li>Otwórz <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> i zaloguj się kontem Google (tym samym co do Gmaila).</li>
+      <li>Kliknij <strong>Create API key</strong> (Utwórz klucz API) i skopiuj klucz — to długi ciąg liter i cyfr.</li>
+      <li>Kliknij <a class="btn btn-secondary" href="/settings/ai?preset=gemini#ai-form">Wpisz ustawienia Gemini</a> — adres i model pojawią się w formularzu poniżej.</li>
+      <li>Wklej klucz w pole <strong>Klucz API</strong>, zaznacz zgodę na wysyłanie danych i kliknij <strong>Zapisz ustawienia AI</strong>.</li>
+      <li>Na górze strony kliknij <strong>Sprawdź połączenie</strong>. Gdy plakietka w menu zrobi się zielona — gotowe.</li>
+    </ol>
+    <p class="tile-foot"><strong>Koszt:</strong> 0 zł w ramach darmowego limitu Google — aplikacja wysyła kilka zapytań dziennie, czyli daleko poniżej limitu. <strong>Prywatność:</strong> w Polsce i całym EOG Google stosuje do darmowego limitu te same zasady co do płatnej usługi, więc nie używa Twoich zapytań do ulepszania swoich produktów. Jeśli Google zmieni nazwę modelu, test połączenia to pokaże — aktualną nazwę znajdziesz w AI Studio.</p>
+  {% endif %}
+  {% if ai_preset %}<p class="banner info" role="status">Wpisałem adres i model w formularzu poniżej — dodaj klucz i kliknij „Zapisz ustawienia AI”.</p>{% endif %}
+</section>
 <section class="card" aria-labelledby="ai-heading">
   <div class="card-head"><h2 id="ai-heading">Konfiguracja połączenia</h2></div>
   <div>
@@ -46,10 +75,10 @@
       <p>Wpisany klucz nie jest odsyłany do przeglądarki. Wpisz go ponownie, jeśli chcesz go zapisać lub powtórzyć test.</p>
     {% endif %}
     {% if ai_saved and not ai_error %}
-      <div class="banner info" role="status">Zapisano w .env. Zatrzymaj serwer (Ctrl+C) i uruchom ponownie start.sh lub start.bat, aby zastosować zmiany.</div>
+      <div class="banner info" role="status">Zapisano. Ustawienia działają od razu — teraz kliknij „Sprawdź połączenie” na górze strony.</div>
     {% endif %}
     {% if ai_settings %}
-    <p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany wymagają restartu serwera.
+    <p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany działają od razu, bez restartu.
        Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p>
     <form method="post" action="/settings/ai" class="stack form-stack" id="ai-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

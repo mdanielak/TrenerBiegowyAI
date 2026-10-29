@@ -28,6 +28,16 @@ AI_MAX_RETRIES = 2
 logger = logging.getLogger(__name__)
 
 
+def _strip_code_fence(text: str) -> str:
+    """Zdejmij blok ```json ... ```, którym niektóre modele otaczają odpowiedź."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.split("\n", 1)[1] if "\n" in stripped else ""
+        if stripped.rstrip().endswith("```"):
+            stripped = stripped.rstrip()[:-3]
+    return stripped.strip()
+
+
 class AIProviderError(Exception):
     """Raised on AI API errors."""
     pass
@@ -90,7 +100,18 @@ class OpenAICompatibleProvider(AIProvider):
         try:
             response = self.client.chat.completions.create(**kwargs)
         except Exception as e:
-            raise AIProviderError(f"AI API error: {e}") from e
+            # Nie każdy dostawca zgodny z OpenAI (np. Gemini) przyjmuje tryb JSON i `seed`.
+            # Prompt i tak wymaga samego JSON-a, więc jedna ponowna próba bez nich jest bezpieczna.
+            optional = [name for name in ("response_format", "seed") if name in kwargs]
+            if not optional or getattr(e, "status_code", None) != 400:
+                raise AIProviderError(f"AI API error: {e}") from e
+            logger.info("AI provider rejected %s; retrying without them", ", ".join(optional))
+            for name in optional:
+                kwargs.pop(name)
+            try:
+                response = self.client.chat.completions.create(**kwargs)
+            except Exception as retry_error:
+                raise AIProviderError(f"AI API error: {retry_error}") from retry_error
 
         content = response.choices[0].message.content
         if content is None:
@@ -99,7 +120,7 @@ class OpenAICompatibleProvider(AIProvider):
         # Parse structured output
         if response_model is not None:
             try:
-                data = json.loads(content)
+                data = json.loads(_strip_code_fence(content))
             except json.JSONDecodeError:
                 logger.debug("AI returned invalid JSON response: %s", content)
                 raise AIResponseError(

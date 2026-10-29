@@ -30,6 +30,13 @@ from api.views.profile import (
 logger = logging.getLogger(__name__)
 
 
+# Gotowe ustawienia dla samouczka „Jak podłączyć AI”: tylko adres i model, nigdy klucz.
+AI_PRESETS = {
+    "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/", "model": "gemini-3.8-flash"},
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3.1"},
+}
+
+
 def get_settings_router(
     *,
     profile_provider: Callable[[], dict],
@@ -40,6 +47,7 @@ def get_settings_router(
     csrf_token: Callable,
     csrf_valid: Callable,
     ai_status_path=None,
+    apply_settings=None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -68,6 +76,8 @@ def get_settings_router(
             "ai_key_discarded": key_discarded,
             "ai_env_path": str(ai_env_path.resolve()),
             "ai_saved": request.method == "GET" and request.query_params.get("saved") == "1",
+            "ai_preset": request.query_params.get("preset") if request.method == "GET" else None,
+            "ai_guide": request.query_params.get("guide") or request.query_params.get("preset") or "gemini",
         }
         try:
             context["ai_settings"] = read_ai_settings(ai_env_path)
@@ -134,7 +144,8 @@ def get_settings_router(
 
     @router.get("/settings/ai", response_class=HTMLResponse)
     def ai_settings(request: Request):
-        return ai_settings_page(request)
+        preset = AI_PRESETS.get(request.query_params.get("preset") or "")
+        return ai_settings_page(request, form_values=dict(preset) if preset else None)
 
     @router.post("/settings/ai/check", response_class=HTMLResponse)
     def check_saved_connection(request: Request, csrf_token: str = Form(default="")):
@@ -242,6 +253,8 @@ def get_settings_router(
                     export_enabled=export_enabled == "true",
                     clear_key=clear_key == "true",
                 )
+            if apply_settings is not None:
+                apply_settings(ai_env_path)
         except ValueError as exc:
             return ai_settings_page(request, ai_error=str(exc), status_code=400)
         except LockBusyError:

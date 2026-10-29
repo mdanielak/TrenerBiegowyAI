@@ -111,30 +111,8 @@
         <p class="tile-foot"><a href="/setup/garmin?change=1">Połącz inne konto Garmin</a></p>
       </section>
 
-      {% if confirm_disconnect %}
-        <section class="card confirm-panel" role="alertdialog" aria-labelledby="disconnect-title">
-          <div class="card-head"><h2 id="disconnect-title">{{ ico.info(26) }}<span>Odłączyć zegarek i usunąć dane logowania?</span></h2></div>
-          <ul class="security-list">
-            <li>Usunę z tego komputera token Garmina, dane logowania w konfiguracji GarminDB i e-mail konta z pliku <code>.env</code>.</li>
-            <li>Twoje treningi, pomiary, plany i dziennik <strong>zostaną</strong> na komputerze.</li>
-            <li>Synchronizacja i wysyłanie treningów na zegarek przestaną działać, dopóki nie zalogujesz się ponownie.</li>
-          </ul>
-          <form method="post" action="/setup/garmin/disconnect" class="row confirm-actions">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit">Tak, odłącz i usuń</button>
-            <a class="btn btn-secondary" href="/setup/garmin">Anuluj</a>
-          </form>
-        </section>
-      {% else %}
-        <section class="card">
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_alert.png" width="28" height="28" alt=""><span>Odłącz zegarek i usuń dane logowania</span></h2></div>
-          <p class="mid">Przydatne po zmianie hasła do Garmina, przed oddaniem komputera albo gdy podejrzewasz, że ktoś miał do niego dostęp. Dane treningowe zostają.</p>
-          <div class="row"><a class="btn btn-secondary" href="/setup/garmin?disconnect=confirm#disconnect-title">Odłącz zegarek i usuń dane logowania</a></div>
-        </section>
-      {% endif %}
-
-    <details class="card security-card">
-      <summary class="security-summary"><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></summary>
+    <section class="card security-card">
+      <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></h2></div>
       <ul class="security-list">
         <li>
           <strong class="point">Hasło wpisujesz tylko raz.</strong>
@@ -157,7 +135,28 @@
           W ustawieniach konta Garmin Connect włącz kod weryfikacyjny przy logowaniu — wtedy samo hasło nie wystarczy, żeby ktoś wszedł na Twoje konto. Ta strona obsługuje taki kod.
         </li>
       </ul>
-    </details>
+    </section>
+
+    <section class="card danger-zone" id="ostroznie" aria-labelledby="danger-title">
+      <p class="danger-label">OSTROŻNIE</p>
+      {% if confirm_disconnect %}
+        <h2 id="danger-title" class="danger-title">Czy na pewno chcesz odłączyć zegarek i usunąć dane logowania?</h2>
+        <ul class="security-list">
+          <li>Usunę z tego komputera token Garmina, dane logowania w konfiguracji GarminDB i e-mail konta z pliku <code>.env</code>.</li>
+          <li>Twoje treningi, pomiary, plany i dziennik <strong>zostaną</strong> na komputerze.</li>
+          <li>Synchronizacja i wysyłanie treningów na zegarek przestaną działać, dopóki nie zalogujesz się ponownie.</li>
+        </ul>
+        <form method="post" action="/setup/garmin/disconnect" class="row confirm-actions">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn-danger">Tak, odłącz i usuń</button>
+          <a class="btn btn-secondary" href="/setup/garmin">Nie, anuluj</a>
+        </form>
+      {% else %}
+        <h2 id="danger-title" class="danger-title">Odłącz zegarek i usuń dane logowania</h2>
+        <p class="mid">Przydatne po zmianie hasła do Garmina, przed oddaniem komputera albo gdy podejrzewasz, że ktoś miał do niego dostęp. Dane treningowe zostają.</p>
+        <div class="row"><a class="btn btn-danger-outline" href="/setup/garmin?disconnect=confirm#ostroznie">Odłącz zegarek i usuń dane logowania</a></div>
+      {% endif %}
+    </section>
     {% endif %}
 
   </div>

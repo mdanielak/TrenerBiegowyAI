@@ -136,3 +136,21 @@ def save_ai_settings(path: Path, *, base_url: str, model: str, api_key: str,
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def apply_to_running_app(path: Path) -> None:
+    """Zastosuj zapisane ustawienia AI w działającej aplikacji, bez restartu serwera.
+
+    Kod aplikacji czyta `config.AI_*` w chwili wywołania, więc wystarczy je podmienić.
+    """
+    import os
+
+    values = read_env_file(path)
+    for key in ("AI_BASE_URL", "AI_MODEL", "AI_API_KEY", "AI_DATA_EXPORT_ENABLED"):
+        if key in values:
+            os.environ[key] = values[key]
+    config.AI_BASE_URL = values.get("AI_BASE_URL", config.AI_BASE_URL)
+    config.AI_MODEL = values.get("AI_MODEL", config.AI_MODEL)
+    config.AI_API_KEY = values.get("AI_API_KEY", config.AI_API_KEY)
+    if "AI_DATA_EXPORT_ENABLED" in values:
+        config.AI_DATA_EXPORT_ENABLED = values["AI_DATA_EXPORT_ENABLED"].strip().lower() in {"true", "1", "yes", "on"}

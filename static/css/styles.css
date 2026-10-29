@@ -229,9 +229,22 @@
   .card-lead { margin: 0 0 12px; }
   /* Ikony kolorowe mają własny kształt, więc bez bladego kafelka pod spodem. */
   .tile-icon, .head-icon { flex: none; }
+  .ai-guide { margin-bottom: var(--gap); }
+  .guide-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .guide-steps { margin: 0 0 10px; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .guide-steps .btn { margin: 0 4px; min-height: 36px; padding: 4px 12px; }
   .security-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
   .security-list .point { display: block; color: var(--fg); }
   .security-list code { overflow-wrap: anywhere; }
+  /* Strefa ostrożnie: czerwonawe tło i etykieta słowna; przycisk potwierdzenia
+     #B91C1C (5,30:1 na #FEE2E2, biel na nim 6,47:1). */
+  .danger-zone { background: var(--danger-bg); border: 2px solid var(--danger-icon); }
+  .danger-label { margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: var(--danger-fg); }
+  .danger-title { margin: 0 0 8px; font-size: 17px; }
+  .btn-danger, button.btn-danger { background: var(--danger-fg); color: var(--surface); border: 0; }
+  .btn-danger:hover, button.btn-danger:hover { filter: brightness(0.92); }
+  .btn-danger-outline { background: var(--surface); color: var(--danger-fg); border: 1px solid var(--danger-fg); }
+  .btn-danger-outline:hover { background: var(--surface); text-decoration: none; filter: brightness(0.97); }
   .security-summary { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px;
                       cursor: pointer; min-height: 44px; }
   details.security-card[open] .security-summary { margin-bottom: 12px; }

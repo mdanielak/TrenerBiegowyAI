@@ -176,7 +176,7 @@ AI_API_KEY=
 AI_DATA_EXPORT_ENABLED=false
 ```
 
-Po zmianie ustawień **zrestartuj serwer** (`Ctrl+C`, potem `./start.sh` lub `start.bat`). Klucz jest zapisany jawnie na dysku, ale nie jest wyświetlany w formularzu. Nie udostępniaj pliku `.env`. Eksport danych do AI jest domyślnie wyłączony; włączaj go świadomie dla zaufanego adresu API.
+Zapisane ustawienia działają od razu, bez restartu serwera (wyjątek: zmienne ustawione w systemie, poza `.env`, mają pierwszeństwo). Klucz jest zapisany jawnie na dysku, ale nie jest wyświetlany w formularzu. Nie udostępniaj pliku `.env`. Eksport danych do AI jest domyślnie wyłączony; włączaj go świadomie dla zaufanego adresu API.
 
 ### Logowanie do Garmina
 

@@ -162,7 +162,7 @@ def test_disconnect_asks_for_confirmation_and_reports_what_was_removed(tmp_path,
     page = client.get("/setup/garmin").text
     assert "Odłącz zegarek i usuń dane logowania" in page and "garminconnect" in page
     confirm = client.get("/setup/garmin?disconnect=confirm").text
-    assert "Odłączyć zegarek i usunąć dane logowania?" in confirm and "zostaną" in confirm
+    assert "Czy na pewno chcesz odłączyć zegarek i usunąć dane logowania?" in confirm and "OSTROŻNIE" in confirm
     token = re.search(r'name="csrf_token" value="([^"]+)"', confirm).group(1)
 
     assert client.post("/setup/garmin/disconnect", data={"csrf_token": "x"},

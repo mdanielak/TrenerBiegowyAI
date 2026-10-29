@@ -30,7 +30,7 @@ from services.stats import StatsReport, get_stats_report
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
-from trainer.ai_settings import ENV_PATH
+from trainer.ai_settings import ENV_PATH, apply_to_running_app
 from trainer.logging_config import setup_logging
 from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
@@ -266,6 +266,8 @@ def create_app(
             csrf_token=csrf_token,
             csrf_valid=csrf_valid,
             ai_status_path=ai_status_path,
+            # Konfiguracja działającej aplikacji zmienia się tylko przy zapisie jej własnego .env.
+            apply_settings=apply_to_running_app if ai_env_path == ENV_PATH else None,
         )
     )
     app.include_router(

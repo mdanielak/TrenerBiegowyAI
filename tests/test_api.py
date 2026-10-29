@@ -765,7 +765,7 @@ def test_ai_settings_form_saves_file_without_exposing_key(tmp_path):
             'model': 'local-model', 'api_key': 'new-secret', 'export_enabled': 'true',
         }, headers={'Origin': 'http://testserver'})
         assert response.status_code == 200
-        assert 'Zapisano w .env' in response.text
+        assert 'Zapisano. Ustawienia działają od razu' in response.text
         assert 'new-secret' not in response.text
         from trainer.env_file import read_env_file
         values = read_env_file(path)
