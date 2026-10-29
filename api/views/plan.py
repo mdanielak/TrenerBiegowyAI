@@ -141,40 +141,40 @@ def _plan_view(plan, *, today, availability=None, readiness_by_date=None, previo
     }
 
 
-def _plan_load_chart(days) -> dict | None:
-    """Geometria słupków zaplanowanego czasu: minuty na dzień."""
-    minutes = []
+def _plan_load_chart(days, activities=None):
+    """Dzienny czas planu i zapisanych biegów; dystans tylko z aktywności."""
+    from services.stats import _is_run, _number
+    records = {}
+    for activity in activities or []:
+        if not isinstance(activity, dict) or not _is_run(activity):
+            continue
+        date = str(activity.get("date") or "")[:10]
+        item = records.setdefault(date, {"minutes": [], "km": []})
+        for name, source in (("minutes", "duration_min"), ("km", "distance_km")):
+            value = _number(activity.get(source))
+            if value is not None and value >= 0:
+                item[name].append(value)
+    rows = []
     for day in days or []:
         try:
-            minutes.append(int(day.get("duration_min") or 0))
+            planned = max(float(day.get("duration_min") or 0), 0)
         except (TypeError, ValueError):
-            minutes.append(0)
-
-    peak = max(minutes) if minutes else 0
-    if peak <= 0:
+            planned = 0
+        item = records.get(str(day.get("date") or ""), {})
+        durations, distances = item.get("minutes", []), item.get("km", [])
+        rows.append({"label": day.get("weekday_short"), "planned": planned,
+                     "actual": round(sum(durations), 1) if durations else None,
+                     "km": round(sum(distances), 2) if distances else None})
+    if not rows:
         return None
-
-    bars = []
-    for index, day in enumerate(days or []):
-        value = minutes[index]
-        height = round(_PLAN_LOAD_BAR_MAX * value / peak) if value else 0
-        bars.append({
-            "x": index * (_PLAN_LOAD_BAR_WIDTH + _PLAN_LOAD_GAP),
-            "width": _PLAN_LOAD_BAR_WIDTH,
-            "height": height,
-            "y": _PLAN_LOAD_BASELINE - height,
-            "label": day.get("weekday_short"),
-            "minutes": value,
-            "is_rest": bool(day.get("is_rest")),
-        })
-
-    return {
-        "width": _PLAN_LOAD_WIDTH,
-        "height": _PLAN_LOAD_HEIGHT,
-        "baseline": _PLAN_LOAD_BASELINE,
-        "label_y": _PLAN_LOAD_BASELINE + 18,
-        "bars": bars,
-    }
+    peak = max([1] + [r["planned"] for r in rows] + [r["actual"] or 0 for r in rows])
+    distance_peak = max([1] + [r["km"] or 0 for r in rows])
+    for i, row in enumerate(rows):
+        row["x"] = i * 94 + 18
+        row["plan_height"] = round(96 * row["planned"] / peak, 2)
+        row["actual_height"] = round(96 * (row["actual"] or 0) / peak, 2)
+        row["distance_y"] = round(120 - 96 * row["km"] / distance_peak, 2) if row["km"] is not None else None
+    return {"width": 658, "height": 146, "baseline": 120, "label_y": 138, "bars": rows}
 
 
 def _format_generated_at(value, now: datetime) -> str | None:

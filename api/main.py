@@ -298,6 +298,7 @@ def create_app(
     app.include_router(
         get_settings_router(
             profile_provider=profile_provider,
+            availability_provider=availability_provider,
             ai_env_path=ai_env_path,
             lock_directory=lock_directory,
             templates=_TEMPLATES,

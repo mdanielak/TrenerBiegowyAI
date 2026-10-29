@@ -42,6 +42,7 @@ AI_PRESETS = {
 def get_settings_router(
     *,
     profile_provider: Callable[[], dict],
+    availability_provider: Callable[[], dict],
     ai_env_path: Path,
     lock_directory: Path | None,
     templates: Jinja2Templates,
@@ -111,6 +112,11 @@ def get_settings_router(
         except OSError:
             garmin_connected = False
         context = {"active_nav": "settings", "garmin_connected": garmin_connected}
+        try:
+            availability = availability_provider() or {}
+            context["available_days"] = [label for day, label in (("mon", "poniedziałek"), ("tue", "wtorek"), ("wed", "środa"), ("thu", "czwartek"), ("fri", "piątek"), ("sat", "sobota"), ("sun", "niedziela")) if (availability.get(day) or {}).get("available")]
+        except (OSError, ValueError, TypeError):
+            context["available_days"] = None
         try:
             profile = profile_provider()
         except FileNotFoundError:

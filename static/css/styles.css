@@ -501,6 +501,7 @@
   .signal.none { background: var(--surface-alt); border-color: var(--border); }
 
   .signal-main { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+  .signal-description { color: var(--fg-mid); font-size: 14px; line-height: 1.5; }
   .signal-top { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--fg-mid); }
   .signal-value { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
   .signal-unit { font-size: 12px; font-weight: 500; color: var(--fg-mid); margin-left: 2px; }
@@ -518,6 +519,9 @@
   .signal-state.warn { background: var(--warn-bg); color: var(--warn-fg); }
   .signal-state.bad { background: var(--danger-bg); color: var(--danger-fg); }
   .signal-state.none { background: var(--surface); color: var(--fg-muted); border: 1px solid var(--border); }
+  .activity-disclosure > summary { cursor: pointer; margin-bottom: 0; }
+  .activity-disclosure[open] > summary { margin-bottom: 14px; }
+  .activity-disclosure > summary::marker { color: var(--accent-strong); }
 
   /* strzałka trendu: kolor niesie ocenę, tekst obok niesie znaczenie */
   .trend { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; }
@@ -874,3 +878,94 @@
       animation-iteration-count: 1 !important;
     }
   }
+
+/* Czytelność i nawigacja */
+.skip-link { position: fixed; left: 16px; top: -100px; z-index: 1000; padding: 12px 18px; background: var(--surface); color: var(--fg); }
+.skip-link:focus { top: 12px; }
+.nav-toggle { display: none; }
+.item-body, .item-side, .item-strong, .state-facts dd { min-width: 0; overflow-wrap: anywhere; }
+summary { cursor: pointer; font-weight: 600; padding-block: 10px; }
+details[open] > summary { margin-bottom: 12px; }
+.day-details { text-align: left; font-size: 14px; }
+.signal.ok { background: var(--surface); }
+.signal-state, .pill, .day-name, .day-block-label, .ai-badge-detail { font-size: 12px; }
+.chart-scroll { overflow-x: auto; }
+@media (max-width: 760px) {
+  .has-js .nav-toggle { display: block; width: 100%; text-align: left; }
+  .nav { flex-wrap: wrap; overflow: visible; }
+  .has-js .nav { display: none; }
+  .has-js .nav.is-open { display: flex; flex-direction: column; }
+  .nav-item { white-space: normal; }
+  .theme-options a { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .list-item { flex-wrap: wrap; }
+  .item-side { max-width: 100%; }
+  input.text-input, textarea.text-input, select { font-size: 16px; }
+}
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .chart-scroll .chart { min-width: 640px; }
+  .chart-scroll .chart .chart-axis, .chart-scroll .chart .chart-bar-value { font-size: 14px; }
+  .tile-foot, .item-meta, .day-block-meta { font-size: 14px; }
+  .week .day { display: block; text-align: left; }
+  .day-block-icon { width: 32px; height: 32px; }
+}
+
+@media (min-width: 1081px) {
+  .grid-main.signals-first { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+
+/* Zwarte podsumowania analizy i celów. */
+.compact-facts { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.compact-fact { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-content: start; gap: 6px 10px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-alt); min-width: 0; }
+.compact-fact .item-icon { align-self: start; }
+.compact-fact .item-body { align-self: center; }
+.compact-fact .item-title { font-size: 13px; color: var(--fg-mid); font-weight: 500; }
+.compact-fact .fact-value { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
+.compact-fact .item-strong { font-size: 17px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+/* Dziennik: wpis i historia w jednym obszarze roboczym. */
+.journal-workspace { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.journal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.journal-fields .text-input { width: 100%; }
+.journal-fields .tile-foot { margin-top: 6px; font-size: 12px; }
+.journal-editor .journal-choice { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); cursor: pointer; min-height: 44px; }
+.journal-editor .journal-choice:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.journal-editor .journal-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.journal-editor .field-group { gap: 8px; }
+.journal-editor .row .tile-foot { flex-basis: 100%; }
+.journal-history { display: grid; }
+.journal-history-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.journal-history-entry:first-child { padding-top: 0; }
+.journal-history-entry:last-child { border-bottom: 0; }
+.journal-history-entry .pill { white-space: normal; max-width: 150px; overflow-wrap: anywhere; }
+@media (max-width: 1080px) {
+  .compact-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .journal-workspace { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .compact-fact { padding: 10px; grid-template-columns: minmax(0, 1fr); }
+  .compact-fact .item-icon { display: none; }
+  .compact-fact .fact-value { grid-column: 1; }
+  .compact-fact .item-strong { font-size: 16px; }
+  .journal-fields { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .journal-history-entry { grid-template-columns: minmax(0, 1fr); }
+  .journal-history-entry .item-side { align-items: flex-start; }
+}
+
+@media (min-width: 1081px) {
+  .goal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.compact-fact .item-icon { width: 28px; height: 28px; border-radius: 6px; background: transparent; }
+.journal-history-card.is-empty .empty-art { background: transparent; padding: 8px 0; }
+.journal-history-card.is-empty .empty-art img { width: 64px; height: auto; }
+.journal-editor #pain-note-field[hidden] { display: none; }
+
+.chart-bar.actual-time, .legend-swatch.actual-time { fill: var(--ok-icon); background: var(--ok-icon); }
+.legend-swatch.plan-time { background: var(--accent); }
+.chart-data + h3 { margin-top: 24px; }
+
+/* Wyrównaj rozwijane szczegóły w kartach planu w tym samym rzędzie. */
+@media (min-width: 521px) {
+  .plan-week .day-block { flex: 1 1 auto; align-self: stretch; }
+  .plan-week .day-details { margin-top: auto; width: 100%; padding-top: 8px; }
+}

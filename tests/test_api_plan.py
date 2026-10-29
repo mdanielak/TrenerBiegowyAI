@@ -346,3 +346,32 @@ def test_dashboard_shows_the_recommendation_in_its_own_card(tmp_path):
     assert "Uwaga: ból kolana." in response.text
     assert response.text.index("Trening na dziś") < response.text.index("Co dziś zrobić")
     assert response.text.index("Co dziś zrobić") < response.text.index("Twoja dostępność")
+
+
+def test_plan_charts_use_running_activities_and_preserve_missing_data():
+    from api.views.plan import _plan_load_chart
+    days = [{"date": "2026-09-28", "weekday_short": "pon", "duration_min": 45},
+            {"date": "2026-09-29", "weekday_short": "wt", "duration_min": 0}]
+    activities = [{"date": "2026-09-28 09:00", "type": "running", "duration_min": 42, "distance_km": 7.5},
+                  {"date": "2026-09-28 12:00", "type": "walking", "duration_min": 30, "distance_km": 2}]
+    chart = _plan_load_chart(days, activities)
+    assert chart["bars"][0]["planned"] == 45
+    assert chart["bars"][0]["actual"] == 42
+    assert chart["bars"][0]["km"] == 7.5
+    assert chart["bars"][1]["actual"] is None
+    assert chart["bars"][1]["km"] is None
+
+
+def test_plan_page_accepts_chart_from_older_server(tmp_path, monkeypatch):
+    import api.routers.plans as plans
+
+    legacy_chart = {"width": 638, "height": 146, "baseline": 120, "label_y": 138,
+                    "bars": [{"x": 0, "y": 50, "width": 74, "height": 70,
+                              "label": "pon", "minutes": 45}]}
+    monkeypatch.setattr(plans, "_plan_load_chart", lambda *args: legacy_chart)
+    with TestClient(_app(tmp_path, plan=_plan())) as client:
+        response = client.get("/plan")
+    assert response.status_code == 200
+    assert "uruchom ponownie aplikację" in response.text
+    assert "Zaplanowany czas" in response.text
+    assert "45 min" in response.text

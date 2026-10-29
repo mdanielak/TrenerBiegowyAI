@@ -4,6 +4,15 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+{% if saved_goal is defined and (saved_goal.target_race or saved_goal.target_date) %}
+<section class="card" aria-label="Twój zapisany cel">
+  <h2>Twój zapisany cel</h2>
+  <p>{{ saved_goal.target_race }} · {{ saved_goal.target_date }}{% if saved_goal.target_time %} · czas {{ saved_goal.target_time }}{% endif %}</p>
+  <a class="btn btn-secondary" href="/wizard">Zmień cel i dostępność</a>
+  <p class="tile-foot">Ten cel jest używany przy układaniu planu. Fazy i kryteria poniżej pochodzą z osobnej strategii i nie zmieniają się po zapisie kreatora. Sprawdź ich zgodność z celem.</p>
+</section>
+{% endif %}
+
 {% if error_message %}
 
   <div class="page-head">
@@ -14,10 +23,10 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ error_message }}</p>
-        <p class="mid">Strategia opisuje fazy przygotowań do zawodów i kryteria gotowości. Skopiuj plik
+        <p><a class="btn" href="/wizard">Ustaw cel i dni treningowe</a></p><p>Możesz korzystać z planowania bez strategii długoterminowej.</p><details><summary>Zaawansowane: własna strategia</summary><p class="mid">Strategia opisuje fazy przygotowań do zawodów i kryteria gotowości. Skopiuj plik
           <code>training-plans/long-term/przyklad-strategii.md</code> jako
           <code>training-plans/long-term/half-marathon-2027.md</code> i wpisz własne daty oraz cele.
-          Plik zostaje na tym komputerze.</p>
+          Plik zostaje na tym komputerze.</p></details>
         <p class="mid">Do tego czasu cel i datę zawodów ustawisz w <a href="/wizard">kreatorze</a>.</p>
       </div>
     </div>
@@ -47,6 +56,7 @@
   </div>
 
   <div class="stack">
+    {% if strategy_mismatch %}<div class="banner warn" role="status">Data Twojego celu różni się od końca strategii. Fazy poniżej nie zostały dopasowane do nowej daty. Używaj zapisanego celu przy planowaniu tygodnia.</div>{% endif %}
     {% if wizard_done %}
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Zapisano cel i dni treningowe. Kolejne „Ułóż plan” weźmie je pod uwagę.</p></div></div>
     {% endif %}

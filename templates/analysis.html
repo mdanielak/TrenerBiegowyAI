@@ -121,9 +121,9 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""><span>Zmierzone wartości</span></h2>
       </div>
-      <div class="list">
+      <div class="compact-facts measurement-grid">
         {% for item in measurements %}
-          <div class="list-item">
+          <div class="compact-fact">
             <span class="item-icon">
               {% if item.icon == 'moon' %}<img class="asset" src="/assets/02_health_status/sleep.png" width="28" height="28" alt="">
               {% elif item.icon == 'pulse' %}<img class="asset" src="/assets/02_health_status/hrv.png" width="28" height="28" alt="">
@@ -134,10 +134,10 @@
             <span class="item-body">
               <span class="item-title">{{ item.label }}</span>
             </span>
-            <span class="item-side">
+            <span class="fact-value">
               <span class="item-strong">
                 {% if item.value is not none %}{{ item.value|num }}{% if item.unit %} {{ item.unit }}{% endif %}
-                {%- else %}—{% endif %}
+                {%- else %}Brak pomiaru{% endif %}
               </span>
             </span>
           </div>

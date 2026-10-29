@@ -149,23 +149,25 @@
     <section class="card">
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Cele</span></h2>
+        <a class="btn btn-secondary" href="/wizard">Zmień cel i dni treningowe</a>
       </div>
-      <div class="list">
+      <div class="compact-facts goal-grid">
         {% for row in goal_rows %}
-          <div class="list-item">
+          <div class="compact-fact">
             <span class="item-icon"><img class="asset" src="/assets/{{ row.icon }}" width="28" height="28" alt=""></span>
             <span class="item-body">
               <span class="item-title">{{ row.label }}</span>
             </span>
-            <span class="item-side">
+            <span class="fact-value">
               <span class="item-strong">
                 {% if row.value is not none %}{{ row.value|num }}{% if row.unit %} {{ row.unit }}{% endif %}
-                {%- else %}—{% endif %}
+                {%- else %}Nie ustawiono{% endif %}
               </span>
             </span>
           </div>
         {% endfor %}
       </div>
+      <p class="tile-foot">Dostępne dni: {% if available_days is none %}Nie można odczytać dostępności.{% elif available_days %}{{ available_days|join(', ') }}.{% else %}Brak dni oznaczonych jako dostępne.{% endif %}</p>
     </section>
 
     <footer>Profil jest zapisany lokalnie. Użycie funkcji AI z włączoną zgodą może wysłać dane do skonfigurowanego dostawcy.</footer>

@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <p><a href="/settings">← Ustawienia</a></p>
-    <h1>API AI</h1>
+    <h1>Połączenie z AI</h1>
     <p class="page-sub">Połączenie z dostawcą AI i zgoda na eksport danych</p>
   </div>
 </div>
@@ -90,22 +90,22 @@
       <div class="banner info" role="status">Zapisano. Ustawienia działają od razu — teraz kliknij „Sprawdź połączenie” na górze strony.</div>
     {% endif %}
     {% if ai_settings %}
-    <p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany działają od razu, bez restartu.
-       Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p>
+    <details><summary>Zaawansowane: plik konfiguracji</summary><p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany działają od razu, bez restartu.
+       Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p></details>
     <form method="post" action="/settings/ai" class="stack form-stack" id="ai-form" tabindex="-1">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>Adres API (AI_BASE_URL)<br>
+      <label>Adres serwera AI<br>
         <input type="url" name="base_url"{{ attrs('ai-base-url') }} value="{{ ai_settings.base_url }}" required maxlength="4096" class="text-input" placeholder="https://api.openai.com/v1">{{ field_error('ai-base-url') }}
       </label>
-      <label>Model (AI_MODEL)<br>
+      <label>Nazwa modelu<br>
         <input type="text" name="model"{{ attrs('ai-model') }} value="{{ ai_settings.model }}" required maxlength="4096" class="text-input" placeholder="Nazwa modelu u dostawcy">{{ field_error('ai-model') }}
       </label>
-      <label>Klucz API (AI_API_KEY) — {{ 'ustawiony' if ai_settings.key_present else 'brak' }}<br>
+      <label>Klucz API — {{ 'ustawiony' if ai_settings.key_present else 'brak' }}<br>
         <input type="password" name="api_key"{{ attrs('ai-key') }} autocomplete="new-password" maxlength="4096" class="text-input" placeholder="Puste pole zachowuje dotychczasowy klucz">{{ field_error('ai-key') }}
       </label>
       <label><input type="checkbox" name="clear_key"{{ attrs('ai-clear-key') }} value="true" {% if ai_settings.clear_key %}checked{% endif %}> Usuń klucz z pliku .env{{ field_error('ai-clear-key') }}</label>
       <label><input type="checkbox" name="export_enabled" value="true" {% if ai_settings.export_enabled %}checked{% endif %}>
-        Zezwalam na wysyłanie danych treningowych i zdrowotnych do wskazanego dostawcy AI (AI_DATA_EXPORT_ENABLED).
+        Zezwalam na wysyłanie danych treningowych i zdrowotnych do wskazanego dostawcy AI.
       </label>
       <p>Test używa aktualnych pól formularza, a przy pustym kluczu — zapisanego klucza dla tego samego serwera (domena, protokół i port).
          Zmiana ścieżki, np. /v1 na /v2, zachowuje klucz także przy zapisie. Puste pole nie oznacza, że klucz został usunięty.

@@ -69,10 +69,10 @@
         {% if step == 'times' %}
           <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Jaki czas chcesz osiągnąć?</span></h2></div>
           <label class="field">Czas docelowy (opcjonalnie)
-            <input class="text-input narrow-time" type="text" name="target_time"{{ error_attrs('target_time') }} inputmode="numeric" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">{{ field_error('target_time') }}
+            <input class="text-input narrow-time" type="text" name="target_time"{{ error_attrs('target_time') }} inputmode="text" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">{{ field_error('target_time') }}
           </label>
           <label class="field">Obecny rekord na tym dystansie (opcjonalnie)
-            <input class="text-input narrow-time" type="text" name="record"{{ error_attrs('record') }} inputmode="numeric" maxlength="8" value="{{ values.record }}" placeholder="np. 1:58:30">{{ field_error('record') }}
+            <input class="text-input narrow-time" type="text" name="record"{{ error_attrs('record') }} inputmode="text" maxlength="8" value="{{ values.record }}" placeholder="np. 1:58:30">{{ field_error('record') }}
           </label>
           <p class="tile-foot">Nie znasz jeszcze celu czasowego? Zostaw puste — AI ułoży plan po samej dacie i Twojej formie.</p>
         {% else %}

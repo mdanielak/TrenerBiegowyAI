@@ -2,7 +2,7 @@
 
 {% block title %}Synchronizacja danych{% endblock %}
 
-{% block head_extra %}{% if job.status in ('accepted', 'running') %}<meta http-equiv="refresh" content="{{ 5 if job.operation == 'sync' else 15 }}">{% endif %}{% endblock %}
+
 
 {% block content %}
 {% import "_icons.html" as ico %}
@@ -10,7 +10,7 @@
     <h1>Synchronizacja danych</h1>
   </div>
 
-  <div class="stack">
+  <div class="stack" id="job-status" aria-live="polite" data-poll="{{ 'true' if job.status in ('accepted', 'running') else 'false' }}">
     <section class="card">
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_signals.png" width="28" height="28" alt=""><span>Status synchronizacji</span></h2>
@@ -31,7 +31,7 @@
     </section>
 
     {% if job.status == 'succeeded' %}
-      <p><a class="btn" href="/"><span>Dalej</span> →</a></p>
+      <p><a class="btn" href="/"><span>Przejdź do strony głównej</span> →</a></p>
     {% else %}
       <p><a class="btn btn-secondary" href="/">{{ ico.chevron_left(18) }}<span>Wróć do widoku dnia</span></a></p>
     {% endif %}

@@ -38,7 +38,7 @@ _EMPTY_BANNER = {"message": None, "details_url": None, "refresh": False, "disabl
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
                       banner=None, push_banner=None, error_message=None, error_command=None,
                       now=None, readiness_by_date=None, previous_week=None,
-                      snapshot_stale=False, anchor=None, conflict=None, variants=None) -> dict:
+                      snapshot_stale=False, anchor=None, conflict=None, variants=None, activities=None) -> dict:
     """Zbuduj kontekst strony planu; ten sam zestaw używa router i obsługa błędów CSRF."""
     monday, sunday = week_bounds(anchor or today)
     plan = _plan_view(
@@ -65,7 +65,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "plan_generated_at": _format_generated_at(
             (plan_data or {}).get("generated_at"), now or datetime.now()
         ),
-        "load_chart": _plan_load_chart(plan.get("days") or []),
+        "load_chart": _plan_load_chart(plan.get("days") or [], activities),
         "snapshot_stale": bool(snapshot_stale),
         "snapshot_warning": _WEEK_WARNING_LABELS["snapshot_stale"],
         "prev_week": (monday - timedelta(days=7)).date().isoformat(),
@@ -186,6 +186,7 @@ def get_plans_router(
             readiness_by_date=readiness_by_date,
             previous_week=previous_week,
             snapshot_stale=snapshot.status is SnapshotStatus.STALE,
+            activities=data.get("activities") if isinstance(data, dict) else None,
             anchor=monday,
             conflict=conflict,
             variants=variants,

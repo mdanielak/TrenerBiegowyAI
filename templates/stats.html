@@ -88,7 +88,7 @@
       </div>
       {% set chart = stats.weekly_chart %}
       {% if chart %}
-        <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+        <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres — przewiń, aby zobaczyć cały zakres"><svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
              aria-label="Kilometry biegowe w kolejnych tygodniach.">
           <line class="chart-grid" x1="{{ chart.grid_start }}" x2="{{ chart.grid_end }}" y1="{{ chart.baseline }}" y2="{{ chart.baseline }}"/>
           {% for bar in chart.bars if bar.band %}
@@ -102,7 +102,7 @@
             {% endif %}
             <text class="chart-axis" x="{{ bar.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
           {% endfor %}
-        </svg>
+        </svg></div>
         <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.{% if chart.has_bands %} Zielony pas to zakres kilometrów z fazy strategii.{% endif %}</p>
         <details class="chart-data"><summary>Dane wykresu kilometrów</summary>
           <table><caption>Kilometry biegowe w kolejnych tygodniach</caption><thead><tr><th scope="col">Początek tygodnia</th><th scope="col">Dystans</th></tr></thead><tbody>
@@ -143,7 +143,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Plan a wykonanie</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Czas biegów a zaplanowany czas</span></h2>
       </div>
       {% if stats.plan_rows %}
         <div class="list">
@@ -193,7 +193,7 @@
             {% set chart = metric.chart %}
             {% if chart %}
               <div>
-              <svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+              <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres — przewiń, aby zobaczyć cały zakres"><svg class="chart metric-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
                    aria-label="{{ metric.label }} dzień po dniu.">
                 {% for line in chart.gridlines %}
                   <line class="chart-grid" x1="{{ chart.grid_start }}" y1="{{ line.y }}" x2="{{ chart.grid_end }}" y2="{{ line.y }}"/>
@@ -208,7 +208,7 @@
                 {% for label in chart.labels %}
                   <text class="chart-axis" x="{{ label.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ label.text }}</text>
                 {% endfor %}
-              </svg>
+              </svg></div>
               <details class="chart-data"><summary>Dane wykresu: {{ metric.label }}</summary>
                 <table><caption>{{ metric.label }} dzień po dniu</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Wartość{% if metric.unit %} ({{ metric.unit }}){% endif %}</th></tr></thead><tbody>
                   {% for day, value in metric.points %}<tr><th scope="row">{{ format_date(day) }}</th><td>{% if value is not none %}{{ value|num }}{% else %}Brak pomiaru{% endif %}</td></tr>{% endfor %}

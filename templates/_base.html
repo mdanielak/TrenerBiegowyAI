@@ -11,6 +11,7 @@
   {% include "_styles.html" %}
 </head>
 <body>
+<a class="skip-link" href="#main-content">Przejdź do treści</a>
 {% import "_icons.html" as ico %}
 <div class="app">
 
@@ -25,7 +26,8 @@
     {# Strażnik: serwer uruchomiony na starszym kodzie nie zna tej funkcji, a szablony przeładowują się same. #}
     {% if request is defined and sidebar_ai_badge is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
 
-    <nav class="nav" aria-label="Nawigacja główna">
+    <button class="nav-toggle btn-secondary" type="button" aria-controls="primary-nav" aria-expanded="false">Menu · {{ {'today':'Strona główna', 'plan':'Plan treningowy', 'week':'Kalendarz', 'stats':'Statystyki', 'analysis':'Analiza', 'journal':'Dziennik', 'goal':'Cel', 'settings':'Ustawienia'}.get(active_nav, 'Nawigacja') }}</button>
+    <nav class="nav" id="primary-nav" aria-label="Nawigacja główna">
       <span class="nav-label">Widoki</span>
 
       <a class="nav-item{% if active_nav == 'today' %} active{% endif %}" href="/"{% if active_nav == 'today' %} aria-current="page"{% endif %}>
@@ -75,10 +77,11 @@
 
   </aside>
 
-  <main class="main">
+  <main class="main" id="main-content" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
 
 </div>
+<script src="/static/js/interface.js" defer></script>
 </body>
 </html>

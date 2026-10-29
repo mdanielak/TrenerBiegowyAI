@@ -20,7 +20,7 @@
 {% else %}
 
   <div class="page-head">
-    <h1>Tydzień</h1>
+    <h1>Kalendarz</h1><p class="page-sub">Porównaj plan z wykonanymi aktywnościami. <a href="/plan">Zarządzaj planem treningowym</a></p>
     <p class="page-sub">{{ format_date(report.week_start) }} – {{ format_date(report.week_end) }}</p>
   </div>
 
@@ -110,7 +110,7 @@
         <div class="card-head">
           <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_readiness.png" width="28" height="28" alt=""><span>Gotowość w tym tygodniu</span></h2>
         </div>
-        <svg class="chart" width="{{ chart.width }}" height="{{ chart.height }}"
+        <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres — przewiń, aby zobaczyć cały zakres"><svg class="chart metric-chart" width="{{ chart.width }}" height="{{ chart.height }}"
              viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
              aria-label="Wykres gotowości dzień po dniu w tym tygodniu.">
           {% for line in chart.gridlines %}
@@ -128,7 +128,7 @@
             {% endif %}
             <text class="chart-axis" x="{{ point.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ point.label }}</text>
           {% endfor %}
-        </svg>
+        </svg></div>
         <p class="tile-foot">Punkty są tylko dla dni, w których zegarek zmierzył nocne dane. Zmierzone dni: {{ chart.measured_days }} z 7.</p>
         <details class="chart-data"><summary>Dane wykresu gotowości</summary>
           <table><caption>Gotowość w tym tygodniu</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Gotowość</th></tr></thead><tbody>

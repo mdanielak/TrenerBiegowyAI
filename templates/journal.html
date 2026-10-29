@@ -10,7 +10,7 @@
   <div class="page-head">
     <div>
       <h1>Dziennik</h1>
-      <p class="page-sub">Jak się czujesz, jak ciężki był trening i czy coś boli. Wpisy zostają na tym komputerze.</p>
+      <p class="page-sub">Zapisz samopoczucie i wysiłek, a potem porównaj je z poprzednimi dniami.</p>
     </div>
   </div>
 
@@ -29,57 +29,102 @@
       </div>
     {% endif %}
 
-    <section class="card">
+    <div class="journal-workspace">
+    <section class="card journal-entry-card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/01_navigation/journal.png" width="28" height="28" alt=""><span>Nowy wpis</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/journal.png" width="28" height="28" alt=""><span>Twój codzienny wpis</span></h2>
       </div>
       {% if not journal_guard_ready %}<div class="banner warn">Uruchom ponownie aplikację, aby zapisywać wpisy i bezpiecznie usuwać przerwy.</div>{% endif %}
-      <form method="post" action="/journal" class="stack form-stack" id="journal-form" tabindex="-1">
+      <form method="post" action="/journal" class="stack form-stack journal-editor" id="journal-form" tabindex="-1">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         {% if confirm_entry %}<input type="hidden" name="confirm_date" value="{{ form.date }}">{% endif %}
         {% if confirm_entry %}<div class="banner warn" role="alert" tabindex="-1" autofocus><div class="banner-body"><p class="banner-title">Wpis dla {{ format_date(form.date) }} już istnieje.</p><p>Sprawdź dane poniżej. Potwierdzenie zastąpi poprzedni wpis.</p></div></div>{% elif form.date in (existing_dates|default([])) %}<div class="banner info"><div class="banner-body"><p class="banner-title">Edytujesz wpis z wybranego dnia.</p><p>Przed zastąpieniem poprzedniego wpisu poproszę o potwierdzenie.</p></div></div>{% endif %}
 
+        <div class="journal-fields">
         <label class="field">Dzień
           <input class="text-input" type="date" name="date"{{ attrs('journal-date') }} value="{{ form.date }}" min="{{ earliest }}" max="{{ today }}" required>{{ field_error('journal-date', error_message) }}
         </label>
+        </div>
 
         <fieldset class="field-group">
           <legend>Jak się czujesz?</legend>
           {% for key, label in feelings.items() %}
-            <label class="choice"><input type="radio" name="feeling"{% if loop.first %}{{ attrs('journal-feeling') }}{% endif %} value="{{ key }}"{% if form.feeling == key %} checked{% endif %} required> {{ label }}</label>
+            <label class="choice journal-choice"><input type="radio" name="feeling"{% if loop.first %}{{ attrs('journal-feeling') }}{% endif %} value="{{ key }}"{% if form.feeling == key %} checked{% endif %} required> {{ label }}</label>
           {% endfor %}
           {{ field_error('journal-feeling', error_message) }}
         </fieldset>
 
-        <label class="field">Wysiłek ostatniego treningu (RPE 1–10, opcjonalnie)
-          <input class="text-input narrow" type="number" name="rpe"{{ attrs('journal-rpe') }} min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">{{ field_error('journal-rpe', error_message) }}
+        <label class="field">Wysiłek (RPE 1–10, opcjonalnie)
+          <input class="text-input narrow" type="number" name="rpe"{{ attrs('journal-rpe') }}{% if error_field != 'journal-rpe' %} aria-describedby="rpe-help"{% endif %} min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">{{ field_error('journal-rpe', error_message) }}
         </label>
+
+        <p id="rpe-help" class="tile-foot">1 — bardzo lekko, 5 — umiarkowanie, 10 — maksymalny wysiłek.</p>
 
         <fieldset class="field-group">
           <legend>Ból — zaznacz, jeśli coś boli</legend>
           {% for key, label in pain_areas.items() %}
-            <label class="choice"><input type="checkbox" name="pain"{% if loop.first %}{{ attrs('journal-pain') }}{% endif %} value="{{ key }}"{% if key in (form.pain or []) %} checked{% endif %}> {{ label }}</label>
+            <label class="choice journal-choice"><input type="checkbox" name="pain"{% if loop.first %}{{ attrs('journal-pain') }}{% endif %} value="{{ key }}"{% if key in (form.pain or []) %} checked{% endif %}> {{ label }}</label>
           {% endfor %}
           {{ field_error('journal-pain', error_message) }}
         </fieldset>
 
-        <label class="field">Opis bólu (opcjonalnie)
+        <label class="field" id="pain-note-field">Opis bólu (opcjonalnie)
           <input class="text-input" type="text" name="pain_note" maxlength="120" value="{{ form.pain_note or '' }}" placeholder="np. lekko przy zbieganiu">
         </label>
 
         <label class="field">Notatka (opcjonalnie)
-          <textarea class="text-input" name="note" maxlength="300" rows="3" placeholder="Sen, stres, cokolwiek ważnego tego dnia">{{ form.note or '' }}</textarea>
+          <textarea class="text-input" name="note" maxlength="300" rows="2" placeholder="Sen, stres, cokolwiek ważnego tego dnia">{{ form.note or '' }}</textarea>
         </label>
 
         <div class="row">
           <button type="submit" class="btn"{% if not journal_guard_ready %} disabled{% endif %}{% if confirm_entry %} name="confirm" value="yes"{% endif %}>{{ ico.check(18) }}<span>{{ 'Potwierdź zastąpienie' if confirm_entry else 'Zapisz wpis' }}</span></button>
           {% if confirm_entry %}<a href="/journal" class="btn btn-secondary">Anuluj</a>{% endif %}
-          <span class="tile-foot">Ponowny wpis z tego samego dnia zastępuje poprzedni.</span>
+          <span class="tile-foot">Zastąpienie wcześniejszego wpisu wymaga potwierdzenia.</span>
         </div>
       </form>
     </section>
+    <section class="card journal-history-card{% if not entries %} is-empty{% endif %}">
+      <div class="card-head">
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Ostatnie 14 dni</span></h2>
+      </div>
+      {% if entries %}
+        <div class="journal-history">
+          {% for entry in entries %}
+            <div class="journal-history-entry">
+              <span class="item-body">
+                <span class="item-title">{{ entry.date_label }}</span>
+                <span class="item-meta">
+                  <span>samopoczucie: {{ entry.feeling_label }}</span>
+                  <span>RPE: {{ entry.rpe if entry.rpe is not none else '—' }}</span>
+                  {% if entry.note %}<span>{{ entry.note }}</span>{% endif %}
+                </span>
+              </span>
+              <span class="item-side">
+                {% if entry.pain_labels %}
+                  <span class="pill bad">ból: {{ entry.pain_labels|join(', ') }}</span>
+                  {% if entry.pain_note %}<span class="item-meta">{{ entry.pain_note }}</span>{% endif %}
+                {% else %}
+                  <span class="pill ok">bez bólu</span>
+                {% endif %}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-art compact">
+          <img class="asset" src="/assets/09_illustrations/journal_empty.png" width="108" height="72" alt="">
+          <p>Nie ma jeszcze wpisów. Pierwszy wpis zajmuje kilka sekund.</p>
+        </div>
+      {% endif %}
+      <p class="tile-foot">Gdy wysyłanie danych do AI jest włączone, podsumowanie ostatnich 7 dni (samopoczucie, RPE, ból, krótkie notatki) trafia do układania planu i rekomendacji dziennej.</p>
+    </section>
+    </div>
 
-    <section class="card" id="przerwy">
+
+    {% for pause in pauses if pause.is_active %}
+    <div class="banner warn" role="status"><div class="banner-body"><p class="banner-title">Trwa przerwa: {{ pause.reason }}</p><p>{{ format_date(pause.start_date) }} – {{ format_date(pause.end_date) }} · <a href="#przerwy">Zarządzaj przerwą</a></p></div></div>
+    {% endfor %}
+    <details class="card" id="przerwy"{% if pause_error or pause_saved or pause_removed or confirm_pause %} open{% endif %}><summary>Zarządzaj przerwami treningowymi</summary>
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/03_activity/kind_rest.png" width="28" height="28" alt=""><span>Przerwy: choroba, wyjazd, zabieg</span></h2>
       </div>
@@ -131,7 +176,7 @@
         <fieldset class="field-group">
           <legend>Rodzaj przerwy</legend>
           {% for key, label in pause_types.items() %}
-            <label class="choice"><input type="radio" name="pause_type"{% if loop.first %}{{ attrs('pause-type') }}{% endif %} value="{{ key }}"{% if pause_form.type == key %} checked{% endif %} required> {{ label }}</label>
+            <label class="choice journal-choice"><input type="radio" name="pause_type"{% if loop.first %}{{ attrs('pause-type') }}{% endif %} value="{{ key }}"{% if pause_form.type == key %} checked{% endif %} required> {{ label }}</label>
           {% endfor %}
           {{ field_error('pause-type', pause_error) }}
         </fieldset>
@@ -147,43 +192,9 @@
           <span class="tile-foot">AI nie zaplanuje treningu w dniach przerwy.</span>
         </div>
       </form>
-    </section>
+    </details>
 
-    <section class="card">
-      <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Ostatnie 14 dni</span></h2>
-      </div>
-      {% if entries %}
-        <div class="list">
-          {% for entry in entries %}
-            <div class="list-item">
-              <span class="item-body">
-                <span class="item-title">{{ entry.date_label }}</span>
-                <span class="item-meta">
-                  <span>samopoczucie: {{ entry.feeling_label }}</span>
-                  <span>RPE: {{ entry.rpe if entry.rpe is not none else '—' }}</span>
-                  {% if entry.note %}<span>{{ entry.note }}</span>{% endif %}
-                </span>
-              </span>
-              <span class="item-side">
-                {% if entry.pain_labels %}
-                  <span class="pill bad">ból: {{ entry.pain_labels|join(', ') }}</span>
-                  {% if entry.pain_note %}<span class="item-meta">{{ entry.pain_note }}</span>{% endif %}
-                {% else %}
-                  <span class="pill ok">bez bólu</span>
-                {% endif %}
-              </span>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="empty-art compact">
-          <img class="asset" src="/assets/09_illustrations/journal_empty.png" width="108" height="72" alt="">
-          <p>Nie ma jeszcze wpisów. Pierwszy wpis zajmuje kilka sekund.</p>
-        </div>
-      {% endif %}
-      <p class="tile-foot">Gdy wysyłanie danych do AI jest włączone, podsumowanie ostatnich 7 dni (samopoczucie, RPE, ból, krótkie notatki) trafia do układania planu i rekomendacji dziennej.</p>
-    </section>
+
 
     <footer>To nie jest porada medyczna. Przy narastającym bólu przerwij trening i skonsultuj się ze specjalistą.</footer>
 

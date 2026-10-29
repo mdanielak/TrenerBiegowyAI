@@ -22,7 +22,7 @@
     {% endif %}
 
     {% if error %}
-      <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
+      <div class="banner bad" role="alert" tabindex="-1" autofocus>{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ error }}</p></div></div>
     {% endif %}
 
     {% if stage == 'login' %}
@@ -34,8 +34,9 @@
             <input class="text-input" type="email" name="email" value="{{ email }}" autocomplete="username" required>
           </label>
           <label class="field">Hasło
-            <input class="text-input" type="password" name="password" autocomplete="current-password" required>
+            <input class="text-input" id="garmin-password" type="password" name="password" autocomplete="current-password" required>
           </label>
+          <button type="button" class="btn-secondary" data-password-toggle="garmin-password" aria-controls="garmin-password" aria-pressed="false">Pokaż hasło</button>
           <div class="row">
             <button type="submit" class="btn">Połącz</button>
             <span class="tile-foot">Logowanie może potrwać do 2 minut — nie zamykaj strony.</span>

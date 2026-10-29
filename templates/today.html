@@ -58,6 +58,73 @@
       </div>
     {% endif %}
 
+    <div class="grid grid-main signals-first">
+      <section class="card">
+        <div class="card-head">
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
+        </div>
+        <div class="signals">
+          {% for card in signal_cards %}
+            <div class="signal {{ card.state_class }}">
+              <span class="icon-box {{ card.state_class }}">
+                <img class="asset" src="/assets/{{ card.asset }}" width="32" height="32" alt="">
+              </span>
+
+              <span class="signal-main">
+                <span class="signal-top"><span>{{ card.label }}</span></span>
+
+                <span class="signal-value">
+                  {% if card.value is not none %}{{ card.value|num }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
+                  {%- else %}—{% endif %}
+                </span>
+
+                <span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>
+                {% if card.description %}<span class="signal-description">{{ card.description }}</span>{% endif %}
+
+                {% if card.trend %}
+                  <span class="trend {{ card.trend.tone }}">
+                    {% if card.trend.direction == 'up' %}{{ ico.arrow_up(13) }}
+                    {% elif card.trend.direction == 'down' %}{{ ico.arrow_down(13) }}{% endif %}
+                    <span>{{ card.trend.label }}{% if card.trend.previous is not none %} ({{ card.trend.previous }}){% endif %}</span>
+                  </span>
+                {% endif %}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="card readiness-card">
+        <div class="readiness">
+          <div class="ring-wrap">
+            <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
+                 viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
+              <circle class="ring-track" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"/>
+              <circle class="ring-value {{ report.readiness.level }}" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"
+                      stroke-dasharray="{{ ring.circumference }}" stroke-dashoffset="{{ ring.offset }}"/>
+            </svg>
+            <span class="ring-center">
+              <span class="ring-score">{{ readiness_score }}</span>
+              <span class="ring-max">z {{ readiness_max_score }}</span>
+            </span>
+          </div>
+
+          <div>
+            <span class="verdict {{ report.readiness.level }}">
+              {% if report.readiness.level == 'ready' %}{{ ico.check(15) }}
+              {% elif report.readiness.level == 'ready_with_reserves' %}{{ ico.info(15) }}
+              {% else %}{{ ico.moon(15) }}{% endif %}
+              <span>{{ 'Przerwa — dziś bez treningu' if pause else readiness_label|capitalize }}</span>
+            </span>
+          </div>
+
+          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% endif %} <a href="/analysis">Zobacz uzasadnienie</a></p>
+        </div>
+      </section>
+
+    </div>
+
     {% if ai_off_notice %}
       <div class="banner warn" role="alert">
         {{ ico.info() }}
@@ -89,73 +156,6 @@
         </div>
       </div>
     {% endif %}
-
-    <div class="grid grid-main">
-
-      <section class="card readiness-card">
-        <div class="readiness">
-          <div class="ring-wrap">
-            <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
-                 viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
-              <circle class="ring-track" cx="{{ ring.center }}" cy="{{ ring.center }}"
-                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"/>
-              <circle class="ring-value {{ report.readiness.level }}" cx="{{ ring.center }}" cy="{{ ring.center }}"
-                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"
-                      stroke-dasharray="{{ ring.circumference }}" stroke-dashoffset="{{ ring.offset }}"/>
-            </svg>
-            <span class="ring-center">
-              <span class="ring-score">{{ readiness_score }}</span>
-              <span class="ring-max">z {{ readiness_max_score }}</span>
-            </span>
-          </div>
-
-          <div>
-            <span class="verdict {{ report.readiness.level }}">
-              {% if report.readiness.level == 'ready' %}{{ ico.check(15) }}
-              {% elif report.readiness.level == 'ready_with_reserves' %}{{ ico.info(15) }}
-              {% else %}{{ ico.moon(15) }}{% endif %}
-              <span>{{ readiness_label|capitalize }}</span>
-            </span>
-          </div>
-
-          <p class="ring-caption">Ocena gotowości na dziś, liczona z nocnych pomiarów zegarka.</p>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
-        </div>
-        <div class="signals">
-          {% for card in signal_cards %}
-            <div class="signal {{ card.state_class }}">
-              <span class="icon-box {{ card.state_class }}">
-                <img class="asset" src="/assets/{{ card.asset }}" width="32" height="32" alt="">
-              </span>
-
-              <span class="signal-main">
-                <span class="signal-top"><span>{{ card.label }}</span></span>
-
-                <span class="signal-value">
-                  {% if card.value is not none %}{{ card.value|num }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}
-                  {%- else %}—{% endif %}
-                </span>
-
-                <span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>
-
-                {% if card.trend %}
-                  <span class="trend {{ card.trend.tone }}">
-                    {% if card.trend.direction == 'up' %}{{ ico.arrow_up(13) }}
-                    {% elif card.trend.direction == 'down' %}{{ ico.arrow_down(13) }}{% endif %}
-                    <span>{{ card.trend.label }}{% if card.trend.previous is not none %} ({{ card.trend.previous }}){% endif %}</span>
-                  </span>
-                {% endif %}
-              </span>
-            </div>
-          {% endfor %}
-        </div>
-      </section>
-    </div>
 
     <section class="card">
       <div class="card-head">
@@ -400,10 +400,11 @@
         {% endif %}
       </section>
 
-      <section class="card">
-        <div class="card-head">
+      <details class="card activity-disclosure">
+        <summary class="card-head">
           <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Wczorajsze aktywności</span></h2>
-        </div>
+          <span class="tile-foot">{% if report.yesterday_activities %}{{ report.yesterday_activities|length }}{% else %}brak{% endif %}</span>
+        </summary>
       {% if report.yesterday_activities %}
         <div class="list">
           {% for activity in report.yesterday_activities %}
@@ -430,7 +431,7 @@
           <p>Wczoraj nie zarejestrowano żadnej aktywności.</p>
         </div>
 {% endif %}
-      </section>
+      </details>
     </div>
 
     <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>
