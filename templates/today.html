@@ -6,6 +6,7 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+{% import "_workout_steps.html" as steps %}
 {% if error_message %}
 
   <div class="page-head">
@@ -177,6 +178,15 @@
             </span>
           </div>
 
+          {% if not workout.execution.happened %}
+            {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
+                            workout.coach.notes if workout.coach else None,
+                            workout.coach.distance_km if workout.coach else None) }}
+          {% endif %}
+          {% if workout.others %}
+            <p class="mid">Na zegarku na dziś {{ 'jest' if workout.others|length == 1 else 'są' }} też: {{ workout.others|join(', ') }}. Jeśli to stary trening, usuń go w Garmin Connect, żeby nie pomylić się na starcie.</p>
+          {% endif %}
+
           {% if workout.execution.happened %}
             <div class="grid grid-4">
               <div class="tile">
@@ -277,6 +287,7 @@
             </span>
           </span>
         </div>
+        {% if not plan_workout.is_rest %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
         {% if plan_workout.is_rest %}
           <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
         {% elif plan_workout.garmin_upload %}

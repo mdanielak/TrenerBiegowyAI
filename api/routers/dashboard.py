@@ -93,9 +93,11 @@ def get_dashboard_router(
             )
 
         try:
-            first_run = needs_onboarding(profile_provider())
+            profile = profile_provider()
         except (FileNotFoundError, OSError, ValueError):
-            first_run = False
+            profile = None
+        first_run = profile is not None and needs_onboarding(profile)
+        zone_floors = (profile or {}).get("hr_zone_floors") or {}
         if first_run:
             return RedirectResponse(url="/wizard", status_code=303)
 
@@ -132,7 +134,7 @@ def get_dashboard_router(
                     "signal_cards": _signal_cards(report),
                     "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
                     "workout": _workout_section(report, profile_provider, review_loader),
-                    "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None)),
+                    "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None), floors=zone_floors),
                     "ai_recommendation": _recommendation_view(recommendation),
                     "journal_missing": report.date not in journal_by_day,
                     "health_alert": _health_alert(report, [journal_by_day[day] for day in (report.date, report.yesterday_date)

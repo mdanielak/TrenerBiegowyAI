@@ -191,8 +191,10 @@ def _format_generated_at(value, now: datetime) -> str | None:
     return f"{local.day} {_MONTHS_GENITIVE[local.month - 1]} {local.year} o {local:%H:%M}"
 
 
-def _plan_workout_view(plan_workout) -> Optional[dict]:
-    """Płaski widok treningu z planu AI na dziś."""
+def _plan_workout_view(plan_workout, floors=None) -> Optional[dict]:
+    """Płaski widok treningu z planu AI na dziś, z krokami jak na zegarku."""
+    from services.workout_steps import spec_from_plan, workout_steps
+
     if not plan_workout:
         return None
     kind = plan_workout.get("type") or "rest"
@@ -207,6 +209,8 @@ def _plan_workout_view(plan_workout) -> Optional[dict]:
         "garmin_upload": bool(plan_workout.get("garmin_upload")),
         "is_rest": kind == "rest",
         "icon": _kind_icon(kind),
+        "steps": workout_steps(spec_from_plan(plan_workout), floors) if kind != "rest" else [],
+        "description": plan_workout.get("description"),
     }
 
 

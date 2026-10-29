@@ -10,6 +10,7 @@ from typing import NoReturn, Optional, cast
 from fastapi import HTTPException
 
 from api.views.plan import _kind_icon
+from services.workout_steps import workout_steps
 from services.journal import PAIN_AREAS
 from api.views.common import (
     _format_date,
@@ -205,6 +206,17 @@ def _raise_report_error(report: TodayReport) -> NoReturn:
     raise HTTPException(status_code=status_code, detail=f"{message} Uruchom: {command}")
 
 
+def _coach_notes(report, name) -> Optional[dict]:
+    """Opis i uwagi z planu AI, gdy trening na zegarku to ten sam trening z planu."""
+    plan_workout = getattr(report, "plan_workout", None) or {}
+    if not plan_workout or plan_workout.get("name") != name:
+        return None
+    if not (plan_workout.get("description") or plan_workout.get("notes")):
+        return None
+    return {"description": plan_workout.get("description"), "notes": plan_workout.get("notes"),
+            "distance_km": plan_workout.get("distance_km")}
+
+
 def _workout_status(execution: dict) -> tuple[str, str]:
     """Opisz wykonanie treningu słowem i klasą koloru."""
     if execution.get("happened") is True:
@@ -257,6 +269,9 @@ def _workout_section(report: TodayReport, profile_provider: Callable[[], dict],
         "name": planned.get("name") or "Trening",
         "kind": spec.get("kind"),
         "icon": _kind_icon(spec.get("kind")),
+        "steps": workout_steps(spec, profile.get("hr_zone_floors") or {}),
+        "coach": _coach_notes(report, planned.get("name")),
+        "others": list(getattr(report, "other_planned", None) or []),
         "planned_duration": planned_duration_min(spec),
         "target": f"Z{zone} ({band[0]}–{band[1]} bpm)" if zone is not None and band else None,
         "status_label": status_label,

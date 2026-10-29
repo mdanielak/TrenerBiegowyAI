@@ -37,6 +37,7 @@ class TodayReport:
     active_pause: dict | None = None
     plan_workout: dict | None = None
     hrv_alert: dict | None = None
+    other_planned: list = field(default_factory=list)
 
 
 def _today_registry_entries(today: str):
@@ -155,6 +156,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         active_pause=active_pause,
         plan_workout=plan_workout,
         hrv_alert=check_hrv_alert(data.get("hrv") or []),
+        other_planned=[w.get("name") or "Trening" for w in planned_workouts[1:] if isinstance(w, dict)],
     )
 
 

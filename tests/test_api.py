@@ -1186,3 +1186,28 @@ def test_static_css_is_served():
         response = client.get("/static/css/styles.css")
     assert response.status_code == 200
     assert "color-scheme" in response.text
+
+
+def test_dashboard_lists_the_training_steps_and_other_watch_workouts_before_training():
+    report = _report(planned={"name": "Łatwy 40 min – Z2", "spec": {
+        "kind": "hr_zone_run", "duration_min": 40, "zone_number": 2, "warmup_min": 6,
+        "warmup_pace_faster": "7:00", "warmup_pace_slower": "8:30"}},
+        execution=_execution(happened=False, match_method="unmatched", certain=False, activity_id=None,
+                             distance_km=None, duration_min=None, avg_hr=None, max_hr=None),
+        other_planned=["Tempo 40 min – 3×6 min"],
+        plan_workout={"name": "Łatwy 40 min – Z2", "type": "easy", "description": "Spokojnie, bez akcentu.",
+                      "notes": "Zostaw rezerwę.", "distance_km": 5.3})
+    with TestClient(create_app(report_provider=lambda: report, profile_provider=lambda: _profile(),
+                               review_loader=lambda **kwargs: None)) as client:
+        page = client.get("/").text
+
+    assert "Rozgrzewka" in page and "6 min" in page and "tempo 7:00–8:30 /km · bez alarmu tętna" in page
+    assert "Bieg w strefie" in page and "34 min" in page
+    assert "Jak biec:</span> Spokojnie, bez akcentu." in page and "Uwagi trenera:</span> Zostaw rezerwę." in page
+    assert "Na zegarku na dziś jest też: Tempo 40 min – 3×6 min" in page
+
+
+def test_dashboard_hides_the_steps_after_the_training():
+    with _workout_client(execution=_execution()) as client:
+        page = client.get("/").text
+    assert 'class="workout-steps"' not in page

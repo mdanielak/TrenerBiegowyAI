@@ -1,0 +1,23 @@
+{# Rozpiska treningu krok po kroku (jak na zegarku) i uwagi trenera z planu AI. #}
+{% macro render(steps, description=None, notes=None, distance_km=None) %}
+  {% if steps %}
+    <ol class="workout-steps" aria-label="Przebieg treningu">
+      {% for step in steps %}
+        <li class="workout-step {{ step.phase }}">
+          <span class="workout-step-time">{{ step.time }}</span>
+          <span class="workout-step-body">
+            <span class="workout-step-label">{{ step.label }}</span>
+            {% if step.target %}<span class="workout-step-target">{{ step.target }}</span>{% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+  {% if description or notes %}
+    <div class="coach-notes">
+      {% if description %}<p><span class="coach-label">Jak biec:</span> {{ description }}</p>{% endif %}
+      {% if notes %}<p><span class="coach-label">Uwagi trenera:</span> {{ notes }}</p>{% endif %}
+      {% if distance_km %}<p class="tile-foot">Szacowany dystans: około {{ distance_km|num }} km.</p>{% endif %}
+    </div>
+  {% endif %}
+{% endmacro %}
