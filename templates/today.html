@@ -22,8 +22,6 @@
       {% endif %}
       {% if syncing %}
         <p class="mid">Trwa pobieranie danych z zegarka. Strona główna pojawi się, gdy się skończy — możesz w tym czasie korzystać z innych stron.</p>
-        {% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync.progress) }}
-        <p><a href="{{ sync.url }}">Zobacz postęp</a></p>
       {% elif error_sync %}
         <form method="post" action="/actions/sync" class="row">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -52,6 +50,27 @@
   </div>
 
   <div class="stack">
+
+    {# Trwającą synchronizację pokazuje pasek u góry strony; tu zostają tylko stany po jej końcu. #}
+    {% if is_stale and not sync_banner.disabled %}
+      <div class="banner warn">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Dane są nieaktualne.</p>
+          {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(True) }}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if sync_banner.message and not sync_banner.disabled %}
+      <div class="banner info">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">{{ sync_banner.message }}</p>
+          {% if sync_banner.details_url %}<p><a href="{{ sync_banner.details_url }}">Szczegóły</a></p>{% endif %}
+        </div>
+      </div>
+    {% endif %}
 
     {% if health_alert %}
       <div class="health-alert {{ health_alert.tone }}" role="alert">
@@ -139,28 +158,6 @@
         <div class="banner-body">
           <p class="banner-title">Rekomendacja AI wymaga połączenia z AI.</p>
           <p class="mid">Dodaj klucz API i zgodę na wysyłanie danych w <a href="/settings/ai">Ustawienia → API AI</a>. Do tego czasu podpowiedź poniżej liczy ten komputer z oceny gotowości.</p>
-        </div>
-      </div>
-    {% endif %}
-
-    {% if is_stale %}
-      <div class="banner warn">
-        {{ ico.info() }}
-        <div class="banner-body">
-          <p class="banner-title">Dane są nieaktualne.</p>
-          {% from "_fix_hint.html" import stale_hint %}{{ stale_hint(True) }}
-        </div>
-      </div>
-    {% endif %}
-
-    {% if sync_banner.message %}
-      <div class="banner info">
-        {{ ico.info() }}
-        <div class="banner-body">
-          <p class="banner-title">{{ sync_banner.message }}</p>
-          {% if sync_banner.disabled %}{% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync_banner.progress) }}{% endif %}
-          {% if sync_banner.refresh %}<p><a href="/">Odśwież stan synchronizacji</a> — przed odświeżeniem wyślij lub skopiuj wpisaną wiadomość.</p>{% endif %}
-          {% if sync_banner.details_url %}<p><a href="{{ sync_banner.details_url }}">Szczegóły</a></p>{% endif %}
         </div>
       </div>
     {% endif %}

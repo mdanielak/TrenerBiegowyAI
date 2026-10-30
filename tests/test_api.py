@@ -418,7 +418,7 @@ def test_dashboard_shows_running_sync_banner_refresh_and_disabled_button(tmp_pat
         response = client.get("/")
     assert "Trwa synchronizacja danych." in response.text
     assert 'http-equiv="refresh"' not in response.text
-    assert "Odśwież stan synchronizacji" in response.text
+    assert "data-reload-when-done" in response.text  # pasek u góry sam odświeży stronę po końcu
     assert '<button type="submit" disabled>' in response.text
 
 

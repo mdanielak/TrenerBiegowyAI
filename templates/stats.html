@@ -35,7 +35,7 @@
 
   <div class="stack">
 
-    {% if is_stale %}
+    {% if is_stale and not sync_in_progress(request) %}
       <div class="banner warn">
         {{ ico.info() }}
         <div class="banner-body">
