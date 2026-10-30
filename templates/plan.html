@@ -158,6 +158,16 @@
     </div>
   {% endif %}
 
+  {% if remove_banner.message %}
+    <div class="banner info"{% if remove_banner.refresh %} data-reload-when-done{% endif %}>
+      {{ ico.info() }}
+      <div class="banner-body">
+        <p class="banner-title">{{ remove_banner.message }}</p>
+        {% if remove_banner.details_url %}<p><a href="{{ remove_banner.details_url }}">Szczegóły</a></p>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+
   {% if not ai_ready %}
     <div class="banner warn">
       {{ ico.info() }}
@@ -196,6 +206,32 @@
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Dzień po dniu</span></h2>
       </div>
 
+      {% set to_remove = plan.days|selectattr('date', 'equalto', request.query_params.get('remove'))|rejectattr('is_rest')|rejectattr('is_past')|first %}
+      {% if to_remove %}
+        {% set on_watch = to_remove.garmin_upload and to_remove.garmin_workout_id %}
+        <div class="banner warn" id="usun" role="alertdialog" aria-labelledby="usun-tytul">
+          {{ ico.info() }}
+          <div class="banner-body">
+            <p class="banner-title" id="usun-tytul">Usunąć trening z planu?</p>
+            <p>{{ to_remove.name }} — {{ to_remove.weekday }}, {{ format_date(to_remove.date) }}.
+              {% if on_watch %}Ten trening jest też na zegarku.{% endif %}
+              W jego miejsce zostanie odpoczynek.</p>
+            <form method="post" action="/actions/plan/remove" class="row">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="week_start" value="{{ week_start }}">
+              <input type="hidden" name="date" value="{{ to_remove.date }}">
+              {% if on_watch %}
+                <button type="submit" name="scope" value="garmin" class="btn-danger">Usuń z planu i z zegarka</button>
+                <button type="submit" name="scope" value="plan" class="secondary">Usuń tylko z planu</button>
+              {% else %}
+                <button type="submit" name="scope" value="plan" class="btn-danger">Usuń z planu</button>
+              {% endif %}
+              <a class="btn btn-secondary" href="/plan?week={{ week_start }}">Anuluj</a>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+
       <div class="week plan-week">
         {% for plan_day in plan.days %}
           <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}"
@@ -204,7 +240,13 @@
               <span class="day-name">{{ plan_day.weekday_short }}</span>
               <span class="day-num">{{ plan_day.date[8:10]|int }}</span>
               {% if plan_day.is_today %}<span class="day-today-tag">dzisiaj</span>{% endif %}
-              {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>{% endif %}
+              <span class="day-corner">
+                {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>{% endif %}
+                {% if not plan_day.is_rest and not plan_day.is_past %}
+                  <a class="day-remove" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun"
+                     aria-label="Usuń trening {{ plan_day.name }}" title="Usuń trening">{{ ico.x(14) }}</a>
+                {% endif %}
+              </span>
             </div>
 
             <div class="day-pills">

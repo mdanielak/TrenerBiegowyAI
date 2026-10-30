@@ -627,8 +627,12 @@
 
   .day-head { display: flex; flex-direction: column; gap: 1px; }
   /* Trening już w Garmin Connect: kształt zegarka i opis dla czytników, kolor tylko wspiera. */
-  .day-garmin { position: absolute; top: 9px; right: 9px; display: inline-flex; padding: 3px; border-radius: 999px;
+  .day-corner { position: absolute; top: 9px; right: 9px; display: flex; gap: 4px; align-items: center; }
+  .day-garmin { display: inline-flex; padding: 3px; border-radius: 999px;
                 color: var(--ok-fg); background: var(--ok-bg); }
+  .day-remove { display: inline-flex; padding: 4px; border-radius: 999px; color: var(--fg-muted); }
+  .day-remove:hover, .day-remove:focus-visible { color: var(--danger-fg); background: var(--danger-bg); }
+  #usun { margin-bottom: 14px; }
   .day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
   .day-num { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
   .day.today .day-num { color: var(--accent-strong); }

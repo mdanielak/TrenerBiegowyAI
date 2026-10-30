@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -15,6 +16,7 @@ from services.actions import (
     generate_daily_recommendation,
     generate_week_plan,
     push_plan_to_garmin,
+    remove_plan_workout,
     review_workout,
     run_plan_job,
     run_plan_push_job,
@@ -350,6 +352,61 @@ def get_actions_router(
 
             request.app.state.job_executor.submit(execute)
         return RedirectResponse(url="/plan", status_code=303)
+
+    @router.post("/actions/plan/remove")
+    def remove_plan_day(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+        date: str = Form(default=""),
+        scope: str = Form(default="plan"),
+    ):
+        """Usuń trening dnia z planu; z zegarkiem w tle, bo to logowanie do Garmina."""
+        if not csrf_valid(request, csrf_token):
+            return templates.TemplateResponse(
+                request=request,
+                name="plan.html",
+                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
+        monday = week_monday(week_start)
+        if scope == "garmin":
+            try:
+                with acquire_lock(name="jobs", directory=lock_directory):
+                    job = store.submit("plan_remove", {"week_start": week_start, "date": date})
+                    should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
+                    if should_schedule:
+                        scheduled_job_ids.add(job.id)
+            except (LockBusyError, JobConflictError, JobCooldownError):
+                return RedirectResponse(url=plan_url(week_start), status_code=303)
+            if should_schedule:
+                operation = partial(remove_plan_workout, day=date, from_garmin=True, today=today())
+
+                def execute():
+                    try:
+                        return run_plan_push_job(store=store, job_id=job.id, operation=operation,
+                                                 week_start=monday.date().isoformat(),
+                                                 lock_directory=lock_directory)
+                    finally:
+                        scheduled_job_ids.discard(job.id)
+
+                request.app.state.job_executor.submit(execute)
+            return RedirectResponse(url=plan_url(week_start), status_code=303)
+        try:
+            with acquire_lock(name="plan", directory=lock_directory):
+                remove_plan_workout(week_start=monday.date().isoformat(), day=date, today=today())
+        except LockBusyError:
+            pass
+        except ValueError as error:
+            return templates.TemplateResponse(
+                request=request,
+                name="plan.html",
+                context=plan_page_context(today=today(), error_message=str(error), now=datetime.now(), anchor=monday),
+                status_code=400,
+                headers={"Cache-Control": "no-store"},
+            )
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
 
     @router.post("/actions/plan/variant")
     def plan_variant(
