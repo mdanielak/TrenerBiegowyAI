@@ -4,6 +4,7 @@ chcp 65001 >nul
 title Trener Biegowy - testowanie
 
 rem Testowa kopia aplikacji na zmyslonym tygodniu: dzis sroda, Garmin i AI udawane.
+rem Inny dzien tygodnia: testowanie.bat --dzien czwartek
 rem Kod kopiowany jest do katalogu tymczasowego, wiec prawdziwe dane (local, plany, .env) zostaja nietkniete.
 rem Nie trafia do paczki wydania (export-ignore w .gitattributes).
 set "REPO=%~dp0"
@@ -27,6 +28,8 @@ if not errorlevel 1 (
 rem Za kazdym razem od zera: poprzednie klikniecia nie psuja kolejnego testu.
 if exist "%SANDBOX%" rmdir /s /q "%SANDBOX%"
 mkdir "%SANDBOX%" || exit /b 1
+rem Znacznik piaskownicy: bez niego testowanie.py odmawia startu i niczego nie zapisuje.
+type nul > "%SANDBOX%\.testowanie-piaskownica"
 for %%D in (ai api services trainer templates static scripts trener_biegowy_ai_assets) do (
     robocopy "%REPO%%%D" "%SANDBOX%\%%D" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 )
@@ -37,7 +40,7 @@ copy /Y "%REPO%training-plans\long-term\przyklad-strategii.md" "%SANDBOX%\traini
 
 if not "%TRENER_NO_BROWSER%"=="1" start "" /min cmd /c "timeout /t 4 /nobreak >nul & start %URL%"
 pushd "%SANDBOX%"
-"%PY_EXE%" scripts\testowanie.py
+"%PY_EXE%" scripts\testowanie.py %*
 set "EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%EXIT_CODE%"=="0" pause
