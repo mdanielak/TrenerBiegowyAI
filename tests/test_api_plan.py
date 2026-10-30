@@ -360,6 +360,10 @@ def test_plan_charts_use_running_activities_and_preserve_missing_data():
     assert chart["bars"][0]["km"] == 7.5
     assert chart["bars"][1]["actual"] is None
     assert chart["bars"][1]["km"] is None
+    # Osie: minuty do 60 (działka 15), kilometry do 8 (działka 2); słupek 42 min sięga 70% wysokości.
+    assert [t["minutes"] for t in chart["ticks"]] == [0, 15, 30, 45, 60]
+    assert [t["km"] for t in chart["ticks"]] == [0, 2, 4, 6, 8]
+    assert chart["bars"][0]["actual_height"] == 70
 
 
 def test_plan_page_accepts_chart_from_older_server(tmp_path, monkeypatch):

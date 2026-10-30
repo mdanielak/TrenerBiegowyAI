@@ -86,6 +86,8 @@ def test_the_x_is_only_on_today_and_future_workouts(tmp_path):
     assert 'aria-label="Usuń trening Długi bieg 90 min"' in page
     assert 'aria-label="Usuń trening Tempo 3×8 min"' not in page  # wtorek już minął
     assert 'id="usun"' not in page
+    # Przyszły trening jeszcze nie wysłany ma szary zegarek; wysłany zielony; minione dni żadnego szarego.
+    assert page.count('aria-label="Trening nie jest jeszcze na zegarku Garmin"') == 1
 
 
 def test_confirmation_offers_the_watch_only_when_the_workout_is_there(tmp_path):

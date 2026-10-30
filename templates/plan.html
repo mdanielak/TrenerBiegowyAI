@@ -241,7 +241,8 @@
               <span class="day-num">{{ plan_day.date[8:10]|int }}</span>
               {% if plan_day.is_today %}<span class="day-today-tag">dzisiaj</span>{% endif %}
               <span class="day-corner">
-                {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>{% endif %}
+                {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>
+                {% elif not plan_day.is_rest and not plan_day.is_past %}<span class="day-garmin is-pending" role="img" aria-label="Trening nie jest jeszcze na zegarku Garmin" title="Jeszcze nie wysłano na zegarek">{{ ico.watch(16) }}</span>{% endif %}
                 {% if not plan_day.is_rest and not plan_day.is_past %}
                   <a class="day-remove" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun"
                      aria-label="Usuń trening {{ plan_day.name }}" title="Usuń trening">{{ ico.x(14) }}</a>
@@ -336,27 +337,27 @@
 
       {% if load_chart %}
         {% if load_chart.bars and load_chart.bars[0].planned is defined %}
-        <h3>Czas: plan i wykonane biegi</h3>
-        <div class="legend"><span><span class="legend-swatch plan-time"></span> Plan</span><span><span class="legend-swatch actual-time"></span> Biegi z zegarka</span></div>
-        <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres czasu"><svg class="chart metric-chart" viewBox="0 0 {{ load_chart.width }} {{ load_chart.height }}" role="img" aria-label="Zaplanowane minuty i minuty biegów z zegarka w kolejnych dniach.">
-          <line class="chart-grid" x1="0" x2="{{ load_chart.width }}" y1="120" y2="120"/>
-          {% for bar in load_chart.bars %}
-          {% if bar.planned %}<rect class="chart-bar" x="{{ bar.x }}" y="{{ 120 - bar.plan_height }}" width="28" height="{{ bar.plan_height }}" rx="3"/>{% endif %}
-          {% if bar.actual is not none %}<rect class="chart-bar actual-time" x="{{ bar.x + 32 }}" y="{{ 120 - bar.actual_height }}" width="28" height="{{ bar.actual_height }}" rx="3"/>{% endif %}
-          <text class="chart-axis" x="{{ bar.x + 30 }}" y="138" text-anchor="middle">{{ bar.label }}</text>
+        <h3>Czas i dystans: plan i wykonane biegi</h3>
+        <div class="legend"><span class="legend-item"><span class="legend-swatch plan-time"></span> Plan (min, lewa oś)</span><span class="legend-item"><span class="legend-swatch actual-time"></span> Biegi z zegarka (min, lewa oś)</span><span class="legend-item"><span class="legend-swatch distance"></span> Dystans biegów (km, prawa oś)</span></div>
+        {% set has_km = load_chart.bars|selectattr('km', 'ne', none)|list %}
+        <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres czasu i dystansu"><svg class="chart metric-chart" viewBox="0 0 {{ load_chart.width }} {{ load_chart.height }}" role="img" aria-label="Zaplanowane i przebiegnięte minuty (lewa oś) oraz dystans biegów w kilometrach (prawa oś) w kolejnych dniach.">
+          {% for tick in load_chart.ticks %}
+          <line class="chart-grid{% if not loop.first %} faint{% endif %}" x1="{{ load_chart.plot_left }}" x2="{{ load_chart.plot_right }}" y1="{{ tick.y }}" y2="{{ tick.y }}"/>
+          <text class="chart-axis" x="{{ load_chart.plot_left - 6 }}" y="{{ tick.y + 4 }}" text-anchor="end">{{ tick.minutes }}</text>
+          {% if has_km %}<text class="chart-axis" x="{{ load_chart.plot_right + 6 }}" y="{{ tick.y + 4 }}" text-anchor="start">{{ tick.km|num }}</text>{% endif %}
           {% endfor %}
+          <text class="chart-axis chart-unit" x="{{ load_chart.plot_left - 6 }}" y="9" text-anchor="end">min</text>
+          {% if has_km %}<text class="chart-axis chart-unit" x="{{ load_chart.plot_right + 6 }}" y="9" text-anchor="start">km</text>{% endif %}
+          {% for bar in load_chart.bars %}
+          {% if bar.planned %}<rect class="chart-bar" x="{{ bar.x }}" y="{{ 120 - bar.plan_height }}" width="26" height="{{ bar.plan_height }}" rx="3"><title>{{ bar.label }}: plan {{ bar.planned|num }} min</title></rect>{% endif %}
+          {% if bar.actual is not none %}<rect class="chart-bar actual-time" x="{{ bar.x + 30 }}" y="{{ 120 - bar.actual_height }}" width="26" height="{{ bar.actual_height }}" rx="3"><title>{{ bar.label }}: przebiegnięte {{ bar.actual|num }} min</title></rect>{% endif %}
+          <text class="chart-axis" x="{{ bar.center }}" y="138" text-anchor="middle">{{ bar.label }}</text>
+          {% endfor %}
+          {% for bar in load_chart.bars %}{% if not loop.first %}{% set previous = load_chart.bars[loop.index0 - 1] %}{% if previous.km is not none and bar.km is not none %}<line class="chart-line distance" x1="{{ previous.center }}" y1="{{ previous.distance_y }}" x2="{{ bar.center }}" y2="{{ bar.distance_y }}"/>{% endif %}{% endif %}{% endfor %}
+          {% for bar in load_chart.bars %}{% if bar.km is not none %}<circle class="chart-dot distance" cx="{{ bar.center }}" cy="{{ bar.distance_y }}" r="5"><title>{{ bar.label }}: {{ bar.km|num }} km</title></circle><text class="chart-bar-value" x="{{ bar.center }}" y="{{ bar.distance_y - 9 }}" text-anchor="middle">{{ bar.km|num }} km</text>{% endif %}{% endfor %}
         </svg></div>
-        <p class="tile-foot">Minuty biegów w danym dniu; nie oznaczają automatycznego dopasowania do konkretnego treningu. Brak słupka wykonania oznacza brak zapisanych minut.</p>
-        <details class="chart-data"><summary>Dane wykresu czasu</summary><table><caption>Czas planowany i biegi z zegarka</caption><thead><tr><th>Dzień</th><th>Plan (min)</th><th>Biegi (min)</th></tr></thead><tbody>{% for bar in load_chart.bars %}<tr><th scope="row">{{ bar.label }}</th><td>{{ bar.planned|num }}</td><td>{% if bar.actual is not none %}{{ bar.actual|num }}{% else %}Brak danych{% endif %}</td></tr>{% endfor %}</tbody></table></details>
-        <h3>Kilometry wykonane</h3>
-        {% if load_chart.bars|selectattr('km', 'ne', none)|list %}
-        <div class="chart-scroll" tabindex="0" role="region" aria-label="Wykres wykonanych kilometrów"><svg class="chart metric-chart" viewBox="0 0 {{ load_chart.width }} {{ load_chart.height }}" role="img" aria-label="Dystans biegów z zegarka dzień po dniu.">
-          <line class="chart-grid" x1="0" x2="{{ load_chart.width }}" y1="120" y2="120"/>
-          {% for bar in load_chart.bars %}{% if not loop.first %}{% set previous = load_chart.bars[loop.index0 - 1] %}{% if previous.km is not none and bar.km is not none %}<line class="chart-line" x1="{{ previous.x + 30 }}" y1="{{ previous.distance_y }}" x2="{{ bar.x + 30 }}" y2="{{ bar.distance_y }}"/>{% endif %}{% endif %}
-          {% if bar.km is not none %}<circle class="chart-dot" cx="{{ bar.x + 30 }}" cy="{{ bar.distance_y }}" r="4"/><text class="chart-bar-value" x="{{ bar.x + 30 }}" y="{{ bar.distance_y - 7 }}" text-anchor="middle">{{ bar.km|num }}</text>{% endif %}<text class="chart-axis" x="{{ bar.x + 30 }}" y="138" text-anchor="middle">{{ bar.label }}</text>{% endfor %}
-        </svg></div><p class="tile-foot">Dystans biegów z zegarka w kilometrach. Przerwa oznacza brak zapisanego dystansu.</p>
-        <details class="chart-data"><summary>Dane wykresu kilometrów</summary><table><caption>Dystans biegów z zegarka</caption><thead><tr><th>Dzień</th><th>Dystans</th></tr></thead><tbody>{% for bar in load_chart.bars %}<tr><th scope="row">{{ bar.label }}</th><td>{% if bar.km is not none %}{{ bar.km|num }} km{% else %}Brak danych{% endif %}</td></tr>{% endfor %}</tbody></table></details>
-        {% else %}<p class="mid">Brak zapisanych dystansów biegów w tym tygodniu.</p>{% endif %}
+        <p class="tile-foot">Słupki: minuty (lewa oś). Punkty: kilometry (prawa oś). Minuty i dystans biegów w danym dniu nie oznaczają automatycznego dopasowania do konkretnego treningu; brak słupka lub punktu to brak zapisanych danych.</p>
+        <details class="chart-data"><summary>Dane wykresu</summary><table><caption>Czas planowany, biegi z zegarka i dystans</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Plan (min)</th><th scope="col">Biegi (min)</th><th scope="col">Dystans</th></tr></thead><tbody>{% for bar in load_chart.bars %}<tr><th scope="row">{{ bar.label }}</th><td>{{ bar.planned|num }}</td><td>{% if bar.actual is not none %}{{ bar.actual|num }}{% else %}Brak danych{% endif %}</td><td>{% if bar.km is not none %}{{ bar.km|num }} km{% else %}Brak danych{% endif %}</td></tr>{% endfor %}</tbody></table></details>
         {% else %}
         <p class="banner info">Aby zobaczyć porównanie planu z wykonanymi biegami, uruchom ponownie aplikację.</p>
         <h3>Zaplanowany czas</h3>

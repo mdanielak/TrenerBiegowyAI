@@ -632,6 +632,8 @@
   .day-corner { position: absolute; top: 9px; right: 9px; display: flex; gap: 4px; align-items: center; }
   .day-garmin { display: inline-flex; padding: 3px; border-radius: 999px;
                 color: var(--ok-fg); background: var(--ok-bg); }
+  /* Jeszcze nie na zegarku: ten sam kształt, wyszarzony; różnicę niesie też opis dla czytników. */
+  .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); opacity: 0.75; }
   .day-remove { display: inline-flex; padding: 4px; border-radius: 999px; color: var(--fg-muted); }
   .day-remove:hover, .day-remove:focus-visible { color: var(--danger-fg); background: var(--danger-bg); }
   #usun { margin-bottom: 14px; }
@@ -980,6 +982,12 @@ details[open] > summary { margin-bottom: 12px; }
 
 .chart-bar.actual-time, .legend-swatch.actual-time { fill: var(--ok-icon); background: var(--ok-icon); }
 .legend-swatch.plan-time { background: var(--accent); }
+/* Dystans to druga oś: neutralny tusz zamiast trzeciego koloru, kropki z obwódką odcinają się od słupków. */
+.chart-line.distance { stroke: var(--fg); stroke-width: 2; }
+.chart-dot.distance { fill: var(--fg); stroke: var(--surface); stroke-width: 2; }
+.legend-swatch.distance { background: var(--fg); border-radius: 999px; }
+.chart-grid.faint { stroke-dasharray: 2 4; opacity: 0.7; }
+.chart-unit { font-weight: 700; }
 .chart-data + h3 { margin-top: 24px; }
 
 /* Wyrównaj rozwijane szczegóły w kartach planu w tym samym rzędzie. */

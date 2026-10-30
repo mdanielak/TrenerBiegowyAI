@@ -167,14 +167,29 @@ def _plan_load_chart(days, activities=None):
                      "km": round(sum(distances), 2) if distances else None})
     if not rows:
         return None
-    peak = max([1] + [r["planned"] for r in rows] + [r["actual"] or 0 for r in rows])
-    distance_peak = max([1] + [r["km"] or 0 for r in rows])
+    # Lewa oś: minuty, prawa: kilometry; obie od zera, z czterema równymi działkami.
+    peak = _nice_top(max([r["planned"] for r in rows] + [r["actual"] or 0 for r in rows]), (10, 15, 20, 30, 60))
+    distance_peak = _nice_top(max([r["km"] or 0 for r in rows]), (1, 2, 3, 5, 10))
     for i, row in enumerate(rows):
-        row["x"] = i * 94 + 18
-        row["plan_height"] = round(96 * row["planned"] / peak, 2)
-        row["actual_height"] = round(96 * (row["actual"] or 0) / peak, 2)
-        row["distance_y"] = round(120 - 96 * row["km"] / distance_peak, 2) if row["km"] is not None else None
-    return {"width": 658, "height": 146, "baseline": 120, "label_y": 138, "bars": rows}
+        row["x"] = _PLOT_LEFT + i * _GROUP + 12
+        row["center"] = row["x"] + 28
+        row["plan_height"] = round(_PLOT_HEIGHT * row["planned"] / peak, 2)
+        row["actual_height"] = round(_PLOT_HEIGHT * (row["actual"] or 0) / peak, 2)
+        row["distance_y"] = (round(_BASELINE - _PLOT_HEIGHT * row["km"] / distance_peak, 2)
+                             if row["km"] is not None else None)
+    ticks = [{"y": round(_BASELINE - _PLOT_HEIGHT * step / 4, 2), "minutes": peak * step // 4,
+              "km": distance_peak * step / 4} for step in range(5)]
+    return {"width": 658, "height": 146, "baseline": _BASELINE, "label_y": 138, "bars": rows, "ticks": ticks,
+            "plot_left": _PLOT_LEFT, "plot_right": _PLOT_LEFT + 7 * _GROUP}
+
+
+_PLOT_LEFT, _GROUP, _BASELINE, _PLOT_HEIGHT = 44, 81, 120, 100
+
+
+def _nice_top(value, steps):
+    """Najmniejsza działka z listy, przy której cztery działki mieszczą wartość."""
+    step = next((s for s in steps if s * 4 >= value), None) or steps[-1] * (int(value // (steps[-1] * 4)) + 1)
+    return step * 4
 
 
 def _format_generated_at(value, now: datetime) -> str | None:
