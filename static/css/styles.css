@@ -633,8 +633,25 @@
   .day-garmin { display: inline-flex; padding: 3px; border-radius: 999px;
                 color: var(--ok-fg); background: var(--ok-bg); }
   /* Jeszcze nie na zegarku: ten sam kształt, wyszarzony; różnicę niesie też opis dla czytników. */
-  .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); opacity: 0.75; }
-  .day-remove { display: inline-flex; padding: 4px; border-radius: 999px; color: var(--fg-muted); }
+  /* Strefa treningu jako pasek u góry karty, w kolorach segmentów przebiegu treningu. */
+  .day.zone-band::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+                           border-radius: var(--radius) var(--radius) 0 0; background: var(--seg, var(--seg-base)); }
+  .day.zone-band.z1 { --seg: var(--seg-z1); }
+  .day.zone-band.z2 { --seg: var(--seg-z2); }
+  .day.zone-band.z3 { --seg: var(--seg-z3); }
+  .day.zone-band.z4 { --seg: var(--seg-z4); }
+  .day.zone-band.z5 { --seg: var(--seg-z5); }
+  .day-run { display: flex; align-items: flex-start; gap: 5px; font-size: 12.5px; line-height: 1.35; color: var(--fg); }
+  .day-run .icon { flex: none; margin-top: 1px; color: var(--ok-icon); }
+  .day-run-label { display: block; font-weight: 650; color: var(--ok-fg); }
+  .day-run.missing { color: var(--fg-muted); font-weight: 500; }
+  .plan-week .rest-day .day-block-icon { width: 40px; height: 40px; }
+  .plan-week .rest-day .day-block-title { color: var(--fg-mid); font-weight: 500; }
+  .grid-4 + h3 { margin-top: 24px; }
+  .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); }
+  .day-remove { position: relative; display: inline-flex; padding: 5px; border-radius: 999px; color: var(--fg-muted); }
+  /* Rysunek zostaje mały, ale cel kliknięcia ma 36×36 px (WCAG 2.2: min. 24×24). */
+  .day-remove::after { content: ""; position: absolute; inset: -6px; }
   .day-remove:hover, .day-remove:focus-visible { color: var(--danger-fg); background: var(--danger-bg); }
   #usun { margin-bottom: 14px; }
   .day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }

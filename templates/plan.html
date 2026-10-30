@@ -209,11 +209,11 @@
       {% set to_remove = plan.days|selectattr('date', 'equalto', request.query_params.get('remove'))|rejectattr('is_rest')|rejectattr('is_past')|first %}
       {% if to_remove %}
         {% set on_watch = to_remove.garmin_upload and to_remove.garmin_workout_id %}
-        <div class="banner warn" id="usun" role="alertdialog" aria-labelledby="usun-tytul">
+        <div class="banner warn" id="usun" role="alertdialog" aria-labelledby="usun-tytul" aria-describedby="usun-opis" tabindex="-1" autofocus>
           {{ ico.info() }}
           <div class="banner-body">
             <p class="banner-title" id="usun-tytul">Usunąć trening z planu?</p>
-            <p>{{ to_remove.name }} — {{ to_remove.weekday }}, {{ format_date(to_remove.date) }}.
+            <p id="usun-opis">{{ to_remove.name }} — {{ to_remove.weekday }}, {{ format_date(to_remove.date) }}.
               {% if on_watch %}Ten trening jest też na zegarku.{% endif %}
               W jego miejsce zostanie odpoczynek.</p>
             <form method="post" action="/actions/plan/remove" class="row">
@@ -233,8 +233,11 @@
       {% endif %}
 
       <div class="week plan-week">
+        {% set runs = load_chart.bars if load_chart and load_chart.bars|length == plan.days|length and load_chart.bars[0].actual is defined else [] %}
         {% for plan_day in plan.days %}
-          <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}"
+          {% set run = runs[loop.index0] if runs else none %}
+          {# Pasek w kolorze strefy u góry karty: tydzień czyta się jak profil obciążenia. #}
+          <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}{% if plan_day.is_rest %} rest-day{% elif plan_day.hr_zone %} zone-band {{ plan_day.hr_zone|lower }}{% endif %}"
                role="group" aria-label="{{ plan_day.weekday|capitalize }}, {{ format_date(plan_day.date) }}">
             <div class="day-head">
               <span class="day-name">{{ plan_day.weekday_short }}</span>
@@ -253,9 +256,15 @@
             <div class="day-pills">
               <span class="pill {{ plan_day.kind_pill }}">{{ plan_day.kind_label }}</span>
               {% if plan_day.readiness %}
-                <span class="pill {{ plan_day.readiness.variant }}">{{ plan_day.readiness.score|num }} z {{ plan_day.readiness.max_score|num }}</span>
+                <span class="pill {{ plan_day.readiness.variant }}">Gotowość {{ plan_day.readiness.score|num }}/{{ plan_day.readiness.max_score|num }}</span>
               {% endif %}
             </div>
+
+            {% if run and run.actual is not none %}
+              <span class="day-run">{{ ico.check(14) }}<span><span class="day-run-label">Bieg z zegarka</span> {{ run.actual|num }} min{% if run.km is not none %}, {{ run.km|num }} km{% endif %}</span></span>
+            {% elif run and plan_day.is_past and not plan_day.is_rest %}
+              <span class="day-run missing">Brak biegu z zegarka</span>
+            {% endif %}
 
             <div class="day-block">
               {% if plan_day.icon %}
@@ -277,9 +286,9 @@
                 </span>
               {% endif %}
               {% if plan_day.available and plan_day.max_minutes %}
-                <span class="day-block-meta">Wolne {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>
+                <span class="day-block-meta">Masz {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>
               {% endif %}
-              {% if plan_day.description or plan_day.notes %}<details class="day-details"><summary>Szczegóły treningu</summary>{% if plan_day.hr_target %}<p>Tętno: {{ plan_day.hr_target }}</p>{% endif %}{% if plan_day.description %}<p>{{ plan_day.description }}</p>{% endif %}{% if plan_day.notes %}<p>{{ plan_day.notes }}</p>{% endif %}</details>{% endif %}
+              {% if plan_day.description or plan_day.notes %}<details class="day-details"><summary>{{ 'Szczegóły' if plan_day.is_rest else 'Szczegóły treningu' }}</summary>{% if plan_day.hr_target %}<p>Tętno: {{ plan_day.hr_target }}</p>{% endif %}{% if plan_day.description %}<p>{{ plan_day.description }}</p>{% endif %}{% if plan_day.notes %}<p>{{ plan_day.notes }}</p>{% endif %}</details>{% endif %}
             </div>
           </div>
         {% endfor %}
