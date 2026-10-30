@@ -326,6 +326,14 @@
   .security-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
   .security-list .point { display: block; color: var(--fg); }
   .security-list code { overflow-wrap: anywhere; }
+  /* Trwające pobieranie w menu: ten sam pasek co na stronie zadania, cały blok jest linkiem do postępu. */
+  .sync-status { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-sm);
+                 border: 1px solid var(--accent-soft-2); background: var(--accent-soft); color: var(--fg); text-decoration: none; }
+  .sync-status:hover { text-decoration: none; border-color: var(--accent); }
+  .sync-status-label { font-weight: 650; font-size: 13px; }
+  .sync-status .sync-progress { margin-top: 0; }
+  .sync-status .sync-progress p { font-size: 12px; }
+  .sync-status-link { font-size: 12px; color: var(--accent-strong); }
   /* Pasek synchronizacji: natywny <progress>, bez wartości animuje się jako nieokreślony. */
   .sync-progress { margin-top: 8px; }
   .sync-progress progress { display: block; width: 100%; height: 10px; accent-color: var(--accent); }

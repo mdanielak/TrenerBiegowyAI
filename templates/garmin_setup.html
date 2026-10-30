@@ -100,7 +100,12 @@
           <div><dt>Tętno spoczynkowe</dt><dd>{% if profile.hr_rest %}{{ profile.hr_rest }} bpm{% else %}—{% endif %}</dd></div>
           <div><dt>Strefy tętna</dt><dd>{{ 'pobrane' if profile.hr_zone_floors else '—' }}</dd></div>
         </dl>
-        {% if snapshot_missing %}
+        {% set sync = sync_in_progress(request) if sync_in_progress is defined else None %}
+        {% if snapshot_missing and sync %}
+          <p class="mid"><strong>Krok 2:</strong> trwa pobieranie danych z zegarka. Możesz przejść na inne strony — pobieranie nie przerwie się.</p>
+          {% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync.progress) }}
+          <div class="row"><a class="btn" href="{{ sync.url }}">Zobacz postęp</a></div>
+        {% elif snapshot_missing %}
           <p class="mid"><strong>Krok 2:</strong> pobierz historię treningów i pomiarów z Garmina. Za pierwszym razem trwa to zwykle od kilku do kilkudziesięciu minut — strona sama pokaże, kiedy skończy.</p>
           <form method="post" action="/actions/sync" class="row">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

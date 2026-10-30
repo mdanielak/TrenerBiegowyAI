@@ -29,6 +29,7 @@ from services.goal import GoalReport, get_goal_report
 from services.ai_status import AI_STATUS_PATH, ai_status_view, load_status
 from services.journal import JOURNAL_PATH
 from services.stats import StatsReport, get_stats_report
+from services.sync_progress import progress_view
 from services.today import TodayReport, get_today_report
 from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
@@ -89,6 +90,10 @@ def _safe_next(value: str | None) -> str:
 _TEMPLATES.env.globals["ui_theme"] = _theme
 _TEMPLATES.env.globals["sidebar_ai_badge"] = lambda request: (
     getattr(request.state, "ai_badge_provider", None) or (lambda: None))()
+# Trwająca synchronizacja widoczna na każdej stronie: bez tego po przejściu na inną stronę
+# strona bez danych znów proponuje „Pobierz dane z zegarka”, jakby nic się nie działo.
+_TEMPLATES.env.globals["sync_in_progress"] = lambda request: (
+    getattr(request.state, "sync_status_provider", None) or (lambda: None))()
 
 
 def _static_version(relative: str) -> str:
@@ -205,9 +210,17 @@ def create_app(
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
+    def sync_status():
+        """Najnowsza synchronizacja, jeśli wciąż trwa: adres postępu i stan paska; inaczej None."""
+        jobs = [job for job in store.list_jobs().jobs if job.operation == "sync"]
+        if not jobs or jobs[0].status not in ("accepted", "running"):
+            return None
+        return {"url": f"/jobs/{jobs[0].id}", "progress": progress_view(store.directory, jobs[0].id)}
+
     @app.middleware("http")
     async def provide_ai_badge(request: Request, call_next):
         request.state.ai_badge_provider = ai_badge
+        request.state.sync_status_provider = sync_status
         return await call_next(request)
 
     @app.get("/theme", include_in_schema=False)

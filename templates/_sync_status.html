@@ -1,0 +1,8 @@
+{# Trwające pobieranie danych w menu, na każdej stronie; znika, gdy się skończy. #}
+{% if sync %}
+  <a class="sync-status" href="{{ sync.url }}" role="status">
+    <span class="sync-status-label">Pobieranie danych z zegarka…</span>
+    {% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync.progress) }}
+    <span class="sync-status-link">Zobacz postęp</span>
+  </a>
+{% endif %}

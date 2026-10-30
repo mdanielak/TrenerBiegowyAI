@@ -8,15 +8,23 @@
 {% import "_workout_steps.html" as steps %}
 {% if error_message %}
 
+  {% set sync = sync_in_progress(request) if sync_in_progress is defined and request is defined else None %}
+  {% set syncing = error_sync and sync %}
   <div class="page-head">
-    <h1>Nie można pokazać danych</h1>
+    <h1>{% if syncing %}Pobieranie danych z zegarka{% else %}Nie można pokazać danych{% endif %}</h1>
   </div>
-  <div class="banner bad">
+  <div class="banner {{ 'info' if syncing else 'bad' }}">
     {{ ico.info() }}
     <div class="banner-body">
-      <p>{{ error_message }}</p>
-      {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
-      {% if error_sync %}
+      {% if not syncing %}
+        <p>{{ error_message }}</p>
+        {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
+      {% endif %}
+      {% if syncing %}
+        <p class="mid">Trwa pobieranie danych z zegarka. Strona główna pojawi się, gdy się skończy — możesz w tym czasie korzystać z innych stron.</p>
+        {% from "_sync_progress.html" import sync_progress %}{{ sync_progress(sync.progress) }}
+        <p><a href="{{ sync.url }}">Zobacz postęp</a></p>
+      {% elif error_sync %}
         <form method="post" action="/actions/sync" class="row">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="fresh" value="1">

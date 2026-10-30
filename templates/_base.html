@@ -25,6 +25,7 @@
     </a>
     {# Strażnik: serwer uruchomiony na starszym kodzie nie zna tej funkcji, a szablony przeładowują się same. #}
     {% if request is defined and sidebar_ai_badge is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
+    {% if request is defined and sync_in_progress is defined %}{% with sync = sync_in_progress(request) %}{% include "_sync_status.html" %}{% endwith %}{% endif %}
 
     <button class="nav-toggle btn-secondary" type="button" aria-controls="primary-nav" aria-expanded="false">Menu · {{ {'today':'Strona główna', 'plan':'Plan treningowy', 'week':'Kalendarz', 'stats':'Statystyki', 'analysis':'Analiza', 'journal':'Dziennik', 'goal':'Cel', 'settings':'Ustawienia'}.get(active_nav, 'Nawigacja') }}</button>
     <nav class="nav" id="primary-nav" aria-label="Nawigacja główna">
