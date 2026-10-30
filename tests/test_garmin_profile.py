@@ -23,7 +23,7 @@ def test_parse_hr_zones_prefers_running_and_rejects_bad_data():
 
 def test_fetch_snapshot_normalizes_values_and_survives_summary_failure(monkeypatch):
     class Api:
-        def get_user_profile(self): return {"userData": {"birthDate": "1990-05-13", "weight": 75349.0, "height": 188.0, "lactateThresholdHeartRate": 174, "vo2MaxRunning": 50, "availableTrainingDays": ["TUESDAY"], "preferredLongTrainingDays": ["SUNDAY"]}}
+        def get_user_profile(self): return {"userData": {"birthDate": "1990-05-13", "gender": "FEMALE", "weight": 75349.0, "height": 188.0, "lactateThresholdHeartRate": 174, "vo2MaxRunning": 50, "availableTrainingDays": ["TUESDAY"], "preferredLongTrainingDays": ["SUNDAY"]}}
         def get_user_summary(self, day): raise RuntimeError()
         def get_heart_rate_zones(self): return [DEFAULT]
     class FrozenDate(date):
@@ -31,7 +31,7 @@ def test_fetch_snapshot_normalizes_values_and_survives_summary_failure(monkeypat
         def today(cls): return cls(2026, 10, 2)
     monkeypatch.setattr(garmin_profile, 'date', FrozenDate)
     result = garmin_profile.fetch_snapshot(Api())
-    assert result['age'] == 36 and result['weight'] == 75 and result['height'] == 188
+    assert result['age'] == 36 and result['weight'] == 75 and result['height'] == 188 and result['sex'] == 'female'
     assert 'hr_rest' not in result and result['available_training_days'] == ['tue'] and result['long_training_days'] == ['sun']
 
 

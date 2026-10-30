@@ -20,8 +20,12 @@ DISTANCES = {
 }
 DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DAY_LABELS = dict(zip(DAYS, ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")))
-STEPS = ("goal", "times", "week", "summary")
+STEPS = ("goal", "times", "you", "week", "summary")
 NAME_LIMIT = 80
+HEALTH_LIMIT = 300
+# Staż biegania: pomaga ocenić poziom, gdy zegarek ma jeszcze krótką historię.
+RUNNING_SINCE = {"start": "Dopiero zaczynam", "under6": "Do 6 miesięcy", "6to24": "Od 6 miesięcy do 2 lat",
+                 "over24": "Ponad 2 lata"}
 _TIME = re.compile(r"^(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)$")
 
 
@@ -56,6 +60,8 @@ def prefill(profile: dict, availability: dict) -> dict:
         "event_date": date_match.group(0) if date_match else "",
         "target_time": profile.get("target_time") or "",
         "record": profile.get("current_hm_record") or "",
+        "running_since": profile.get("running_since") or "",
+        "health_notes": profile.get("health_notes") or "",
         "frequency": frequency.group(0) if frequency else "4",
     }
     for day in DAYS:
@@ -114,6 +120,11 @@ def validate_step(step: str, values: dict, *, today: date) -> dict:
             except ValueError as error:
                 raise FieldError(str(error), field) from None
         return cleaned
+    if step == "you":
+        if values.get("running_since") not in RUNNING_SINCE:
+            raise FieldError("Zaznacz, od jak dawna biegasz.", "running_since")
+        return {"running_since": values["running_since"],
+                "health_notes": _clean(values.get("health_notes"), HEALTH_LIMIT)}
     if step == "week":
         try:
             frequency = int(values.get("frequency") or 0)
@@ -162,6 +173,8 @@ def save(values: dict, *, update_profile, set_availability, now=None) -> None:
         # Pola zgodne wstecz: AI i strona Cel czytają te nazwy.
         target_hm=" ".join(part for part in (race, values.get("target_time") or "") if part) if not fitness else race,
         current_hm_record=values.get("record") or "",
+        running_since=values.get("running_since") or "",
+        health_notes=values.get("health_notes") or "",
         training_frequency=f"{frequency} {word} w tygodniu",
         onboarding_completed_at=(now or datetime.now()).replace(microsecond=0).isoformat(),
     )

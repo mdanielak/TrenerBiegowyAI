@@ -8,7 +8,7 @@ instead of sending the entire data_latest.json to the AI.
 import json
 from datetime import datetime, timedelta
 
-from trainer.config import IMPORTANT_PROMPT, RUNNER_PROFILE_EXAMPLE, RUNNER_PROFILE_LOCAL
+from trainer.config import RUNNER_PROFILE_EXAMPLE, RUNNER_PROFILE_LOCAL
 from trainer.core import check_hrv_alert
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 
@@ -52,14 +52,6 @@ def _goal_from_profile(profile):
         "deadline": profile["target_date"],
         "current_record": profile["current_hm_record"],
     }
-
-
-def _load_important_prompt():
-    """Load the IMPORTANT_PROMPT.txt system instructions."""
-    try:
-        return IMPORTANT_PROMPT.read_text(encoding='utf-8')
-    except FileNotFoundError:
-        return ""
 
 
 def _get_recent_activities(data, n=7):
@@ -124,7 +116,7 @@ def build_training_context(data, plan=None, today=None):
     """Build the context dict for AI coach.
 
     Returns dict with:
-        system_prompt: IMPORTANT_PROMPT.txt content
+        system_prompt: prompt trenera dobrany do profilu biegacza (ai/prompts)
         runner_profile: configured athlete profile
         goal: target and deadline from the configured profile
         recent_activities: last 7 running sessions
@@ -136,7 +128,6 @@ def build_training_context(data, plan=None, today=None):
     if today is None:
         today = datetime.now()
 
-    system_prompt = _load_important_prompt()
     recent = _get_recent_activities(data)
     health = _get_health_snapshot(data, today.date().isoformat())
     weekly = _compute_weekly_load(data, today)
@@ -152,8 +143,13 @@ def build_training_context(data, plan=None, today=None):
 
     # Za każdym razem z dysku: cel zmieniony w kreatorze ma trafić do najbliższego planu.
     profile = _load_runner_profile()
+    from ai.prompts import coach_prompt
+    from services.runner_profile import build_runner_profile
+    runner = build_runner_profile(activities=data.get('activities'), profile=profile, today=today.date(),
+                                  pain=bool((journal or {}).get("pain_days")))
     return {
-        "system_prompt": system_prompt,
+        "system_prompt": coach_prompt(runner),
+        "runner": runner,
         "runner_profile": profile,
         "goal": _goal_from_profile(profile),
         "recent_activities": recent,
@@ -194,8 +190,11 @@ def format_context_for_user(context):
     lines.append(f"HRmax: {p['hr_max']}, HRrest: {p['hr_rest']}")
     lines.append(f"Próg mleczanowy: HR {p['lactate_threshold_hr']}")
     lines.append(f"Strefy HR: {p['hr_zones']}")
-    lines.append(f"Rekord HM: {p['current_hm_record']}, Cel: {p['target_hm']}")
+    lines.append(f"Rekord na dystansie celu: {p['current_hm_record']}, Cel: {p['target_hm']}")
     lines.append(f"Termin: {p['target_date']}")
+    if context.get("runner"):
+        from services.runner_profile import profile_lines
+        lines.extend(profile_lines(context["runner"]))
     lines.append("")
 
     # Goal

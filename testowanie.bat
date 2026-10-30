@@ -5,6 +5,7 @@ title Trener Biegowy - testowanie
 
 rem Testowa kopia aplikacji na zmyslonym tygodniu: dzis sroda, Garmin i AI udawane.
 rem Inny dzien tygodnia: testowanie.bat --dzien czwartek
+rem Inny biegacz: testowanie.bat --biegacz poczatkujacy   (albo regularny, zaawansowany; domyslnie regularny)
 rem Kod kopiowany jest do katalogu tymczasowego, wiec prawdziwe dane (local, plany, .env) zostaja nietkniete.
 rem Nie trafia do paczki wydania (export-ignore w .gitattributes).
 set "REPO=%~dp0"
@@ -33,7 +34,7 @@ type nul > "%SANDBOX%\.testowanie-piaskownica"
 for %%D in (ai api services trainer templates static scripts trener_biegowy_ai_assets) do (
     robocopy "%REPO%%%D" "%SANDBOX%\%%D" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 )
-for %%F in (pyproject.toml IMPORTANT_PROMPT.txt runner_profile.example.json) do copy /Y "%REPO%%%F" "%SANDBOX%\" >nul
+for %%F in (pyproject.toml runner_profile.example.json) do copy /Y "%REPO%%%F" "%SANDBOX%\" >nul
 rem Publiczny przyklad strategii jako strategia testowa; prywatna strategia nie jest kopiowana.
 mkdir "%SANDBOX%\training-plans\long-term"
 copy /Y "%REPO%training-plans\long-term\przyklad-strategii.md" "%SANDBOX%\training-plans\long-term\half-marathon-2027.md" >nul

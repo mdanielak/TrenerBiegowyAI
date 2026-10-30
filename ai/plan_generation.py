@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 
 from ai.context import journal_lines
 from services.strategy import STRATEGY_PATH
-from trainer.config import IMPORTANT_PROMPT, PROJECT_ROOT
 
 
 class PlanWorkout(BaseModel):
@@ -154,19 +153,11 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
 - Gdy czegoś nie ma, wpisz null (null, nie 0 i nie pusty tekst)."""
 
 
-def build_system_prompt(*, important_prompt_path=IMPORTANT_PROMPT,
-                        rules_path=PROJECT_ROOT / "docs" / "TRAINING_RULES.md",
-                        strategy_path=STRATEGY_PATH) -> str:
-    """Zbuduj prompt systemowy: ważne zasady, reguły treningu i strategia długoterminowa."""
-    sections = []
+def build_system_prompt(*, runner=None, strategy_path=STRATEGY_PATH) -> str:
+    """Zbuduj prompt systemowy: trener z modułami profilu, strategia (jeśli jest) i reguły tygodnia."""
+    from ai.prompts import coach_prompt
 
-    important = _read_text(important_prompt_path).strip()
-    if important:
-        sections.append(important)
-
-    rules = _read_text(rules_path).strip()
-    if rules:
-        sections.append(rules)
+    sections = [coach_prompt(runner)]
 
     strategy = _read_text(strategy_path).strip()
     if strategy:
@@ -268,11 +259,20 @@ def build_plan_message(context: dict) -> str:
     lines.append(f"- obecny rekord: {_value(goal.get('current_record'))}")
     lines.append("")
 
+    if context.get("runner"):
+        from services.runner_profile import profile_lines
+        lines.append("PROFIL BIEGACZA (policzony z danych z zegarka i odpowiedzi biegacza)")
+        lines.extend(profile_lines(context["runner"]))
+        lines.append("")
+
     lines.append("DOSTĘPNOŚĆ W TYGODNIU")
     lines.extend(_availability_rows(context.get("week_days")))
     lines.append("")
 
     lines.append("LIMITY TYGODNIA")
+    frequency = (context.get("runner") or {}).get("frequency")
+    if frequency:
+        lines.append(f"- liczba treningów w tygodniu (wybór biegacza): najwyżej {frequency}; pozostałe dni to odpoczynek")
     lines.append(f"- maksymalna liczba treningów jakościowych w tygodniu: "
                  f"{_value(context.get('max_quality_sessions'))}")
     lines.append("- maksymalnie jeden długi bieg w tygodniu")
@@ -338,7 +338,7 @@ def build_plan_message(context: dict) -> str:
 def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
     """Poproś model o plan tygodnia i zwróć jego odpowiedź w ustalonym schemacie."""
     return provider.chat(
-        build_system_prompt(),
+        build_system_prompt(runner=(context or {}).get("runner")),
         build_plan_message(context),
         response_model=WeekPlanResponse,
         temperature=0.0,

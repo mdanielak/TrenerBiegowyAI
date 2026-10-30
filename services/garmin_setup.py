@@ -17,7 +17,7 @@ from pathlib import Path
 PENDING_TTL = 10 * 60
 _LIMITS = (("age", "age"), ("weight", "weight_kg"), ("height", "height_cm"), ("hr_max", "hr_max"),
            ("hr_rest", "hr_rest"), ("lactate_threshold_hr", "lactate_threshold_hr"),
-           ("vo2max_running", "vo2max_running"))
+           ("vo2max_running", "vo2max_running"), ("sex", "sex"))
 
 
 @dataclass

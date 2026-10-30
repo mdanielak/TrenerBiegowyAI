@@ -226,6 +226,16 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
 
     training = build_training_context(data, plan=None, today=current)
     previous_week = _compute_weekly_load(data, current - timedelta(days=7))
+    trends = _plan_trends(data, current.date())
+    try:
+        previous_plan = load_week_plan(current - timedelta(days=7))
+    except (OSError, ValueError):
+        previous_plan = None
+    from services.runner_profile import build_runner_profile
+    runner = build_runner_profile(
+        activities=data.get("activities"), profile=profile, today=current.date(),
+        rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
+        pain=bool((training.get("journal") or {}).get("pain_days")))
 
     return {
         "week_start": monday.date().isoformat(),
@@ -241,7 +251,8 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "readiness_history": history,
         "health_metrics": training.get("health_metrics") or {},
         "hrv_alert": training.get("hrv_alert"),
-        "trends": _plan_trends(data, current.date()),
+        "trends": trends,
+        "runner": runner,
         "journal": training.get("journal"),
         "user_note": _week_note(monday),
         "snapshot_status": snapshot_status,
@@ -265,6 +276,48 @@ def _clip_duration(duration, min_minutes, max_minutes):
 
 # Długość rośnie stopniowo od tego, co biegacz już biega.
 LONG_RUN_STEP_MIN = 10
+
+
+def _limit_training_days(workouts, runner) -> None:
+    """Najwyżej tyle treningów, ile biegacz wybrał w kreatorze; odpadają najkrótsze biegi łatwe."""
+    frequency = (runner or {}).get("frequency")
+    training = [w for w in workouts if w["type"] != "rest"]
+    if not frequency or len(training) <= frequency:
+        return
+    extra = sorted((w for w in training if w["type"] in ("easy", "recovery")), key=lambda w: w["duration_min"] or 0)
+    for workout in extra[:len(training) - frequency]:
+        workout.update(type="rest", name="Odpoczynek", duration_min=None, distance_km=None, hr_zone=None,
+                       hr_target=None, pace_target=None)
+        word = "trening" if frequency == 1 else "treningi" if frequency <= 4 else "treningów"
+        workout["notes"] = _append_note(workout["notes"], f"Zmieniono na odpoczynek: wybrano {frequency} {word} w tygodniu.")
+
+
+def _limit_week_minutes(workouts, runner) -> None:
+    """Przytnij tydzień do największego z ostatnich czterech razy mnożnik decyzji tygodnia.
+
+    Biegi spokojne i długi skracają się proporcjonalnie (długi zostaje najdłuższy), żaden poniżej 20 minut.
+    Przy krótkiej historii z zegarka limitu nie ma — nie wiemy jeszcze, ile ktoś biega.
+    """
+    from services.runner_profile import WEEK_LIMIT
+
+    if not runner or runner.get("short_history") or not runner.get("max_week_minutes"):
+        return
+    cap = round(runner["max_week_minutes"] * WEEK_LIMIT[runner["decision"]])
+    aerobic = [w for w in workouts if w["type"] in AEROBIC_KINDS and w["duration_min"]]
+    fixed = sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest" and w not in aerobic)
+    adjustable = sum(w["duration_min"] for w in aerobic)
+    if not adjustable or fixed + adjustable <= cap:
+        return
+    factor = max(cap - fixed, 0) / adjustable
+    for workout in aerobic:
+        before = workout["duration_min"]
+        after = max(20, int(before * factor))
+        if after >= before:
+            continue
+        if workout["distance_km"]:
+            workout["distance_km"] = round(workout["distance_km"] * after / before, 1)
+        workout["duration_min"] = after
+        workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
 
 
 def longest_recent_run(activities) -> int | None:
@@ -484,12 +537,17 @@ def normalize_plan(response, *, context) -> dict:
 
     workouts = [_normalize_day(day, by_date.get(day.get("date")), floors) for day in week_days]
 
+    runner = context.get("runner") or {}
+    # Początkujący (także po powrocie z przerwy): bez mocnych akcentów; przebieżki w opisie biegu łatwego są w porządku.
+    beginner = runner.get("level") == "poczatkujacy"
     quality = [index for index, workout in enumerate(workouts) if workout["type"] in QUALITY_KINDS]
-    for index in quality[max_quality:]:
+    for index in quality[0 if beginner else max_quality:]:
         workouts[index]["type"] = "easy"
         workouts[index]["pace_target"] = None
-        workouts[index]["notes"] = _append_note(
-            workouts[index]["notes"], f"Zmieniono na bieg łatwy (limit {max_quality} treningu jakościowego w tygodniu).")
+        workouts[index]["hr_zone"] = "Z2"
+        workouts[index]["notes"] = _append_note(workouts[index]["notes"], (
+            "Zmieniono na spokojny bieg: na tym etapie bez mocnych akcentów (przebieżki są w porządku)." if beginner
+            else f"Zmieniono na bieg łatwy (limit {max_quality} treningu jakościowego w tygodniu)."))
 
     long_runs = [index for index, workout in enumerate(workouts) if workout["type"] == "long"]
     for index in long_runs[1:]:
@@ -526,6 +584,9 @@ def normalize_plan(response, *, context) -> dict:
                 workout["notes"] = _append_note(
                     workout["notes"], f"Skrócono do {limit} min: najdłuższy z ostatnich biegów trwał "
                                       f"{longest} min, a długość rośnie stopniowo.")
+
+    _limit_training_days(workouts, runner)
+    _limit_week_minutes(workouts, runner)
 
     start_date = _field(response, "start_date") or context.get("week_start")
     end_date = _field(response, "end_date") or context.get("week_end")

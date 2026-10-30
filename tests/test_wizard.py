@@ -104,16 +104,22 @@ def test_walk_through_all_steps_and_save(tmp_path):
     step2 = _post(client, token, step="goal", action="next", **goal)
     assert "Jaki czas chcesz osiągnąć?" in step2.text
     step3 = _post(client, token, step="times", action="next", target_time="49:30", record="52:10", **goal)
-    assert "Jak wygląda Twój tydzień?" in step3.text
-    summary = _post(client, token, step="week", action="next", target_time="49:30", record="52:10", **goal, **week)
-    assert "Sprawdź i zapisz" in summary.text and "Bieg Niepodległości" in summary.text
-    done = _post(client, token, step="summary", action="save", target_time="49:30", record="52:10", **goal, **week)
+    assert "Ty i bieganie" in step3.text
+    missing = _post(client, token, step="you", action="next", target_time="49:30", record="52:10", **goal)
+    assert missing.status_code == 400 and "Zaznacz, od jak dawna biegasz." in missing.text
+    you = {"running_since": "under6", "health_notes": "  kontuzja   kolana  w 2024  "}
+    step4 = _post(client, token, step="you", action="next", target_time="49:30", record="52:10", **goal, **you)
+    assert "Jak wygląda Twój tydzień?" in step4.text
+    summary = _post(client, token, step="week", action="next", target_time="49:30", record="52:10", **goal, **you, **week)
+    assert "Sprawdź i zapisz" in summary.text and "Bieg Niepodległości" in summary.text and "Do 6 miesięcy" in summary.text
+    done = _post(client, token, step="summary", action="save", target_time="49:30", record="52:10", **goal, **you, **week)
 
     assert done.status_code == 303 and done.headers["location"] == "/goal?wizard=done"
     assert saved["target_race"] == "10 km — Bieg Niepodległości" and saved["target_date"] == FUTURE
     assert saved["target_hm"] == "10 km — Bieg Niepodległości 49:30"
     assert saved["training_frequency"] == "3 treningi w tygodniu" and "onboarding_completed_at" in saved
     assert days["sun"] == (True, 60, 100) and days["mon"] == (False, 0, 0)
+    assert saved["running_since"] == "under6" and saved["health_notes"] == "kontuzja kolana w 2024"
 
 
 def test_back_keeps_values_and_errors_stay_on_the_step(tmp_path):

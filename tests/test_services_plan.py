@@ -310,5 +310,7 @@ def test_plan_prompt_names_the_longest_recent_run_and_the_gradual_rule():
     system = build_system_prompt()
     assert "długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów" in system
     assert "nie wydłużaj sesji, żeby je wypełnić" in system
-    from trainer.config import IMPORTANT_PROMPT
-    assert "half-marathon" not in IMPORTANT_PROMPT.read_text(encoding="utf-8")  # ogólny prompt nie zakłada półmaratonu
+    from pathlib import Path
+    from ai.prompts import coach_prompt
+    shipped = coach_prompt(None, private_path=Path("brak.md"))
+    assert "half-marathon" not in shipped and "2027" not in shipped and "local/" not in shipped  # bez danych autora

@@ -79,6 +79,23 @@
           {% for name in ("target_time", "record") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
         {% endif %}
 
+        {% if step == 'you' %}
+          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Ty i bieganie</span></h2></div>
+          <fieldset class="field-group">
+            <legend>Od jak dawna biegasz regularnie?</legend>
+            {% for key, label in running_since_choices.items() %}
+              <label class="choice"><input type="radio" name="running_since" value="{{ key }}"{% if loop.first %}{{ error_attrs('running_since') }}{% endif %}{% if values.running_since == key %} checked{% endif %} required> {{ label }}</label>
+            {% endfor %}
+            {{ field_error('running_since') }}
+          </fieldset>
+          <label class="field">Kontuzje albo sprawy zdrowotne, które trener ma znać (opcjonalnie)
+            <textarea class="text-input" name="health_notes" rows="3" maxlength="{{ health_limit }}" placeholder="np. dwa lata temu kontuzja kolana; astma wysiłkowa">{{ values.health_notes }}</textarea>
+          </label>
+          <p class="tile-foot">To pomaga dobrać długość i trudność treningów. Opis trafia do AI razem z resztą danych, tylko jeśli zgodzisz się na wysyłanie danych do AI. Nie zastępuje porady lekarza.</p>
+        {% else %}
+          {% for name in ("running_since", "health_notes") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
+        {% endif %}
+
         {% if step == 'week' %}
           <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_frequency.png" width="28" height="28" alt=""><span>Jak wygląda Twój tydzień?</span></h2></div>
           <label class="field">Ile treningów w tygodniu chcesz robić?
@@ -107,6 +124,8 @@
             <div><dt>Termin</dt><dd>{{ event_date_label or '—' }}</dd></div>
             <div><dt>Czas docelowy</dt><dd>{{ values.target_time or '—' }}</dd></div>
             <div><dt>Obecny rekord</dt><dd>{{ values.record or '—' }}</dd></div>
+            <div><dt>Biegasz regularnie</dt><dd>{{ running_since_choices.get(values.running_since, '—') }}</dd></div>
+            <div><dt>Zdrowie</dt><dd>{{ values.health_notes or 'bez uwag' }}</dd></div>
             <div><dt>Treningi w tygodniu</dt><dd>{{ values.frequency }}</dd></div>
           </dl>
           <ul class="wizard-week">

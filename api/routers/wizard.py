@@ -13,7 +13,8 @@ from api.views.common import _format_date
 from services import wizard
 
 _CSRF_ERROR = "Odśwież stronę i spróbuj ponownie."
-_FIELDS = (["distance", "distance_other", "event_name", "event_date", "target_time", "record", "frequency"]
+_FIELDS = (["distance", "distance_other", "event_name", "event_date", "target_time", "record", "frequency",
+            "running_since", "health_notes"]
            + [f"{prefix}_{day}" for day in wizard.DAYS for prefix in ("day", "min", "max")])
 
 
@@ -52,6 +53,8 @@ def get_wizard_router(
             "profile_missing": profile is None,
             "first_run": wizard.needs_onboarding(profile) if profile is not None else True,
             "distances": wizard.DISTANCES,
+            "running_since_choices": wizard.RUNNING_SINCE,
+            "health_limit": wizard.HEALTH_LIMIT,
             "days": wizard.DAYS,
             "day_labels": wizard.DAY_LABELS,
             "goal_label": wizard.goal_label(values),
