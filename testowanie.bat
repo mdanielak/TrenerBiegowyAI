@@ -14,6 +14,16 @@ set "PY_EXE="
 if exist "%REPO%.venv\Scripts\python.exe" set "PY_EXE=%REPO%.venv\Scripts\python.exe"
 if "%PY_EXE%"=="" set "PY_EXE=python"
 
+rem Stary serwer testowy pokazywalby stary kod i trzymal pliki piaskownicy.
+netstat -ano | findstr /R /C:"127.0.0.1:8002 .*LISTENING" >nul
+if not errorlevel 1 (
+    echo.
+    echo  Testowanie juz dziala w innym oknie. Zamknij je i uruchom testowanie.bat ponownie.
+    echo.
+    pause
+    exit /b 1
+)
+
 rem Za kazdym razem od zera: poprzednie klikniecia nie psuja kolejnego testu.
 if exist "%SANDBOX%" rmdir /s /q "%SANDBOX%"
 mkdir "%SANDBOX%" || exit /b 1
