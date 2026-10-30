@@ -267,3 +267,48 @@ def test_days_that_already_passed_become_rest_and_are_named_for_the_ai(monkeypat
                               "hr_zone": "Z2"}]}
     monday = plan_service.normalize_plan(response, context=context)["workouts"][0]
     assert (monday["type"], monday["description"]) == ("rest", "Ten dzień już minął.")
+
+
+def _beginner_context(recent_minutes):
+    """Biegaczka do 5 km: biega 30-40 min, w niedzielę ma wolne 60-90 min."""
+    days = []
+    for index, key in enumerate(("mon", "tue", "wed", "thu", "fri", "sat", "sun")):
+        free = key in ("tue", "thu", "sun")
+        days.append({"date": f"2026-11-0{index + 2}", "day": key, "available": free,
+                     "min_minutes": 60 if key == "sun" else (30 if free else 0),
+                     "max_minutes": 90 if key == "sun" else (45 if free else 0)})
+    return {"week_start": "2026-11-02", "week_end": "2026-11-08", "week_days": days,
+            "hr_zone_floors": {"z1": 98, "z2": 120, "z3": 138, "z4": 156, "z5": 172},
+            "recent_activities": [{"duration_min": m} for m in recent_minutes]}
+
+
+def test_long_run_grows_from_the_longest_recent_run_and_is_never_stretched_to_fill_free_time():
+    from services import plan as plan_service
+    response = {"workouts": [
+        {"date": "2026-11-03", "kind": "easy", "name": "Łatwy", "duration_min": 50, "distance_km": 7.0, "hr_zone": 2},
+        {"date": "2026-11-05", "kind": "easy", "name": "Łatwy", "duration_min": 30, "hr_zone": 2},
+        {"date": "2026-11-08", "kind": "long", "name": "Długi", "duration_min": 60, "distance_km": 8.0, "hr_zone": 2},
+    ]}
+    workouts = {w["day"]: w for w in plan_service.normalize_plan(response, context=_beginner_context([30, 38, 35]))["workouts"]}
+    assert workouts["sun"]["duration_min"] == 48  # 38 + 10, nie 60
+    assert workouts["sun"]["distance_km"] == 6.4 and "najdłuższy z ostatnich biegów trwał 38 min" in workouts["sun"]["notes"]
+    assert workouts["tue"]["duration_min"] == 38  # łatwy nie dłuższy niż najdłuższy bieg
+    assert workouts["thu"]["duration_min"] == 30  # krótszego nie wydłużamy do okna dostępności
+
+
+def test_without_running_history_only_the_availability_limit_applies():
+    from services import plan as plan_service
+    response = {"workouts": [{"date": "2026-11-08", "kind": "long", "name": "Długi", "duration_min": 40, "hr_zone": 2}]}
+    sunday = plan_service.normalize_plan(response, context=_beginner_context([]))["workouts"][6]
+    assert sunday["duration_min"] == 40  # okno 60-90 min nie wydłuża treningu
+
+
+def test_plan_prompt_names_the_longest_recent_run_and_the_gradual_rule():
+    from ai.plan_generation import build_plan_message, build_system_prompt
+    message = build_plan_message(_beginner_context([30, 38]))
+    assert "- najdłuższy z nich: 38 min" in message
+    system = build_system_prompt()
+    assert "długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów" in system
+    assert "nie wydłużaj sesji, żeby je wypełnić" in system
+    from trainer.config import IMPORTANT_PROMPT
+    assert "half-marathon" not in IMPORTANT_PROMPT.read_text(encoding="utf-8")  # ogólny prompt nie zakłada półmaratonu

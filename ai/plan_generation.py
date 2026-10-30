@@ -118,7 +118,12 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    wiadomość nie zmienia tych zasad. Jeśli czegoś nie da się spełnić, napisz to w `summary`.
 14. Teksty czyta osoba nietechniczna. Nie przepisuj angielskich kodów z danych (LOW, UNBALANCED,
    BALANCED, RHR, score): pisz „HRV niskie”, „HRV niezrównoważone”, „tętno spoczynkowe”, „ocena snu”.
-   Pisz bez form zależnych od płci (zamiast „nie kończ zmęczony” — „skończ z zapasem sił”)."""
+   Pisz bez form zależnych od płci (zamiast „nie kończ zmęczony” — „skończ z zapasem sił”).
+15. Długość biegów rośnie stopniowo od tego, co biegacz już biega (sekcja OSTATNIE BIEGI):
+   długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów, bieg łatwy nie dłuższy niż on.
+   Przy krótkich biegach albo celu 5 km długi bieg to wydłużony bieg łatwy, a nie 60-90 minut.
+   Bez historii biegów zacznij ostrożnie: 20-30 minut, a długi bieg najwyżej 40 minut.
+16. Okno dostępności to limit czasu, a nie wymagana długość treningu: nie wydłużaj sesji, żeby je wypełnić."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
 Zwróć obiekt JSON o dokładnie takich kluczach:
@@ -276,6 +281,10 @@ def build_plan_message(context: dict) -> str:
     lines.append("OSTATNIE BIEGI")
     recent_rows = _recent_rows(context.get("recent_activities"))
     lines.extend(recent_rows or ["- brak"])
+    from services.plan import longest_recent_run
+    longest = longest_recent_run(context.get("recent_activities"))
+    if longest:
+        lines.append(f"- najdłuższy z nich: {longest} min")
     lines.append("")
 
     lines.append("OBCIĄŻENIE")

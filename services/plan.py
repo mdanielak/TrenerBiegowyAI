@@ -250,16 +250,33 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
 
 
 def _clip_duration(duration, min_minutes, max_minutes):
-    """Przytnij czas sesji do okna dostępności dnia."""
+    """Skróć sesję do górnej granicy okna dostępności.
+
+    Dolna granica okna to czas, jakim biegacz dysponuje, a nie wymagana długość treningu:
+    krótszej sesji nie wydłużamy.
+    """
     if duration is None:
         return None, False
     high = int(max_minutes or 0)
-    if high <= 0:
+    if high <= 0 or duration <= high:
         return duration, False
-    low = max(int(min_minutes or 0), 1)
-    if low <= duration <= high:
-        return duration, False
-    return max(low, min(duration, high)), True
+    return high, True
+
+
+# Długość rośnie stopniowo od tego, co biegacz już biega.
+LONG_RUN_STEP_MIN = 10
+
+
+def longest_recent_run(activities) -> int | None:
+    """Najdłuższy (w minutach) z ostatnich biegów albo None, gdy brak historii."""
+    durations = []
+    for activity in activities or []:
+        try:
+            durations.append(float(activity.get("duration_min")))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    positive = [value for value in durations if value > 0]
+    return round(max(positive)) if positive else None
 
 
 def _trim(text, limit):
@@ -495,6 +512,20 @@ def normalize_plan(response, *, context) -> dict:
             workout["duration_min"] = clipped
             workout["notes"] = _append_note(
                 workout["notes"], f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
+
+    # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie).
+    longest = longest_recent_run(context.get("recent_activities"))
+    if longest:
+        limits = {"long": longest + LONG_RUN_STEP_MIN, "easy": longest, "recovery": longest}
+        for workout in workouts:
+            limit, minutes = limits.get(workout["type"]), workout["duration_min"]
+            if limit and minutes and minutes > limit:
+                if workout["distance_km"]:
+                    workout["distance_km"] = round(workout["distance_km"] * limit / minutes, 1)
+                workout["duration_min"] = limit
+                workout["notes"] = _append_note(
+                    workout["notes"], f"Skrócono do {limit} min: najdłuższy z ostatnich biegów trwał "
+                                      f"{longest} min, a długość rośnie stopniowo.")
 
     start_date = _field(response, "start_date") or context.get("week_start")
     end_date = _field(response, "end_date") or context.get("week_end")

@@ -406,3 +406,4 @@ def test_day_cards_show_the_run_from_the_watch_and_a_missed_past_workout(tmp_pat
     assert "Bieg z zegarka</span> 41 min, 6,8 km" in page
     assert page.count("Brak biegu z zegarka") == 1  # wtorkowe tempo; dni odpoczynku się nie liczą
     assert 'zone-band z2"' in page and 'zone-band z3"' in page
+    assert 'zone-band z2 long"' not in page  # w tym planie nie ma długiego biegu

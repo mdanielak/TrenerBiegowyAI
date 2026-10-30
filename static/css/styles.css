@@ -636,6 +636,9 @@
   /* Strefa treningu jako pasek u góry karty, w kolorach segmentów przebiegu treningu. */
   .day.zone-band::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
                            border-radius: var(--radius) var(--radius) 0 0; background: var(--seg, var(--seg-base)); }
+  /* Długi bieg: podwójny pasek w kolorze strefy — ta sama intensywność, więcej czasu. */
+  .day.zone-band.long::before { height: 10px;
+                                background: linear-gradient(var(--seg) 0 4px, transparent 4px 6px, var(--seg) 6px 10px); }
   .day.zone-band.z1 { --seg: var(--seg-z1); }
   .day.zone-band.z2 { --seg: var(--seg-z2); }
   .day.zone-band.z3 { --seg: var(--seg-z3); }
