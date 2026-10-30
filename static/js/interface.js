@@ -59,9 +59,13 @@ async function reloadWhenDone() {
       banner.removeAttribute('data-reload-when-done');
       const link = document.createElement('p');
       link.innerHTML = '<a href="">Gotowe — odśwież stronę</a> (najpierw zapisz wpisany tekst).';
-      banner.querySelector('.banner-body').append(link);
+      (banner.querySelector('.banner-body') || banner).append(link);
       return;
     }
+    // Wciąż trwa: podmień sam postęp (etap, procent, czas), reszta strony zostaje nietknięta.
+    const fresh = page.querySelector('.sync-status .sync-progress');
+    const shown = document.querySelector('.sync-status .sync-progress');
+    if (response.ok && fresh && shown) shown.replaceWith(document.importNode(fresh, true));
   } catch {
     // Brak połączenia: spróbujemy ponownie za chwilę.
   }
