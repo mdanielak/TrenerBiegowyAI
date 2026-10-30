@@ -20,6 +20,8 @@ from api.views.common import (
     _READINESS_LABELS,
     _SIGNAL_META,
     _SIGNAL_STATE_LABELS,
+    _MONTHS_GENITIVE,
+    _WEEKDAYS,
     _WEEKDAYS_SHORT,
 )
 from services.plan_files import week_bounds
@@ -90,6 +92,20 @@ def _trend_view(trend) -> dict | None:
         "previous": trend.get("previous"),
         "tone": "flat" if favorable is None else ("favorable" if favorable else "unfavorable"),
     }
+
+
+def _next_workout_view(workout, today: str) -> dict | None:
+    """Najbliższy trening z planu do pokazania w dzień wolny: kiedy, co i czy jest na zegarku."""
+    if not workout:
+        return None
+    try:
+        day = date.fromisoformat(str(workout.get("date"))[:10])
+        delta = (day - date.fromisoformat(today)).days
+    except ValueError:
+        return None
+    when = "Jutro" if delta == 1 else f"{_WEEKDAYS[day.weekday()].capitalize()}, {day.day} {_MONTHS_GENITIVE[day.month - 1]}"
+    return {"when": when, "name": workout.get("name") or "Trening", "duration_min": workout.get("duration_min"),
+            "hr_zone": workout.get("hr_zone"), "garmin_upload": bool(workout.get("garmin_upload"))}
 
 
 def _signal_cards(report) -> list:

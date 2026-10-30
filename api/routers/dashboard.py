@@ -42,6 +42,7 @@ from api.views.today import (
     _report_error,
     _ring_geometry,
     _health_alert,
+    _next_workout_view,
     _pause_view,
     _signal_cards,
     _workout_section,
@@ -143,6 +144,7 @@ def get_dashboard_router(
                     "workout": _workout_section(report, profile_provider, review_loader),
                     "pause": _pause_view(report),
                     "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None), floors=zone_floors),
+                    "next_workout": _next_workout_view(getattr(report, "next_workout", None), report.date),
                     "ai_recommendation": _recommendation_view(recommendation),
                     "journal_missing": report.date not in journal_by_day,
                     "health_alert": _health_alert(report, [journal_by_day[day] for day in (report.date, report.yesterday_date)

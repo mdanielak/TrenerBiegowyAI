@@ -948,7 +948,17 @@ details[open] > summary { margin-bottom: 12px; }
 }
 
 @media (min-width: 1081px) {
-  .grid-main.signals-first { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  /* W dzień wolny karta dnia mówi, co dalej: najbliższy trening z planu. */
+  .next-workout { margin-top: 14px; padding: 14px 16px; border-radius: var(--radius-sm); background: var(--surface-alt);
+                  border-left: 4px solid var(--accent); }
+  .next-workout p { margin: 0; }
+  .next-workout-when { font-size: 13.5px; color: var(--fg-mid); }
+  .next-workout .next-workout-name { margin: 2px 0 6px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .next-workout .item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .next-workout .item-meta .icon { vertical-align: -2px; color: var(--ok-icon); }
+  .grid-main.today-first { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  /* Sygnały pod decyzją dnia: cztery w rzędzie na szerokim ekranie, dwa na średnim. */
+  @media (min-width: 1400px) { .signals-wide .signals { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 }
 
 /* Zwarte podsumowania analizy i celów. */

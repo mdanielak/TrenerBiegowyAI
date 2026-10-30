@@ -85,7 +85,217 @@
       </div>
     {% endif %}
 
-    <div class="grid grid-main signals-first">
+    {# Najpierw decyzja dnia (trening i gotowość), potem sygnały, które ją uzasadniają. #}
+    {% set rest_today = plan_workout and plan_workout.is_rest and not workout %}
+    <div class="grid grid-main today-first">
+      <section class="card">
+        <div class="card-head">
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
+          <span class="row">
+            {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
+              <span class="pill warn">Nie wykonuj</span>
+            {% elif workout %}
+              <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
+            {% endif %}
+            {% if plan_workout %}<a href="/plan">Plan tygodnia</a>{% endif %}
+          </span>
+        </div>
+
+        {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
+          <div class="banner warn pause-banner" role="status">
+            {{ ico.info() }}
+            <div class="banner-body">
+              <p class="banner-title">Ten trening nie uwzględnia przerwy.</p>
+              <p class="mid">Nie wykonuj go ani nie wysyłaj na zegarek. Przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.{% if workout or (plan_workout and plan_workout.garmin_upload) %} Jeśli trening jest już na zegarku, usuń go w Garmin Connect.{% endif %} {% if pause.week %}<a href="/plan?week={{ pause.week }}">Ułóż plan ponownie</a>, żeby uwzględnił przerwę.{% endif %}</p>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if not workout and not plan_workout %}
+          <div class="empty-art">
+            <img class="asset" src="/assets/09_illustrations/training_plan.png" width="176" height="118" alt="">
+            <p>Na dziś nie ma zapisanego treningu.</p>
+          </div>
+        {% elif workout %}
+          <div class="stack">
+
+            <div class="list-item">
+              <span class="item-icon kind-icon"><img class="asset" src="{{ workout.icon }}" width="40" height="40" alt=""></span>
+              <span class="item-body">
+                <span class="item-title">{{ workout.name }}</span>
+                <span class="item-meta">
+                  <span>{% if workout.planned_duration is not none %}{{ workout.planned_duration }} min w planie{% else %}czas w planie —{% endif %}</span>
+                  {% if workout.target %}<span>cel {{ workout.target }}</span>{% endif %}
+                </span>
+              </span>
+            </div>
+
+            {% if not workout.execution.happened and not pause %}
+              {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
+                              workout.coach.notes if workout.coach else None,
+                              workout.coach.distance_km if workout.coach else None, skipped=workout.paused) }}
+            {% elif not workout.execution.happened and pause %}
+              <p class="mid pause-workout-hidden">Szczegóły treningu ukryto na czas przerwy.</p>
+            {% endif %}
+            {% if workout.others and pause %}
+              <p class="mid">Inne treningi zapisane na dziś w Garmin Connect: {{ workout.others|join(', ') }}. Podczas przerwy usuń je w Garmin Connect, żeby nie pomylić się na starcie.</p>
+            {% elif workout.others %}
+              <p class="mid">Na zegarku na dziś {{ 'jest' if workout.others|length == 1 else 'są' }} też: {{ workout.others|join(', ') }}. Jeśli to stary trening, usuń go w Garmin Connect, żeby nie pomylić się na starcie.</p>
+            {% endif %}
+
+            {% if workout.execution.happened %}
+              <div class="grid grid-4">
+                <div class="tile">
+                  <span class="tile-head">
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+                    <span class="tile-label"><span>Czas</span></span>
+                  </span>
+                  <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min|num }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
+                </div>
+                <div class="tile">
+                  <span class="tile-head">
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
+                    <span class="tile-label"><span>Dystans</span></span>
+                  </span>
+                  <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
+                </div>
+                <div class="tile">
+                  <span class="tile-head">
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt="">
+                    <span class="tile-label"><span>Średnie tętno</span></span>
+                  </span>
+                  <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
+                  {% if workout.score and workout.score.strefa_wykonania is not none %}
+                    <span class="tile-foot">strefa Z{{ workout.score.strefa_wykonania }}</span>
+                  {% endif %}
+                </div>
+                <div class="tile">
+                  <span class="tile-head">
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart_max.png" width="28" height="28" alt="">
+                    <span class="tile-label"><span>Maksymalne tętno</span></span>
+                  </span>
+                  <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if workout.match_note %}
+              <p class="mid">{{ workout.match_note }}</p>
+            {% endif %}
+            {% if workout.planned_count and workout.execution.happened %}
+              <p class="mid">Na dziś zapisano więcej treningów ({{ workout.planned_count }}). Oceniany jest pierwszy z nich.</p>
+            {% endif %}
+
+            {# Przed wykonaniem nie ma czego oceniać: wynik i ocena pojawią się po synchronizacji. #}
+            {% if workout.execution.happened and workout.score_rows %}
+              <div class="grid grid-2">
+                {% for row in workout.score_rows %}
+                  <div class="tile">
+                    <span class="tile-head">
+                      <img class="asset tile-icon" src="/assets/07_ui_icons/tile_load.png" width="28" height="28" alt="">
+                      <span class="tile-label"><span>{{ row.label }}</span></span>
+                    </span>
+                    <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
+                    <span class="tile-foot">{{ row.hint }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+              <p class="mid">Punkty wylicza ten komputer z Twojego planu i pomiarów zegarka, bez udziału AI. Pewność oceny: {{ workout.confidence_label }}.</p>
+            {% elif workout.execution.happened %}
+              <p class="mid">Nie można policzyć punktów bez lokalnego profilu biegacza.</p>
+            {% endif %}
+
+            {% if workout.comment %}
+              <div class="suggestion">
+                <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+                <div>
+                  <p class="suggestion-title">Komentarz trenera</p>
+                  <p class="suggestion-text">{{ workout.comment }}</p>
+                </div>
+              </div>
+            {% elif workout.review_key and workout.execution.happened %}
+              <div class="spread">
+                <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
+                <form method="post" action="/actions/review">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="review_key" value="{{ workout.review_key }}">
+                  <button type="submit" class="btn-secondary">
+                    {{ ico.bulb(18) }}<span>Oceń mój trening</span>
+                  </button>
+                </form>
+              </div>
+            {% endif %}
+
+          </div>
+        {% endif %}
+
+        {% if plan_workout and (not workout or plan_workout.name != workout.name) %}
+          <div class="list-item">
+            <span class="item-icon kind-icon"><img class="asset" src="{{ plan_workout.icon }}" width="40" height="40" alt=""></span>
+            <span class="item-body">
+              <span class="item-title">{{ plan_workout.name }}</span>
+              <span class="item-meta">
+                <span>Z planu AI</span>
+                {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min|num }} min</span>{% endif %}
+                {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km|num }} km</span>{% endif %}
+                {% if plan_workout.hr_zone %}<span>{{ plan_workout.hr_zone }}</span>{% endif %}
+                {% if plan_workout.pace_target %}<span>{{ plan_workout.pace_target }}</span>{% endif %}
+              </span>
+            </span>
+          </div>
+          {% if not plan_workout.is_rest and not pause %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
+          {% if plan_workout.is_rest %}
+            <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
+            {% if next_workout %}
+              <div class="next-workout">
+                <p class="next-workout-when">Następny trening: {{ next_workout.when }}</p>
+                <p class="next-workout-name">{{ next_workout.name }}</p>
+                <p class="item-meta">
+                  {% if next_workout.duration_min %}<span>{{ next_workout.duration_min|num }} min</span>{% endif %}
+                  {% if next_workout.hr_zone %}<span class="zone-chip {{ next_workout.hr_zone|lower }}">{{ next_workout.hr_zone }}</span>{% endif %}
+                  <span>{% if next_workout.garmin_upload %}{{ ico.watch(14) }} jest na zegarku{% else %}jeszcze nie na zegarku — <a href="/plan">wyślij na stronie Plan</a>{% endif %}</span>
+                </p>
+              </div>
+            {% endif %}
+          {% elif not pause and plan_workout.garmin_upload %}
+            <p class="mid">Ten trening jest już na zegarku.</p>
+          {% elif not pause %}
+            <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
+          {% endif %}
+        {% endif %}
+      </section>
+      <section class="card readiness-card">
+        <div class="readiness">
+          <div class="ring-wrap">
+            <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
+                 viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
+              <circle class="ring-track" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"/>
+              <circle class="ring-value {{ report.readiness.level }}" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"
+                      stroke-dasharray="{{ ring.circumference }}" stroke-dashoffset="{{ ring.offset }}"/>
+            </svg>
+            <span class="ring-center">
+              <span class="ring-score">{{ readiness_score }}</span>
+              <span class="ring-max">z {{ readiness_max_score }}</span>
+            </span>
+          </div>
+
+          <div>
+            <span class="verdict {{ report.readiness.level }}">
+              {% if report.readiness.level == 'ready' %}{{ ico.check(15) }}
+              {% elif report.readiness.level == 'ready_with_reserves' %}{{ ico.info(15) }}
+              {% else %}{{ ico.moon(15) }}{% endif %}
+              <span>{% if pause %}Przerwa — dziś bez treningu{% elif rest_today and report.readiness.level == 'ready' %}Organizm gotowy{% else %}{{ readiness_label|capitalize }}{% endif %}</span>
+            </span>
+          </div>
+
+          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% elif rest_today %} Dziś odpoczynek z planu: wynik mówi, jak się regenerujesz.{% endif %} <a href="/analysis">Zobacz uzasadnienie</a></p>
+        </div>
+      </section>
+    </div>
+
+    <div class="signals-wide">
       <section class="card">
         <div class="card-head">
           <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
@@ -120,36 +330,6 @@
           {% endfor %}
         </div>
       </section>
-      <section class="card readiness-card">
-        <div class="readiness">
-          <div class="ring-wrap">
-            <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
-                 viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
-              <circle class="ring-track" cx="{{ ring.center }}" cy="{{ ring.center }}"
-                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"/>
-              <circle class="ring-value {{ report.readiness.level }}" cx="{{ ring.center }}" cy="{{ ring.center }}"
-                      r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"
-                      stroke-dasharray="{{ ring.circumference }}" stroke-dashoffset="{{ ring.offset }}"/>
-            </svg>
-            <span class="ring-center">
-              <span class="ring-score">{{ readiness_score }}</span>
-              <span class="ring-max">z {{ readiness_max_score }}</span>
-            </span>
-          </div>
-
-          <div>
-            <span class="verdict {{ report.readiness.level }}">
-              {% if report.readiness.level == 'ready' %}{{ ico.check(15) }}
-              {% elif report.readiness.level == 'ready_with_reserves' %}{{ ico.info(15) }}
-              {% else %}{{ ico.moon(15) }}{% endif %}
-              <span>{{ 'Przerwa — dziś bez treningu' if pause else readiness_label|capitalize }}</span>
-            </span>
-          </div>
-
-          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% endif %} <a href="/analysis">Zobacz uzasadnienie</a></p>
-        </div>
-      </section>
-
     </div>
 
     {% if ai_off_notice %}
@@ -161,172 +341,6 @@
         </div>
       </div>
     {% endif %}
-
-    <section class="card">
-      <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
-        <span class="row">
-          {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
-            <span class="pill warn">Nie wykonuj</span>
-          {% elif workout %}
-            <span class="pill {{ workout.status_class }}">{{ workout.status_label }}</span>
-          {% endif %}
-          {% if plan_workout %}<a href="/plan">Plan tygodnia</a>{% endif %}
-        </span>
-      </div>
-
-      {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
-        <div class="banner warn pause-banner" role="status">
-          {{ ico.info() }}
-          <div class="banner-body">
-            <p class="banner-title">Ten trening nie uwzględnia przerwy.</p>
-            <p class="mid">Nie wykonuj go ani nie wysyłaj na zegarek. Przerwa: {{ pause.reason }}{% if pause.dates %} ({{ pause.dates }}){% endif %}.{% if workout or (plan_workout and plan_workout.garmin_upload) %} Jeśli trening jest już na zegarku, usuń go w Garmin Connect.{% endif %} {% if pause.week %}<a href="/plan?week={{ pause.week }}">Ułóż plan ponownie</a>, żeby uwzględnił przerwę.{% endif %}</p>
-          </div>
-        </div>
-      {% endif %}
-
-      {% if not workout and not plan_workout %}
-        <div class="empty-art">
-          <img class="asset" src="/assets/09_illustrations/training_plan.png" width="176" height="118" alt="">
-          <p>Na dziś nie ma zapisanego treningu.</p>
-        </div>
-      {% elif workout %}
-        <div class="stack">
-
-          <div class="list-item">
-            <span class="item-icon kind-icon"><img class="asset" src="{{ workout.icon }}" width="40" height="40" alt=""></span>
-            <span class="item-body">
-              <span class="item-title">{{ workout.name }}</span>
-              <span class="item-meta">
-                <span>{% if workout.planned_duration is not none %}{{ workout.planned_duration }} min w planie{% else %}czas w planie —{% endif %}</span>
-                {% if workout.target %}<span>cel {{ workout.target }}</span>{% endif %}
-              </span>
-            </span>
-          </div>
-
-          {% if not workout.execution.happened and not pause %}
-            {{ steps.render(workout.steps, workout.coach.description if workout.coach else None,
-                            workout.coach.notes if workout.coach else None,
-                            workout.coach.distance_km if workout.coach else None, skipped=workout.paused) }}
-          {% elif not workout.execution.happened and pause %}
-            <p class="mid pause-workout-hidden">Szczegóły treningu ukryto na czas przerwy.</p>
-          {% endif %}
-          {% if workout.others and pause %}
-            <p class="mid">Inne treningi zapisane na dziś w Garmin Connect: {{ workout.others|join(', ') }}. Podczas przerwy usuń je w Garmin Connect, żeby nie pomylić się na starcie.</p>
-          {% elif workout.others %}
-            <p class="mid">Na zegarku na dziś {{ 'jest' if workout.others|length == 1 else 'są' }} też: {{ workout.others|join(', ') }}. Jeśli to stary trening, usuń go w Garmin Connect, żeby nie pomylić się na starcie.</p>
-          {% endif %}
-
-          {% if workout.execution.happened %}
-            <div class="grid grid-4">
-              <div class="tile">
-                <span class="tile-head">
-                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
-                  <span class="tile-label"><span>Czas</span></span>
-                </span>
-                <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min|num }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
-              </div>
-              <div class="tile">
-                <span class="tile-head">
-                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
-                  <span class="tile-label"><span>Dystans</span></span>
-                </span>
-                <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
-              </div>
-              <div class="tile">
-                <span class="tile-head">
-                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt="">
-                  <span class="tile-label"><span>Średnie tętno</span></span>
-                </span>
-                <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
-                {% if workout.score and workout.score.strefa_wykonania is not none %}
-                  <span class="tile-foot">strefa Z{{ workout.score.strefa_wykonania }}</span>
-                {% endif %}
-              </div>
-              <div class="tile">
-                <span class="tile-head">
-                  <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart_max.png" width="28" height="28" alt="">
-                  <span class="tile-label"><span>Maksymalne tętno</span></span>
-                </span>
-                <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
-              </div>
-            </div>
-          {% endif %}
-
-          {% if workout.match_note %}
-            <p class="mid">{{ workout.match_note }}</p>
-          {% endif %}
-          {% if workout.planned_count and workout.execution.happened %}
-            <p class="mid">Na dziś zapisano więcej treningów ({{ workout.planned_count }}). Oceniany jest pierwszy z nich.</p>
-          {% endif %}
-
-          {# Przed wykonaniem nie ma czego oceniać: wynik i ocena pojawią się po synchronizacji. #}
-          {% if workout.execution.happened and workout.score_rows %}
-            <div class="grid grid-2">
-              {% for row in workout.score_rows %}
-                <div class="tile">
-                  <span class="tile-head">
-                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_load.png" width="28" height="28" alt="">
-                    <span class="tile-label"><span>{{ row.label }}</span></span>
-                  </span>
-                  <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
-                  <span class="tile-foot">{{ row.hint }}</span>
-                </div>
-              {% endfor %}
-            </div>
-            <p class="mid">Punkty wylicza ten komputer z Twojego planu i pomiarów zegarka, bez udziału AI. Pewność oceny: {{ workout.confidence_label }}.</p>
-          {% elif workout.execution.happened %}
-            <p class="mid">Nie można policzyć punktów bez lokalnego profilu biegacza.</p>
-          {% endif %}
-
-          {% if workout.comment %}
-            <div class="suggestion">
-              <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
-              <div>
-                <p class="suggestion-title">Komentarz trenera</p>
-                <p class="suggestion-text">{{ workout.comment }}</p>
-              </div>
-            </div>
-          {% elif workout.review_key and workout.execution.happened %}
-            <div class="spread">
-              <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
-              <form method="post" action="/actions/review">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input type="hidden" name="review_key" value="{{ workout.review_key }}">
-                <button type="submit" class="btn-secondary">
-                  {{ ico.bulb(18) }}<span>Oceń mój trening</span>
-                </button>
-              </form>
-            </div>
-          {% endif %}
-
-        </div>
-      {% endif %}
-
-      {% if plan_workout and (not workout or plan_workout.name != workout.name) %}
-        <div class="list-item">
-          <span class="item-icon kind-icon"><img class="asset" src="{{ plan_workout.icon }}" width="40" height="40" alt=""></span>
-          <span class="item-body">
-            <span class="item-title">{{ plan_workout.name }}</span>
-            <span class="item-meta">
-              <span>Z planu AI</span>
-              {% if plan_workout.duration_min is not none %}<span>{{ plan_workout.duration_min|num }} min</span>{% endif %}
-              {% if plan_workout.distance_km is not none %}<span>{{ plan_workout.distance_km|num }} km</span>{% endif %}
-              {% if plan_workout.hr_zone %}<span>{{ plan_workout.hr_zone }}</span>{% endif %}
-              {% if plan_workout.pace_target %}<span>{{ plan_workout.pace_target }}</span>{% endif %}
-            </span>
-          </span>
-        </div>
-        {% if not plan_workout.is_rest and not pause %}{{ steps.render(plan_workout.steps, plan_workout.description, plan_workout.notes, plan_workout.distance_km) }}{% endif %}
-        {% if plan_workout.is_rest %}
-          <p class="mid">Plan na dziś przewiduje odpoczynek.</p>
-        {% elif not pause and plan_workout.garmin_upload %}
-          <p class="mid">Ten trening jest już na zegarku.</p>
-        {% elif not pause %}
-          <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
-        {% endif %}
-      {% endif %}
-    </section>
 
     <section class="card">
       <div class="card-head">

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
@@ -38,6 +38,7 @@ class TodayReport:
     plan_workout: dict | None = None
     hrv_alert: dict | None = None
     other_planned: list = field(default_factory=list)
+    next_workout: dict | None = None
 
 
 def _today_registry_entries(today: str):
@@ -76,7 +77,8 @@ def _execution(*, workouts, today_activities, today):
 
 
 def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availability, now,
-                       active_pause: dict | None = None, plan_workout: dict | None = None) -> TodayReport:
+                       active_pause: dict | None = None, plan_workout: dict | None = None,
+                       next_workout: dict | None = None) -> TodayReport:
     """Zbuduj raport wyłącznie z przekazanych danych, bez efektów ubocznych."""
     today = now.date().isoformat()
     yesterday = now.date().fromordinal(now.date().toordinal() - 1).isoformat()
@@ -102,6 +104,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         execution=None,
         active_pause=active_pause,
         plan_workout=plan_workout,
+        next_workout=next_workout,
     )
     if empty.status != "ok":
         return empty
@@ -160,6 +163,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         plan_workout=plan_workout,
         hrv_alert=check_hrv_alert(data.get("hrv") or []),
         other_planned=[w.get("name") or "Trening" for w in planned_workouts[1:] if isinstance(w, dict)],
+        next_workout=next_workout,
     )
 
 
@@ -175,6 +179,22 @@ def _today_plan_workout(current):
         return get_today_workout_from_plan(plan, current)
     except (KeyError, TypeError):
         return None
+
+
+def _next_plan_workout(current):
+    """Najbliższy trening z planu po dzisiejszym dniu: z tego albo z następnego tygodnia."""
+    today = current.date().isoformat()
+    for offset in (0, 7):
+        try:
+            plan = find_current_plan(current + timedelta(days=offset))
+        except (OSError, ValueError):
+            continue
+        upcoming = sorted((w for w in (plan or {}).get("workouts") or []
+                           if isinstance(w, dict) and str(w.get("date") or "") > today and w.get("type") != "rest"),
+                          key=lambda w: str(w.get("date")))
+        if upcoming:
+            return upcoming[0]
+    return None
 
 
 def get_today_report(*, now=None) -> TodayReport:
@@ -199,4 +219,5 @@ def get_today_report(*, now=None) -> TodayReport:
         now=current,
         active_pause=active_pause,
         plan_workout=_today_plan_workout(current),
+        next_workout=_next_plan_workout(current),
     )
