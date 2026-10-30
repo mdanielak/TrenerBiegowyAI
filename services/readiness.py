@@ -87,7 +87,7 @@ def compute_readiness_breakdown(data):
     elif sleep_score_val >= 70:
         available_metrics.append('sleep')
         raw_score += 1.5
-        details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen w porządku (ocena {sleep_score_val}/100)"})
+        details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen przeciętny (ocena {sleep_score_val}/100)"})
     else:
         available_metrics.append('sleep')
         details.append({"metric": "Sleep", "status": "FAIL", "message": f"Słaby sen (ocena {sleep_score_val}/100)"})
