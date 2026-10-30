@@ -2,3 +2,5 @@
 *.sh text eol=lf
 .githooks/* text eol=lf
 *.ps1 text eol=crlf
+testowanie.bat export-ignore
+scripts/testowanie.py export-ignore
