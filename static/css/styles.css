@@ -633,10 +633,8 @@
   .day-garmin { display: inline-flex; padding: 3px; border-radius: 999px;
                 color: var(--ok-fg); background: var(--ok-bg); }
   /* Jeszcze nie na zegarku: ten sam kształt, wyszarzony; różnicę niesie też opis dla czytników. */
-  .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); }
-  .day-remove { position: relative; display: inline-flex; padding: 5px; border-radius: 999px; color: var(--fg-muted); }
-  /* Rysunek zostaje mały, ale cel kliknięcia ma 36×36 px (WCAG 2.2: min. 24×24). */
-  .day-remove::after { content: ""; position: absolute; inset: -6px; }
+  .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); opacity: 0.75; }
+  .day-remove { display: inline-flex; padding: 4px; border-radius: 999px; color: var(--fg-muted); }
   .day-remove:hover, .day-remove:focus-visible { color: var(--danger-fg); background: var(--danger-bg); }
   #usun { margin-bottom: 14px; }
   .day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }

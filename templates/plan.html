@@ -209,11 +209,11 @@
       {% set to_remove = plan.days|selectattr('date', 'equalto', request.query_params.get('remove'))|rejectattr('is_rest')|rejectattr('is_past')|first %}
       {% if to_remove %}
         {% set on_watch = to_remove.garmin_upload and to_remove.garmin_workout_id %}
-        <div class="banner warn" id="usun" role="alertdialog" aria-labelledby="usun-tytul" aria-describedby="usun-opis" tabindex="-1" autofocus>
+        <div class="banner warn" id="usun" role="alertdialog" aria-labelledby="usun-tytul">
           {{ ico.info() }}
           <div class="banner-body">
             <p class="banner-title" id="usun-tytul">Usunąć trening z planu?</p>
-            <p id="usun-opis">{{ to_remove.name }} — {{ to_remove.weekday }}, {{ format_date(to_remove.date) }}.
+            <p>{{ to_remove.name }} — {{ to_remove.weekday }}, {{ format_date(to_remove.date) }}.
               {% if on_watch %}Ten trening jest też na zegarku.{% endif %}
               W jego miejsce zostanie odpoczynek.</p>
             <form method="post" action="/actions/plan/remove" class="row">

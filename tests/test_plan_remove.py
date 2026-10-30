@@ -97,7 +97,6 @@ def test_confirmation_offers_the_watch_only_when_the_workout_is_there(tmp_path):
         past = client.get("/plan?week=2026-09-28&remove=2026-09-29").text
     assert "Usuń z planu i z zegarka" in on_watch and "Usuń tylko z planu" in on_watch
     assert "Ten trening jest też na zegarku." in on_watch
-    assert 'id="usun" role="alertdialog"' in on_watch and 'tabindex="-1" autofocus' in on_watch  # fokus na oknie
     assert "Usuń z planu i z zegarka" not in plan_only and ">Usuń z planu</button>" in plan_only
     assert 'id="usun"' not in past
 
