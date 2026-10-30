@@ -68,5 +68,5 @@ def _plan_banner(store: JobStore, now: datetime, operation: str, messages: dict)
                 "refresh": False, "disabled": False}
     if job.status == "succeeded" and recent:
         return {"message": messages.get("succeeded"), "details_url": None,
-                "refresh": False, "disabled": False}
+                "refresh": False, "disabled": False, "done": True}
     return {"message": None, "details_url": None, "refresh": False, "disabled": False}

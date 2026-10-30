@@ -126,10 +126,21 @@
   {% endif %}
 
   {% if plan_banner.message %}
-    <div class="banner info">
+    {% set unsent = (plan.days|rejectattr('is_rest')|rejectattr('garmin_upload')|list) if plan else [] %}
+    <div class="banner info"{% if plan_banner.refresh %} data-reload-when-done{% endif %}>
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ plan_banner.message }}</p>
+        {% if plan_banner.done and unsent and request.query_params.get('push') != 'later' %}
+          {# 2. Jasne pytanie o wysyłkę zaraz po ułożeniu planu. #}
+          <p>Wysłać treningi na zegarek? {{ unsent|length }} {{ unsent|length|plural('trening jeszcze nie jest', 'treningi jeszcze nie są', 'treningów jeszcze nie jest') }} w Garmin Connect.</p>
+          <form method="post" action="/actions/plan/push" class="row">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="week_start" value="{{ week_start }}">
+            <button type="submit">{{ ico.watch(18) }}<span>Tak, wyślij do Garmina</span></button>
+            <a class="btn btn-secondary" href="/plan?week={{ week_start }}&amp;push=later">Nie teraz</a>
+          </form>
+        {% endif %}
         {% if plan_banner.refresh %}<p><a href="{{ request.url }}">Odśwież stan planu</a> — przed odświeżeniem zapisz wpisaną wiadomość.</p>{% endif %}
         {% if plan_banner.details_url %}<p><a href="{{ plan_banner.details_url }}">Szczegóły</a></p>{% endif %}
       </div>
@@ -137,7 +148,7 @@
   {% endif %}
 
   {% if push_banner and push_banner.message %}
-    <div class="banner info">
+    <div class="banner info"{% if push_banner.refresh %} data-reload-when-done{% endif %}>
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ push_banner.message }}</p>
@@ -193,6 +204,7 @@
               <span class="day-name">{{ plan_day.weekday_short }}</span>
               <span class="day-num">{{ plan_day.date[8:10]|int }}</span>
               {% if plan_day.is_today %}<span class="day-today-tag">dzisiaj</span>{% endif %}
+              {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>{% endif %}
             </div>
 
             <div class="day-pills">
@@ -220,9 +232,6 @@
                   {% if plan_day.hr_zone %}<span class="zone-chip {{ plan_day.hr_zone|lower }}">{{ plan_day.hr_zone }}</span>{% endif %}
                   {% if plan_day.pace_target %}{{ plan_day.pace_target }}{% endif %}
                 </span>
-              {% endif %}
-              {% if plan_day.garmin_upload %}
-                <span class="day-block-meta">Wysłano na zegarek</span>
               {% endif %}
               {% if plan_day.available and plan_day.max_minutes %}
                 <span class="day-block-meta">Wolne {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>

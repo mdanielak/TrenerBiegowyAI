@@ -45,6 +45,30 @@ async function pollJob() {
 }
 setTimeout(pollJob, 5000);
 
+// Po ułożeniu lub wysłaniu planu strona ma się odświeżyć sama, ale nie kosztem niezapisanego tekstu.
+async function reloadWhenDone() {
+  if (!document.querySelector('[data-reload-when-done]')) return;
+  try {
+    const response = await fetch(location.href, {cache: 'no-store'});
+    const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+    if (response.ok && !page.querySelector('[data-reload-when-done]')) {
+      const dirty = Array.from(document.querySelectorAll('textarea, input[type="text"]'))
+        .some(field => field.value !== field.defaultValue);
+      if (!dirty) { location.reload(); return; }
+      const banner = document.querySelector('[data-reload-when-done]');
+      banner.removeAttribute('data-reload-when-done');
+      const link = document.createElement('p');
+      link.innerHTML = '<a href="">Gotowe — odśwież stronę</a> (najpierw zapisz wpisany tekst).';
+      banner.querySelector('.banner-body').append(link);
+      return;
+    }
+  } catch {
+    // Brak połączenia: spróbujemy ponownie za chwilę.
+  }
+  setTimeout(reloadWhenDone, 5000);
+}
+setTimeout(reloadWhenDone, 5000);
+
 // Keep submitter names intact for multi-action forms while preventing duplicate requests.
 document.querySelectorAll('form[method="post"]').forEach(form => {
   let submitting = false;

@@ -611,6 +611,7 @@
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
 
   .day {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -625,6 +626,9 @@
   .day.past { background: var(--surface-alt); }
 
   .day-head { display: flex; flex-direction: column; gap: 1px; }
+  /* Trening już w Garmin Connect: kształt zegarka i opis dla czytników, kolor tylko wspiera. */
+  .day-garmin { position: absolute; top: 9px; right: 9px; display: inline-flex; padding: 3px; border-radius: 999px;
+                color: var(--ok-fg); background: var(--ok-bg); }
   .day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
   .day-num { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
   .day.today .day-num { color: var(--accent-strong); }

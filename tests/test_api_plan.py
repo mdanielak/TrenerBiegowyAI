@@ -375,3 +375,19 @@ def test_plan_page_accepts_chart_from_older_server(tmp_path, monkeypatch):
     assert "uruchom ponownie aplikację" in response.text
     assert "Zaplanowany czas" in response.text
     assert "45 min" in response.text
+
+
+def test_finished_plan_reloads_asks_to_send_and_marks_watch_days(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    with TestClient(_app(tmp_path, plan=_plan())) as client:
+        job = store.submit("plan", {"week": "2026-09-28"})  # po starcie, jak zadanie z tej sesji
+        store.mark_running(job.id)
+        running = client.get("/plan?week=2026-09-28").text
+        store.mark_succeeded(job.id)
+        done = client.get("/plan?week=2026-09-28").text
+        later = client.get("/plan?week=2026-09-28&push=later").text
+    assert "data-reload-when-done" in running and "data-reload-when-done" not in done
+    assert "Wysłać treningi na zegarek? 1 trening jeszcze nie jest w Garmin Connect." in done
+    assert "Tak, wyślij do Garmina" in done and "Tak, wyślij do Garmina" not in later
+    assert done.count('class="day-garmin"') == 1  # tylko wtorkowe tempo jest już na zegarku
+    assert "Wysłano na zegarek" not in done
