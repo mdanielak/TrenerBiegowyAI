@@ -32,11 +32,16 @@ PLAN_PUSH_MESSAGES = {
     "failed": "Nie udało się wysłać planu na zegarek.",
     "succeeded": "Plan trafił na zegarek.",
 }
+PLAN_REMOVE_MESSAGES = {
+    "running": "Trwa usuwanie treningu z zegarka.",
+    "failed": "Nie udało się usunąć treningu z zegarka. Plan został bez zmian.",
+    "succeeded": "Trening usunięty z planu i z zegarka.",
+}
 _EMPTY_BANNER = {"message": None, "details_url": None, "refresh": False, "disabled": False}
 
 
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
-                      banner=None, push_banner=None, error_message=None, error_command=None,
+                      banner=None, push_banner=None, remove_banner=None, error_message=None, error_command=None,
                       now=None, readiness_by_date=None, previous_week=None,
                       snapshot_stale=False, anchor=None, conflict=None, variants=None, activities=None) -> dict:
     """Zbuduj kontekst strony planu; ten sam zestaw używa router i obsługa błędów CSRF."""
@@ -58,6 +63,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "pause_conflicts": pause_conflicts,
         "plan_banner": banner or _EMPTY_BANNER,
         "push_banner": push_banner or _EMPTY_BANNER,
+        "remove_banner": remove_banner or _EMPTY_BANNER,
         "ai_ready": ai_ready,
         "week_start": monday.date().isoformat(),
         "week_end": sunday.date().isoformat(),
@@ -180,6 +186,7 @@ def get_plans_router(
             ai_ready=ai_ready,
             banner=_plan_banner(store, now, "plan", PLAN_MESSAGES),
             push_banner=_plan_banner(store, now, "plan_push", PLAN_PUSH_MESSAGES),
+            remove_banner=_plan_banner(store, now, "plan_remove", PLAN_REMOVE_MESSAGES),
             error_message=error_message,
             error_command=error_command,
             now=now,

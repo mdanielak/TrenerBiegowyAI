@@ -335,6 +335,36 @@ def push_plan_to_garmin(*, week_start=None, workout_factory=None, workout_delete
     return {"created": created, "skipped": skipped, "replaced": replaced}
 
 
+def remove_plan_workout(*, week_start, day, from_garmin=False, workout_deleter=None, today=None) -> dict:
+    """Zamień trening dnia na odpoczynek; z zegarka usuń go przed zapisem planu."""
+    from services import plan as plan_service
+
+    plan = plan_service.load_week_plan(as_datetime(week_start) or datetime.now())
+    if plan is None:
+        raise ValueError(PLAN_NO_PLAN_MESSAGE)
+    current = (as_datetime(today) or datetime.now()).date().isoformat()
+    workouts = plan.get("workouts", [])
+    index = next((i for i, w in enumerate(workouts) if w.get("date") == day), None)
+    if index is None or workouts[index].get("type") == "rest":
+        raise ValueError("Tego dnia nie ma treningu do usunięcia.")
+    if day < current:
+        raise ValueError("Treningów z minionych dni nie usuwamy: to historia porównywana w Statystykach.")
+    workout = workouts[index]
+    if from_garmin and workout.get("garmin_workout_id"):
+        if workout_deleter is None:
+            workout_deleter = _garmin_session()[1]
+        # Najpierw zegarek: błąd Garmina zostawia plan zgodny z tym, co jest na zegarku.
+        workout_deleter(workout["garmin_workout_id"], reason="usunięty z planu")
+    workouts[index] = {
+        "day": workout.get("day"), "date": day, "type": "rest", "name": "Odpoczynek",
+        "description": "Trening usunięty z planu.", "distance_km": None, "duration_min": None,
+        "pace_target": None, "hr_target": None, "hr_zone": None,
+        "garmin_upload": False, "garmin_workout_id": None, "notes": "",
+    }
+    plan_service.save_plan(plan)
+    return workouts[index]
+
+
 def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_start=None,
                       lock_directory=None, on_conflict=None):
     """Wykonaj wysyłkę planu do Garmina pod blokadą i zapisz stan zadania."""
