@@ -57,3 +57,16 @@ def test_the_sync_bar_sits_above_every_page_heading_and_replaces_the_stale_hint(
         assert page.index('class="sync-status"') < page.index("<h1"), path
     assert "Dane są nieaktualne." not in pages["/"]
     assert 'class="sync-status"' not in job_page  # strona postępu nie linkuje do samej siebie
+
+
+def test_first_download_page_answers_404_but_keeps_a_live_timer_and_fresh_script(tmp_path):
+    """Skrypt odświeża postęp także przy odpowiedzi 404; licznik ma znacznik, a skrypt wersję w adresie."""
+    store = JobStore(tmp_path / "jobs")
+    with TestClient(_app(tmp_path, store)) as client:
+        job = store.submit("sync", {"fresh": True})
+        store.mark_running(job.id)
+        SyncProgress(store.directory, job.id, fresh=True).stage("history")
+        response = client.get("/")
+    assert response.status_code == 404
+    assert 'data-elapsed="' in response.text
+    assert '/static/js/interface.js?v=' in response.text

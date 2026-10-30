@@ -247,3 +247,23 @@ def test_plan_trends_are_aggregates_only():
     assert trends["metrics"]["hrv"]["recent"] is None
     assert trends["weekly_km"] == [0, 0, 0, 10.0]
     assert set(trends) == {"metrics", "weekly_km"}
+
+
+def test_days_that_already_passed_become_rest_and_are_named_for_the_ai(monkeypatch):
+    """Plan ułożony w czwartek nie wstawia treningów w miniony poniedziałek."""
+    from datetime import datetime
+    from ai.plan_generation import build_plan_message
+    from services import plan as plan_service
+    every_day = {key: {"available": True, "min_minutes": 30, "max_minutes": 60}
+                 for key in ("mon", "tue", "wed", "thu", "fri", "sat", "sun")}
+    monkeypatch.setattr("trainer.preferences.get_weekly_availability", lambda: every_day)
+    monkeypatch.setattr("trainer.preferences.get_active_pause", lambda day: None)
+    context = plan_service.build_plan_context(snapshot_data={}, profile={}, preferences={},
+                                              today=datetime(2026, 10, 1, 9), week_start="2026-09-28")
+    assert [day["available"] for day in context["week_days"]] == [False, False, False, True, True, True, True]
+    assert "- poniedziałek, 2026-09-28: już minął" in build_plan_message(context)
+
+    response = {"workouts": [{"date": "2026-09-28", "kind": "easy", "name": "Bieg", "duration_min": 40,
+                              "hr_zone": "Z2"}]}
+    monday = plan_service.normalize_plan(response, context=context)["workouts"][0]
+    assert (monday["type"], monday["description"]) == ("rest", "Ten dzień już minął.")

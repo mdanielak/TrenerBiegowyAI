@@ -183,7 +183,7 @@ def _availability_rows(week_days) -> list[str]:
             index = day.get("weekday_index")
             weekday = _WEEKDAY_NAMES[index] if isinstance(index, int) and 0 <= index < 7 else "?"
         available = day.get("available")
-        state = "dostępny" if available else "niedostępny"
+        state = "dostępny" if available else ("już minął" if day.get("past") else "niedostępny")
         window = (f"{_minutes(day.get('min_minutes'))}-{_minutes(day.get('max_minutes'))}"
                   if available else "—")
         row = f"- {weekday}, {_value(day.get('date'))}: {state}, {window}"

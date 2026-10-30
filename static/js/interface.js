@@ -52,8 +52,9 @@ async function reloadWhenDone() {
     const response = await fetch(location.href, {cache: 'no-store'});
     const page = new DOMParser().parseFromString(await response.text(), 'text/html');
     if (response.ok && !page.querySelector('[data-reload-when-done]')) {
-      const dirty = Array.from(document.querySelectorAll('textarea, input[type="text"]'))
-        .some(field => field.value !== field.defaultValue);
+      // Każde zmienione pole się liczy: data, liczba, zaznaczenie, hasło, nie tylko tekst.
+      const dirty = Array.from(document.querySelectorAll('textarea, input:not([type="hidden"]):not([type="submit"])'))
+        .some(field => field.value !== field.defaultValue || field.checked !== field.defaultChecked);
       if (!dirty) { location.reload(); return; }
       const banner = document.querySelector('[data-reload-when-done]');
       banner.removeAttribute('data-reload-when-done');

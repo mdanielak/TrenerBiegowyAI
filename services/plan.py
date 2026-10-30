@@ -199,11 +199,14 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         day_text = day_date.date().isoformat()
         pause = get_active_pause(day_text)
         readiness = _readiness_for(data, day_text)
+        # Minionych dni nie da się już przebiec: AI ich nie planuje, a wysyłka nie trafi wstecz na zegarek.
+        past = day_date.date() < current.date()
         days.append({
             "date": day_text,
             "day": day_key,
             "weekday": _WEEKDAY_NAMES[index],
-            "available": bool(slot.get("available")),
+            "available": bool(slot.get("available")) and not past,
+            "past": past,
             "min_minutes": int(slot.get("min_minutes") or 0),
             "max_minutes": int(slot.get("max_minutes") or 0),
             "pause_reason": (pause or {}).get("reason") if pause else None,
@@ -322,7 +325,8 @@ def _normalize_day(day, workout, floors):
     if forced_rest:
         entry["kind"] = "rest"
         entry["name"] = "Odpoczynek"
-        entry["description"] = pause_reason or "Dzień bez zadeklarowanej dostępności."
+        entry["description"] = pause_reason or ("Ten dzień już minął." if day.get("past")
+                                                else "Dzień bez zadeklarowanej dostępności.")
     elif workout is None:
         entry["kind"] = "rest"
         entry["name"] = "Odpoczynek"
