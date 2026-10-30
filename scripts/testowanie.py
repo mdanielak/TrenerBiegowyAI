@@ -5,7 +5,8 @@ Uruchamiaj przez testowanie.bat: kopiuje kod do katalogu tymczasowego i startuje
 więc każda ścieżka aplikacji (local/, training-plans/, .env, ~/.GarminDb) wskazuje na piaskownicę.
 
 Scenariusz: dziś jest środa (wolne). Poniedziałek przebiegnięty, czwartek i piątek są już na
-zegarku, sobota wolna, niedziela jeszcze nie wysłana. Garmin i AI odpowiadają po kilku
+zegarku, sobota wolna, niedziela jeszcze nie wysłana. Inny dzień: testowanie.bat --dzien czwartek
+(treningi przed wybranym dniem są wtedy przebiegnięte). Garmin i AI odpowiadają po kilku
 sekundach zmyślonymi danymi, więc widać paski postępu i banery.
 """
 from __future__ import annotations
@@ -16,6 +17,10 @@ from pathlib import Path
 
 SANDBOX = Path(__file__).resolve().parents[1]
 PORT = 8002
+
+# Bez znacznika z testowanie.bat to może być prawdziwa instalacja: nic nie zapisujemy.
+if not (SANDBOX / ".testowanie-piaskownica").is_file():
+    sys.exit("Uruchom testowanie.bat. Ten skrypt działa tylko w kopii, którą tworzy testowanie.bat.")
 
 # Zanim cokolwiek z aplikacji się zaimportuje: dom, dane Garmina i klucze tylko z piaskownicy.
 HOME = SANDBOX / "home"
@@ -42,12 +47,29 @@ from trainer import config  # noqa: E402
 if Path(config.PROJECT_ROOT).resolve() != SANDBOX or Path.home().resolve() != HOME.resolve():
     sys.exit(f"Przerwano: aplikacja wskazuje na {config.PROJECT_ROOT}, a nie na piaskownicę {SANDBOX}.")
 
-# --- Zegar: dziś jest środa bieżącego tygodnia; godziny i sekundy płyną normalnie. ---------------
+# --- Zegar: wybrany dzień bieżącego tygodnia (domyślnie środa); godziny i sekundy płyną normalnie. ---
+DAY_NAMES = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
+_ASCII = str.maketrans("ąćęłńóśźż", "acelnoszz")
+
+
+def _chosen_weekday(argv):
+    """`--dzien czwartek` albo samo `czwartek`; polskie litery są opcjonalne."""
+    words = [a for a in argv if a not in ("--dzien", "--dzień")]
+    if not words:
+        return 2
+    wanted = words[0].lower().translate(_ASCII)
+    for index, name in enumerate(DAY_NAMES):
+        if name.translate(_ASCII) == wanted:
+            return index
+    sys.exit(f"Nieznany dzień: {words[0]}. Użyj np. --dzien czwartek.")
+
+
+WEEKDAY = _chosen_weekday(sys.argv[1:])
 REAL_DT, REAL_DATE = _dt.datetime, _dt.date
 _real_today = REAL_DATE.today()
-OFFSET = _dt.timedelta(days=2 - _real_today.weekday())
+OFFSET = _dt.timedelta(days=WEEKDAY - _real_today.weekday())
 TODAY = _real_today + OFFSET
-MONDAY = TODAY - _dt.timedelta(days=2)
+MONDAY = TODAY - _dt.timedelta(days=WEEKDAY)
 
 
 class _Clock(type):
@@ -242,7 +264,10 @@ def _write_snapshot():
         if back % 7 == 0:
             weight.append({"date": _iso(day), "weight_kg": 68.5})
         runs = {1: ("Bieg łatwy", 45, 7.4, 134), 3: ("Interwały", 52, 8.8, 152), 6: ("Długi bieg", 85, 13.8, 139)}
-        run = runs.get(day.weekday()) if day < MONDAY else (("Bieg łatwy", 41, 6.8, 133) if day == MONDAY else None)
+        # Ten tydzień: każdy trening z planu przed dzisiejszym dniem jest przebiegnięty.
+        this_week = {0: ("Bieg łatwy", 41, 6.8, 133), 3: ("Interwały", 52, 8.8, 153),
+                     4: ("Bieg łatwy", 36, 5.9, 131), 6: ("Długi bieg", 82, 13.1, 138)}
+        run = runs.get(day.weekday()) if day < MONDAY else (this_week.get(day.weekday()) if day < TODAY else None)
         if run:
             name, minutes, km, avg_hr = run
             pace = minutes / km
@@ -329,6 +354,6 @@ if __name__ == "__main__":
     _seed()
     actions.synchronize_data = fake_sync  # run_sync_job podaje postęp tylko „swojej” synchronizacji
     app = create_app(sync_operation=fake_sync)
-    print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = środa {TODAY:%d.%m.%Y})")
+    print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = {DAY_NAMES[WEEKDAY]} {TODAY:%d.%m.%Y})")
     print(f"  Piaskownica: {SANDBOX}\n  Garmin i AI są udawane. Zamknij okno albo Ctrl+C, żeby zakończyć.\n")
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
