@@ -211,7 +211,7 @@ def test_plan_page_shows_readiness_pill_only_for_measured_days(tmp_path):
         response = client.get("/plan")
 
     assert response.status_code == 200
-    pills = re.findall(r'class="pill \w+">([\d.]+) z ([\d.]+)</span>', response.text)
+    pills = re.findall(r'class="pill \w+">Gotowość ([\d.]+)/([\d.]+)</span>', response.text)
     assert len(pills) == 1
     assert "Gotowość zmierzona w 1 z 7 dni." in response.text
 
@@ -395,3 +395,14 @@ def test_finished_plan_reloads_asks_to_send_and_marks_watch_days(tmp_path):
     assert "Tak, wyślij do Garmina" in done and "Tak, wyślij do Garmina" not in later
     assert done.count('class="day-garmin"') == 1  # tylko wtorkowe tempo jest już na zegarku
     assert "Wysłano na zegarek" not in done
+
+
+def test_day_cards_show_the_run_from_the_watch_and_a_missed_past_workout(tmp_path):
+    """Pon: bieg z zegarka na karcie; wt: minął bez biegu; dni z treningiem mają pasek strefy."""
+    snapshot = SnapshotReadResult(status=SnapshotStatus.FRESH, data={"activities": [
+        {"date": "2026-09-28 18:00", "type": "running/generic", "duration_min": 41, "distance_km": 6.8}]})
+    with TestClient(_app(tmp_path, plan=_plan(), snapshot_provider=lambda: snapshot)) as client:
+        page = client.get("/plan").text
+    assert "Bieg z zegarka</span> 41 min, 6,8 km" in page
+    assert page.count("Brak biegu z zegarka") == 1  # wtorkowe tempo; dni odpoczynku się nie liczą
+    assert 'zone-band z2"' in page and 'zone-band z3"' in page
