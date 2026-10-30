@@ -106,6 +106,7 @@ def _static_version(relative: str) -> str:
 
 
 _TEMPLATES.env.globals["css_version"] = _static_version("css/styles.css")
+_TEMPLATES.env.globals["js_version"] = _static_version("js/interface.js")
 
 
 def _app_version() -> str:

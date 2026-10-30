@@ -65,13 +65,24 @@ async function reloadWhenDone() {
     // Wciąż trwa: podmień sam postęp (etap, procent, czas), reszta strony zostaje nietknięta.
     const fresh = page.querySelector('.sync-status .sync-progress');
     const shown = document.querySelector('.sync-status .sync-progress');
-    if (response.ok && fresh && shown) shown.replaceWith(document.importNode(fresh, true));
+    // Bez response.ok: przy pierwszym pobieraniu strona bez danych odpowiada 404, a pasek ma iść dalej.
+    if (fresh && shown) shown.replaceWith(document.importNode(fresh, true));
   } catch {
     // Brak połączenia: spróbujemy ponownie za chwilę.
   }
   setTimeout(reloadWhenDone, 5000);
 }
 setTimeout(reloadWhenDone, 5000);
+
+// Czas etapu tyka co sekundę w przeglądarce; serwer poprawia go przy każdym sprawdzeniu postępu.
+setInterval(() => {
+  document.querySelectorAll('[data-elapsed]').forEach(span => {
+    const seconds = Number(span.dataset.elapsed) + 1;
+    span.dataset.elapsed = seconds;
+    const minutes = Math.floor(seconds / 60);
+    span.textContent = minutes ? `${minutes} min ${seconds % 60} s` : `${seconds % 60} s`;
+  });
+}, 1000);
 
 // Keep submitter names intact for multi-action forms while preventing duplicate requests.
 document.querySelectorAll('form[method="post"]').forEach(form => {

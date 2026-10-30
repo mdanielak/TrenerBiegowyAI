@@ -3,7 +3,7 @@
   <div class="sync-progress">
     {% if progress %}
       <progress max="100" value="{{ progress.percent }}" aria-label="Postęp synchronizacji">{{ progress.percent }}%</progress>
-      <p class="mid">Krok {{ progress.step }} z {{ progress.steps }}: {{ progress.label }} · około {{ progress.percent }}% · trwa {{ progress.elapsed }}</p>
+      <p class="mid">Krok {{ progress.step }} z {{ progress.steps }}: {{ progress.label }} · około {{ progress.percent }}% · trwa <span data-elapsed="{{ progress.elapsed_seconds }}">{{ progress.elapsed }}</span></p>
     {% else %}
       <progress aria-label="Postęp synchronizacji"></progress>
       <p class="mid">Przygotowanie synchronizacji…</p>

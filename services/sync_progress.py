@@ -124,4 +124,5 @@ def progress_view(jobs_directory, job_id: str, now: datetime | None = None) -> d
         "steps": len(STAGES),
         "label": STAGES[index][1],
         "elapsed": _format_elapsed(elapsed),
+        "elapsed_seconds": int(elapsed),
     }
