@@ -242,8 +242,8 @@ class GarminWorkout:
         return self.easy_run(name, duration_min, date_str)
 
     def hr_zone_run(self, name, duration_min, zone_number, date_str,
-                    warmup_min=6, warmup_pace_faster="7:00",
-                    warmup_pace_slower="8:30"):
+                    warmup_min=6, warmup_pace_faster=None,
+                    warmup_pace_slower=None):
         """Bieg z alarmem strefy tętna.
 
         Garmin pilnuje górnej granicy strefy i ostrzega, gdy ją przekroczysz —
@@ -264,9 +264,7 @@ class GarminWorkout:
         if warmup_min > 0:
             steps.append(self._make_step(
                 o, StepType.WARMUP, "warmup", warmup_min * 60,
-                target_type_id=TargetType.PACE_ZONE, target_type_key="pace.zone",
-                target_value_one=self._pace_to_ms(warmup_pace_faster),
-                target_value_two=self._pace_to_ms(warmup_pace_slower),
+                **self._warmup_target(warmup_pace_faster, warmup_pace_slower),
             ))
             o += 1
         steps.append(self._make_step(
@@ -284,23 +282,30 @@ class GarminWorkout:
         print(f"  {date_str} {name}: ID={wid}")
         return wid
 
+    def _warmup_target(self, faster, slower) -> dict:
+        """Cel tempa rozgrzewki tylko, gdy oba tempa podane; inaczej krok bez celu (każdy we własnym tempie)."""
+        if not (faster and slower):
+            return {}
+        return {"target_type_id": TargetType.PACE_ZONE, "target_type_key": "pace.zone",
+                "target_value_one": self._pace_to_ms(faster), "target_value_two": self._pace_to_ms(slower)}
+
     def easy_run_zoned(self, name, date_str, main_min, zone_number=2,
-                       warmup_min=6, warmup_pace_faster="7:00",
-                       warmup_pace_slower="8:30", warmup_km=None,
+                       warmup_min=6, warmup_pace_faster=None,
+                       warmup_pace_slower=None, warmup_km=None,
                        strides=0, stride_sec=20, stride_rest_sec=90,
                        stride_pace_faster=None, stride_pace_slower=None,
                        cooldown_min=0):
         """Bieg łatwy: rozgrzewka na tempo, reszta na strefę tętna.
 
-        Rozgrzewka ma cel TEMPA, nie tętna. Na starcie tętno jest zawsze niskie
+        Rozgrzewka nie ma celu tętna. Na starcie tętno jest zawsze niskie
         (organizm jeszcze nie wdrożył pracy), więc alarm strefy wyłby o "za
-        niskim tętnie" przez pierwsze minuty. Bieg na tempo załatwia ten
-        problem: tempo podnosi tętno, zanim włączy się pilnowanie strefy.
+        niskim tętnie" przez pierwsze minuty. Domyślnie rozgrzewka nie ma żadnego
+        celu (każdy rozgrzewa się we własnym tempie); cel tempa tylko, gdy podany.
 
         Args:
             main_min: czas części na tętno (rozgrzewka jest DODATKOWO, na wierzchu)
-            warmup_min: rozgrzewka na tempo bez alarmu strefy (domyślnie 6 min
-                w tempie 7:00-8:30/km — tempo, w którym wchodzi się w strefę 2)
+            warmup_min: rozgrzewka bez alarmu strefy (domyślnie 6 min, bez celu;
+                warmup_pace_* dodaje cel tempa — np. przy odtwarzaniu starych treningów)
             warmup_km: tryb kilometrowy, pozostałość po starszych treningach.
                 Gdy podany, wygrywa nad `warmup_min` — dzięki temu stare wpisy
                 z rejestru nadal odtwarzają się poprawnie.
@@ -315,18 +320,14 @@ class GarminWorkout:
             # Tryb z odtwarzania starych wpisów rejestru: kilometr na tempo.
             steps.append(self._make_step(
                 o, StepType.WARMUP, "warmup", 0,
-                target_type_id=TargetType.PACE_ZONE, target_type_key="pace.zone",
-                target_value_one=self._pace_to_ms(warmup_pace_faster),
-                target_value_two=self._pace_to_ms(warmup_pace_slower),
+                **self._warmup_target(warmup_pace_faster, warmup_pace_slower),
                 distance_m=warmup_km * 1000,
             ))
             o += 1
         elif warmup_min > 0:
             steps.append(self._make_step(
                 o, StepType.WARMUP, "warmup", warmup_min * 60,
-                target_type_id=TargetType.PACE_ZONE, target_type_key="pace.zone",
-                target_value_one=self._pace_to_ms(warmup_pace_faster),
-                target_value_two=self._pace_to_ms(warmup_pace_slower),
+                **self._warmup_target(warmup_pace_faster, warmup_pace_slower),
             ))
             o += 1
 
@@ -604,13 +605,13 @@ def build_workout(gw, kind, name, **kwargs) -> int:
         'hr_zone_run': lambda: gw.hr_zone_run(
             name, kwargs['minutes'], kwargs['zone_number'], kwargs['date'],
             warmup_min=kwargs.get('warmup_min', 6),
-            warmup_pace_faster=kwargs.get('warmup_pace_faster', '7:00'),
-            warmup_pace_slower=kwargs.get('warmup_pace_slower', '8:30')),
+            warmup_pace_faster=kwargs.get('warmup_pace_faster'),
+            warmup_pace_slower=kwargs.get('warmup_pace_slower')),
         'easy_run_zoned': lambda: gw.easy_run_zoned(
             name, kwargs['date'], kwargs['main_minutes'],
             zone_number=kwargs.get('zone_number', 2), warmup_min=kwargs.get('warmup_min', 6),
-            warmup_pace_faster=kwargs.get('warmup_pace_faster', '7:00'),
-            warmup_pace_slower=kwargs.get('warmup_pace_slower', '8:30'),
+            warmup_pace_faster=kwargs.get('warmup_pace_faster'),
+            warmup_pace_slower=kwargs.get('warmup_pace_slower'),
             strides=kwargs.get('strides', 0), stride_sec=kwargs.get('stride_seconds', 20),
             stride_rest_sec=kwargs.get('stride_rest_seconds', 90),
             cooldown_min=kwargs.get('cooldown_min', 0)),

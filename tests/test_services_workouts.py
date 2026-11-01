@@ -289,9 +289,8 @@ class TestUploadSchedulingConsistency:
 
 
 class TestZoneRunWarmup:
-    """Reguła biegacza: bieg w strefie 2 ZAWSZE otwiera rozgrzewka na tempo,
-
-    bez alarmu strefy. Na starcie tętno jest fizjologicznie niskie, więc alarm
+    """Bieg w strefie ZAWSZE otwiera rozgrzewka bez alarmu strefy (domyślnie bez żadnego celu).
+ Na starcie tętno jest fizjologicznie niskie, więc alarm
     wyłby o "za niskim tętnie", zanim organizm wdroży pracę.
     """
 
@@ -310,13 +309,18 @@ class TestZoneRunWarmup:
         gw._make_step = spy
         return gw
 
-    def test_hr_zone_run_opens_with_pace_warmup(self, mock_gw):
+    def test_hr_zone_run_opens_with_a_warmup_without_any_target(self, mock_gw):
+        """Bez stałego tempa autora: każdy rozgrzewa się we własnym tempie, bez sygnałów z zegarka."""
         mock_gw.hr_zone_run("Długie 90 min", 90, 2, "2026-10-04")
         args, kwargs = self.steps[0]
-        assert kwargs['target_type_key'] == 'pace.zone'
+        assert 'target_type_key' not in kwargs     # domyślnie no.target
         assert args[3] == 360                      # 6 minut
-        assert kwargs['target_value_one'] == GarminWorkout._pace_to_ms('7:00')
-        assert kwargs['target_value_two'] == GarminWorkout._pace_to_ms('8:30')
+
+    def test_warmup_pace_target_only_when_given(self, mock_gw):
+        mock_gw.hr_zone_run("Długie 90 min", 90, 2, "2026-10-04", warmup_pace_faster="6:30", warmup_pace_slower="7:30")
+        _, kwargs = self.steps[0]
+        assert kwargs['target_type_key'] == 'pace.zone'
+        assert kwargs['target_value_one'] == GarminWorkout._pace_to_ms('6:30')
 
     def test_warmup_carries_no_zone_alarm(self, mock_gw):
         mock_gw.hr_zone_run("Długie 90 min", 90, 2, "2026-10-04")
@@ -343,7 +347,7 @@ class TestZoneRunWarmup:
     def test_easy_run_zoned_opens_with_warmup_and_adds_it_on_top(self, mock_gw):
         mock_gw.easy_run_zoned("Łatwy 45 min", "2026-09-28", main_min=39)
         args, kwargs = self.steps[0]
-        assert kwargs['target_type_key'] == 'pace.zone'
+        assert 'target_type_key' not in kwargs
         assert args[3] == 360
         assert self.steps[1][0][3] == 39 * 60       # część na tętno
         assert self.steps[1][1]['zone_number'] == 2

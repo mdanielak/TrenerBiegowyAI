@@ -640,9 +640,7 @@ def plan_workout_to_garmin(workout):
             "minutes": int(minutes),
             "zone_number": zone,
             "date": date,
-            "warmup_min": 6,
-            "warmup_pace_faster": "7:00",
-            "warmup_pace_slower": "8:30",
+            "warmup_min": 6,  # rozgrzewka bez celu: każdy we własnym tempie, bez alarmu tętna
         })
 
     if kind in ("tempo", "threshold"):

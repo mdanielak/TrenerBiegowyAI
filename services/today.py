@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
-from services.readiness import compute_readiness_breakdown, record_for_day, signal_trends
+from services.readiness import compute_readiness_breakdown, record_for_day, rhr_baseline, signal_trends
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
@@ -125,7 +125,8 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
     sleep = record_for_day(data.get("sleep"), today)
     hrv = record_for_day(data.get("hrv"), today)
     readiness = compute_readiness_breakdown({
-        "daily_health": [health] if health else [], "sleep": [sleep] if sleep else [], "hrv": [hrv] if hrv else []})
+        "daily_health": [health] if health else [], "sleep": [sleep] if sleep else [], "hrv": [hrv] if hrv else []},
+        rhr_baseline=rhr_baseline(data.get("daily_health"), today))
     trends = signal_trends(data, today)
     signals = {
         "sleep_score": sleep.get("score"),

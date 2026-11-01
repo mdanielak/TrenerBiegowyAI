@@ -30,7 +30,7 @@ class TestReadinessBreakdown:
     def test_perfect_score(self):
         data = _make_data(rhr=48, hrv_status='BALANCED', hrv_last=78,
                           hrv_low=67, sleep_score=92, stress=25)
-        result = compute_readiness_breakdown(data)
+        result = compute_readiness_breakdown(data, rhr_baseline=48)
         assert result['score'] == 10.0
         assert result['raw_score'] == 10.0
         assert result['available_max_score'] == 10.0
@@ -41,14 +41,14 @@ class TestReadinessBreakdown:
     def test_zero_score(self):
         data = _make_data(rhr=56, hrv_status='LOW', hrv_last=55,
                           hrv_low=67, sleep_score=65, stress=45)
-        result = compute_readiness_breakdown(data)
+        result = compute_readiness_breakdown(data, rhr_baseline=48)
         assert result['score'] == 0
         assert result['level'] == 'not_ready'
 
     def test_partial_score_ready_with_reserves(self):
         data = _make_data(rhr=52, hrv_status='BALANCED', hrv_last=65,
                           hrv_low=67, sleep_score=80, stress=35)
-        result = compute_readiness_breakdown(data)
+        result = compute_readiness_breakdown(data, rhr_baseline=48)
         assert 0 < result['score'] < 10
         assert result['level'] in ('ready', 'ready_with_reserves')
 
@@ -86,7 +86,7 @@ class TestReadinessBreakdown:
     def test_fail_is_an_available_metric(self):
         data = _make_data(rhr=56, hrv_status='LOW', hrv_last=55,
                           hrv_low=67, sleep_score=65, stress=45)
-        result = compute_readiness_breakdown(data)
+        result = compute_readiness_breakdown(data, rhr_baseline=48)
         assert result['available_metrics'] == ['rhr', 'hrv', 'sleep', 'stress']
         assert result['missing_metrics'] == []
         assert result['insufficient_data'] is False
@@ -261,3 +261,21 @@ class TestComparePlanVsActual:
         assert results[0]['is_today'] is False
 
 
+
+
+def test_resting_heart_rate_is_judged_against_the_runners_own_norm():
+    """Norma 62 bpm i pomiar 63 to „w normie” — stałe progi (≤ 49 bpm) dawały tu „podwyższone”."""
+    from services.readiness import rhr_baseline
+    history = [{"date": f"2026-10-{day:02d}", "rhr": 62} for day in range(1, 29)]
+    assert rhr_baseline(history, "2026-10-29") == 62
+    assert rhr_baseline(history[:6], "2026-10-29") is None  # za mało pomiarów
+    assert rhr_baseline(history, "2026-10-15") == 62  # liczą się tylko dni przed oceną
+
+    def verdict(rhr, norm):
+        detail = compute_readiness_breakdown(_make_data(rhr=rhr), rhr_baseline=norm)["details"][0]
+        return detail["status"], detail["message"]
+
+    assert verdict(63, 62) == ("OK", "Tętno spoczynkowe w Twojej normie (63 bpm, norma 62)")
+    assert verdict(66, 62)[0] == "WARN" and verdict(68, 62)[0] == "FAIL" and verdict(58, 62)[0] == "OK"
+    unknown = compute_readiness_breakdown(_make_data(rhr=63))
+    assert "rhr" in unknown["missing_metrics"] and "Za mało pomiarów" in unknown["details"][0]["message"]

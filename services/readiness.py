@@ -19,9 +19,23 @@ def record_for_day(records, day: str) -> dict:
     return next((record for record in records or [] if str(record.get("date", ""))[:10] == day), {})
 
 
-def compute_readiness_breakdown(data):
+def rhr_baseline(daily_health, day: str) -> float | None:
+    """Osobista norma tętna spoczynkowego: średnia z 28 dni przed ``day`` (min. 7 pomiarów), inaczej None."""
+    try:
+        end = datetime.strptime(day, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
+    start = (end - timedelta(days=28)).strftime('%Y-%m-%d')
+    values = [record.get('rhr') for record in daily_health or []
+              if start <= str(record.get('date', ''))[:10] < day and isinstance(record.get('rhr'), (int, float))]
+    return round(sum(values) / len(values), 1) if len(values) >= 7 else None
+
+
+def compute_readiness_breakdown(data, *, rhr_baseline=None):
     """Compute detailed readiness score with per-metric breakdown.
 
+    ``rhr_baseline``: osobista norma tętna spoczynkowego (z ``rhr_baseline()``); bez niej tętno
+    spoczynkowe nie jest oceniane, bo stałe progi nie pasują do różnych ludzi.
     Returns dict with: score, max_score, level, details (list of metric evaluations).
     """
     latest_health = data.get('daily_health', [{}])[0] if data.get('daily_health') else {}
@@ -47,20 +61,24 @@ def compute_readiness_breakdown(data):
         missing_metrics.append(name)
         details.append({"metric": metric, "status": "UNKNOWN", "message": message})
 
-    # 1. RHR
+    # 1. RHR — wobec własnej normy biegacza (różnica od średniej z ostatnich tygodni).
+    norm = f"norma {round(rhr_baseline)}" if rhr_baseline is not None else ""
     if rhr is None:
         unavailable('rhr', 'RHR', "Brak pomiaru tętna spoczynkowego")
-    elif rhr <= 49:
+    elif rhr_baseline is None:
+        unavailable('rhr', 'RHR', f"Za mało pomiarów, by poznać Twoją normę tętna spoczynkowego ({rhr} bpm; potrzeba tygodnia)")
+    elif rhr - rhr_baseline <= 2:
         available_metrics.append('rhr')
         raw_score += 2.5
-        details.append({"metric": "RHR", "status": "OK", "message": f"Tętno spoczynkowe w normie ({rhr} bpm)"})
-    elif rhr <= 53:
+        details.append({"metric": "RHR", "status": "OK", "message": f"Tętno spoczynkowe w Twojej normie ({rhr} bpm, {norm})"})
+    elif rhr - rhr_baseline <= 5:
         available_metrics.append('rhr')
         raw_score += 1.5
-        details.append({"metric": "RHR", "status": "WARN", "message": f"Tętno spoczynkowe lekko podwyższone ({rhr} bpm)"})
+        details.append({"metric": "RHR", "status": "WARN", "message": f"Tętno spoczynkowe lekko podwyższone ({rhr} bpm, {norm})"})
     else:
         available_metrics.append('rhr')
-        details.append({"metric": "RHR", "status": "FAIL", "message": f"Tętno spoczynkowe podwyższone ({rhr} bpm) — postaw na regenerację"})
+        details.append({"metric": "RHR", "status": "FAIL",
+                        "message": f"Tętno spoczynkowe podwyższone ({rhr} bpm, {norm}) — postaw na regenerację"})
 
     # 2. HRV
     if any(value is None for value in (hrv_status, hrv_last, hrv_baseline_low, hrv_baseline_high)):
@@ -133,6 +151,7 @@ def compute_readiness_breakdown(data):
                        else 'medium' if len(available_metrics) < 4 else 'high'),
         "level": level,
         "rhr": rhr,
+        "rhr_baseline": rhr_baseline,
         "hrv_status": hrv_status,
         "hrv_last": hrv_last,
         "hrv_baseline": f"{hrv_baseline_low}-{hrv_baseline_high}",
@@ -164,7 +183,7 @@ def readiness_for_day(data, day):
         'daily_health': [health],
         'sleep': [sleep] if sleep is not None else [],
         'hrv': [hrv] if hrv is not None else [],
-    })
+    }, rhr_baseline=rhr_baseline(data.get('daily_health'), day))
 
 
 def signal_trends(data, day):

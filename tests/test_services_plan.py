@@ -172,7 +172,7 @@ def test_easy_run_maps_to_hr_zone_workout():
     assert kind == "hr_zone_run"
     assert kwargs == {
         "minutes": 40, "zone_number": 2, "date": "2026-10-26",
-        "warmup_min": 6, "warmup_pace_faster": "7:00", "warmup_pace_slower": "8:30",
+        "warmup_min": 6,  # rozgrzewka bez celu tempa: każdy we własnym tempie
     }
 
 

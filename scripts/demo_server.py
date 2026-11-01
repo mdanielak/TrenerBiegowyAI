@@ -37,7 +37,9 @@ def _snapshot(today):
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "activities": [{"date": f"{day(1)} 18:05", "name": "Bieg", "type": "running/generic",
                         "distance_km": 8.2, "duration_min": 49.0, "avg_hr": 136, "max_hr": 151}],
-        "daily_health": [{"date": day(0), "rhr": 48, "stress_avg": 24}, {"date": day(1), "rhr": 50, "stress_avg": 29}],
+        # 14 dni pomiarów: z nich liczy się osobista norma tętna spoczynkowego.
+        "daily_health": [{"date": day(0), "rhr": 48, "stress_avg": 24}, {"date": day(1), "rhr": 50, "stress_avg": 29}]
+                        + [{"date": day(offset), "rhr": 47, "stress_avg": 25} for offset in range(2, 15)],
         "sleep": [{"date": day(0), "score": 86, "total_h": 7.4}, {"date": day(1), "score": 84, "total_h": 7.1}],
         "hrv": [{"date": day(offset), "status": "LOW", "last_night": 48 + offset,
                  "baseline_low": 55, "baseline_high": 70} for offset in range(6)],
