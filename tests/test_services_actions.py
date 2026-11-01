@@ -211,3 +211,22 @@ def test_run_plan_job_explains_unreadable_ai_answer(tmp_path):
     result = run_plan_job(store=store, job_id=job.id, operation=broken, lock_directory=tmp_path)
 
     assert result.error_message == AI_FORMAT_MESSAGE
+
+
+def test_stale_review_tells_the_user_to_refresh(tmp_path):
+    from services.actions import review_workout, run_review_job
+    from services.jobs import REVIEW_STALE_MESSAGE
+
+    report = SimpleNamespace(execution={"review_key": "inny-trening"})
+    store = JobStore(tmp_path / "jobs")
+    job = store.submit("review", {"review_key": "stary"})
+    result = run_review_job(store=store, job_id=job.id, review_key="stary", lock_directory=tmp_path,
+                            operation=lambda **kwargs: review_workout(report_provider=lambda: report, **kwargs))
+    assert result.error_message == REVIEW_STALE_MESSAGE
+
+
+def test_app_in_tests_never_touches_the_real_job_folder():
+    import api.main
+    from trainer.config import SETTINGS
+
+    assert api.main.JOBS_DIR != SETTINGS.local_dir / "jobs"

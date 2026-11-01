@@ -4,10 +4,12 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+from trainer.config import SETTINGS
+
 
 logger = logging.getLogger(__name__)
 
-REVIEWS_PATH = Path("local/workout-reviews.jsonl")
+REVIEWS_PATH = SETTINGS.local_dir / "workout-reviews.jsonl"
 
 
 def save_review(*, review_key: str, score: dict, comment: str,

@@ -94,6 +94,18 @@ def testclient_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_jobs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Start aplikacji w teście nie oznacza ani nie kasuje prawdziwych zadań z local/jobs (np. trwającej synchronizacji)."""
+    monkeypatch.setattr("api.main.JOBS_DIR", tmp_path_factory.mktemp("jobs"))
+
+
+@pytest.fixture(autouse=True)
+def _isolate_reviews(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Oceny treningów z testów nie trafiają do prawdziwego local/workout-reviews.jsonl."""
+    monkeypatch.setattr("services.workout_reviews.REVIEWS_PATH", tmp_path_factory.mktemp("reviews") / "reviews.jsonl")
+
+
+@pytest.fixture(autouse=True)
 def _isolate_journal(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Testy nigdy nie czytają ani nie piszą prawdziwego local/journal.jsonl."""
     path = tmp_path_factory.mktemp("journal") / "journal.jsonl"

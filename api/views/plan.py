@@ -38,12 +38,6 @@ def _kind_icon(kind) -> str:
     return _PLAN_KIND_ICONS.get(kind, _PLAN_KIND_ICONS["easy"])
 _PLAN_QUALITY_KINDS = ("tempo", "threshold", "intervals")
 _PLAN_DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
-_PLAN_LOAD_WIDTH = 638
-_PLAN_LOAD_HEIGHT = 146
-_PLAN_LOAD_BASELINE = 120
-_PLAN_LOAD_BAR_WIDTH = 74
-_PLAN_LOAD_GAP = 20
-_PLAN_LOAD_BAR_MAX = 96
 
 
 def _plan_day_index(day_key) -> int:

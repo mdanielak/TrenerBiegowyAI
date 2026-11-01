@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from trainer.config import SETTINGS
 from trainer.files import write_atomic
 
 
@@ -30,7 +31,24 @@ GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego
 AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → API AI."
 AI_FORMAT_MESSAGE = "Trener AI nie zdążył poprawnie dokończyć planu. Spróbuj ponownie za chwilę."
 AI_REJECTED_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź klucz w Ustawienia → API AI → Sprawdź połączenie."
+# Własne komunikaty akcji: napisane dla użytkownika, więc mogą trafić do interfejsu (tekst wyjątków z bibliotek — nie).
+SNAPSHOT_MISSING_MESSAGE = "Brakuje danych z zegarka. Najpierw zsynchronizuj dane."
+PLAN_CONFLICT_MESSAGE = ("Na ten tydzień jest już plan. Wybierz, czy go nadpisać, "
+                         "zapisać nowy jako drugą wersję, czy anulować.")
+GARMIN_CONFLICT_MESSAGE = ("Na niektóre dni są już treningi na zegarku. Wybierz, czy je zastąpić, "
+                           "dodać nowe obok, czy anulować.")
+REVIEW_BUSY_MESSAGE = "Ocena już trwa. Spróbuj ponownie za chwilę."
+REVIEW_DISABLED_MESSAGE = "Ocena treningu wymaga włączenia wysyłania danych do AI."
+REVIEW_NO_WORKOUT_MESSAGE = "Brak zaplanowanego treningu na dziś."
+REVIEW_STALE_MESSAGE = "Ocena dotyczy innego treningu. Odśwież stronę."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
+    SNAPSHOT_MISSING_MESSAGE,
+    PLAN_CONFLICT_MESSAGE,
+    GARMIN_CONFLICT_MESSAGE,
+    REVIEW_BUSY_MESSAGE,
+    REVIEW_DISABLED_MESSAGE,
+    REVIEW_NO_WORKOUT_MESSAGE,
+    REVIEW_STALE_MESSAGE,
     _GENERIC_FAILURE,
     "Operacja już trwa. Spróbuj ponownie za chwilę.",
     PLAN_AI_DISABLED_MESSAGE,
@@ -108,8 +126,9 @@ def _arguments_hash(arguments) -> str:
 class JobStore:
     """Magazyn plików JSON, domyślnie w ``local/jobs``."""
 
-    def __init__(self, directory: Path | str = Path("local/jobs")) -> None:
-        self.directory = Path(directory)
+    def __init__(self, directory: Path | str | None = None) -> None:
+        # Domyślnie obok reszty danych (SETTINGS.local_dir), niezależnie od folderu, z którego uruchomiono serwer.
+        self.directory = Path(directory) if directory is not None else SETTINGS.local_dir / "jobs"
 
     def submit(self, operation: str, arguments, *, cooldown: timedelta | None = None,
                now: datetime | None = None) -> JobRecord:

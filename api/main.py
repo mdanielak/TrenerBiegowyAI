@@ -33,6 +33,7 @@ from services.sync_progress import progress_view
 from services.today import TodayReport, get_today_report
 from services.workout_reviews import load_review
 from trainer.ai_settings import ENV_PATH, apply_to_running_app
+from trainer.config import SETTINGS
 from trainer.logging_config import setup_logging
 from trainer.preferences import get_weekly_availability
 from trainer.profile_store import load_profile
@@ -58,6 +59,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 _CSRF_COOKIE = "trainer_csrf"
+# Stan zadań w tle; testy podmieniają go na katalog tymczasowy (tests/conftest.py::_isolate_jobs).
+JOBS_DIR = SETTINGS.local_dir / "jobs"
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 _TEMPLATES.env.filters["num"] = _format_number
 _TEMPLATES.env.filters["plural"] = _plural
@@ -177,7 +180,7 @@ def create_app(
     snapshot_provider: Callable[[], object] = read_snapshot_status,
 ) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
-    store = job_store or JobStore(Path("local/jobs"))
+    store = job_store or JobStore(JOBS_DIR)
     journal_path = journal_path or JOURNAL_PATH
     ai_status_path = ai_status_path or AI_STATUS_PATH
     settings_view = ai_settings_provider or (lambda: ai_settings_view(ai_env_path))

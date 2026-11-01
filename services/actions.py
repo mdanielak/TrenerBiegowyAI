@@ -6,6 +6,13 @@ from datetime import datetime
 
 from services.jobs import (
     AI_FORMAT_MESSAGE,
+    GARMIN_CONFLICT_MESSAGE,
+    PLAN_CONFLICT_MESSAGE,
+    REVIEW_BUSY_MESSAGE,
+    REVIEW_DISABLED_MESSAGE,
+    REVIEW_NO_WORKOUT_MESSAGE,
+    REVIEW_STALE_MESSAGE,
+    SNAPSHOT_MISSING_MESSAGE,
     AI_PAYMENT_MESSAGE,
     AI_REJECTED_MESSAGE,
     GARMIN_LOGIN_REQUIRED_MESSAGE,
@@ -21,12 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 SYNC_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
-SNAPSHOT_MISSING_MESSAGE = "Brakuje lokalnego snapshotu danych. Uruchom: python -m trainer sync"
 PLAN_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
-PLAN_CONFLICT_MESSAGE = ("Na ten tydzień jest już plan. Wybierz, czy go nadpisać, "
-                         "zapisać nowy jako drugą wersję, czy anulować.")
-GARMIN_CONFLICT_MESSAGE = ("Na niektóre dni są już treningi na zegarku. Wybierz, czy je zastąpić, "
-                           "dodać nowe obok, czy anulować.")
 
 
 def synchronize_data(*, fresh=False, progress=None):
@@ -80,8 +82,6 @@ def _ai_failure_message(exc) -> str | None:
     return None
 
 
-REVIEW_BUSY_MESSAGE = "Ocena już trwa. Spróbuj ponownie za chwilę."
-REVIEW_DISABLED_MESSAGE = "Ocena treningu wymaga włączenia wysyłania danych do AI."
 
 
 def review_workout(*, review_key, report_provider, profile_loader=None, provider_factory=None,
@@ -92,9 +92,9 @@ def review_workout(*, review_key, report_provider, profile_loader=None, provider
     report = report_provider()
     execution = report.execution
     if execution is None:
-        raise ValueError("Brak zaplanowanego treningu na dziś.")
+        raise ValueError(REVIEW_NO_WORKOUT_MESSAGE)
     if execution.get("review_key") != review_key:
-        raise ValueError("Ocena dotyczy innego treningu. Odśwież stronę.")
+        raise ValueError(REVIEW_STALE_MESSAGE)
 
     if profile_loader is None:
         from trainer.profile_store import load_profile
