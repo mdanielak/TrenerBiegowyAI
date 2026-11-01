@@ -33,8 +33,9 @@ _SIGNAL_META = {
     "Sleep": {"label": "Sen", "unit": "/100", "icon": "moon",
               "asset": "02_health_status/sleep.png", "trend_key": "sleep_score",
               "explain": "Ocena snu 0–100 liczona przez zegarek Garmin z długości snu, faz snu głębokiego i REM oraz "
-                         "wybudzeń. Aplikacja przyjmuje: 90 i więcej — bardzo dobry sen, 70–89 — przeciętny, poniżej 70 "
-                         "— słaby. Po słabej nocy organizm regeneruje się gorzej, więc lżejszy trening jest bezpieczniejszy."},
+                         "wybudzeń. Aplikacja porównuje ją z Twoją średnią z ostatnich czterech tygodni — każdy śpi inaczej. "
+                         "Niezależnie od średniej 90 i więcej to bardzo dobry sen, a poniżej 60 słaby (kategorie Garmina). "
+                         "Po słabej nocy organizm regeneruje się gorzej, więc lżejszy trening jest bezpieczniejszy."},
     "HRV": {"label": "Zmienność tętna", "unit": "", "icon": "pulse",
             "asset": "02_health_status/hrv.png", "trend_key": None,
             "explain": "Zmienność tętna (HRV) to drobne różnice w odstępach między kolejnymi uderzeniami serca, mierzone "
@@ -44,14 +45,15 @@ _SIGNAL_META = {
     "RHR": {"label": "Tętno spoczynkowe", "unit": "bpm", "icon": "heart",
             "asset": "02_health_status/resting_hr.png", "trend_key": "rhr",
             "explain": "Tętno spoczynkowe to najniższe tętno w ciągu doby, w pełnym spoczynku. Każdy ma własną normę, "
-                       "więc aplikacja porównuje dzisiejszy pomiar ze średnią z Twoich ostatnich czterech tygodni: do 2 uderzeń "
-                       "więcej to norma, 3–5 — lekko podwyższone, więcej — podwyższone. Wyższe niż zwykle bywa sygnałem "
-                       "zmęczenia, odwodnienia albo nadchodzącej infekcji."},
+                       "więc aplikacja porównuje dzisiejszy pomiar ze średnią z Twoich ostatnich czterech tygodni i z tym, "
+                       "jak bardzo Twoje tętno zwykle się waha. Wyższe niż zwykle bywa sygnałem zmęczenia, odwodnienia "
+                       "albo nadchodzącej infekcji."},
     "Stress": {"label": "Stres", "unit": "", "icon": "bolt",
                "asset": "02_health_status/stress.png", "trend_key": "stress_avg",
-               "explain": "Średni poziom stresu w ciągu dnia w skali 0–100, liczony przez zegarek z tętna i HRV. Do 30 "
-                          "— niski, 31–40 — umiarkowany, powyżej 40 — podwyższony. Stres w pracy czy słaby sen obciążają "
-                          "organizm podobnie jak trening, dlatego też wpływają na ocenę."},
+               "explain": "Średni poziom stresu w ciągu dnia w skali 0–100, liczony przez zegarek z tętna i HRV. Aplikacja "
+                          "porównuje go z Twoją średnią z ostatnich czterech tygodni, bo zwykły poziom stresu zależy od osoby "
+                          "i pracy. Niezależnie od średniej do 25 to niski stres, a powyżej 50 wysoki (kategorie Garmina). "
+                          "Stres w pracy czy słaby sen obciążają organizm podobnie jak trening, dlatego też wpływają na ocenę."},
 }
 _WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
 _READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}

@@ -14,7 +14,7 @@ from ..config import DATA_LATEST, AI_DATA_EXPORT_ENABLED
 
 logger = logging.getLogger(__name__)
 from services.data_extract import SnapshotStatus, read_snapshot_status
-from services.readiness import compute_readiness_breakdown, compare_plan_vs_actual, rhr_baseline
+from services.readiness import compute_readiness_breakdown, compare_plan_vs_actual, personal_norms
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 
 # --- Windows encoding fix ---
@@ -203,7 +203,7 @@ def main(use_ai=False, strict_ai=False):
 
     # 4. Readiness
     latest_day = str((data.get('daily_health') or [{}])[0].get('date', ''))[:10]
-    breakdown = compute_readiness_breakdown(data, rhr_baseline=rhr_baseline(data.get('daily_health'), latest_day))
+    breakdown = compute_readiness_breakdown(data, norms=personal_norms(data, latest_day))
     print_readiness(breakdown)
 
     # 5. Plan comparison

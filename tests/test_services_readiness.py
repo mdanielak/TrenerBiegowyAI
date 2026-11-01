@@ -39,8 +39,9 @@ class TestReadinessBreakdown:
         assert result['level'] == 'ready'
 
     def test_zero_score(self):
+        # Bez normy snu i stresu obowiązują kategorie Garmina: poniżej 60 i powyżej 50 to 0 pkt.
         data = _make_data(rhr=56, hrv_status='LOW', hrv_last=55,
-                          hrv_low=67, sleep_score=65, stress=45)
+                          hrv_low=67, sleep_score=55, stress=55)
         result = compute_readiness_breakdown(data, rhr_baseline=48)
         assert result['score'] == 0
         assert result['level'] == 'not_ready'
@@ -281,17 +282,54 @@ def test_resting_heart_rate_is_judged_against_the_runners_own_norm():
     assert "rhr" in unknown["missing_metrics"] and "Za mało pomiarów" in unknown["details"][0]["message"]
 
 
-def test_scoring_rules_name_the_same_points_as_the_scoring():
-    """Opis „za co punkty” na Analizie musi zgadzać się z tym, co liczy compute_readiness_breakdown."""
-    from services.readiness import SCORING_RULES, compute_readiness_breakdown
 
-    def points(metric_key, **health):
-        data = {"daily_health": [{"date": "2026-10-02", **health}], "hrv": [], "sleep": []}
-        result = compute_readiness_breakdown(data, rhr_baseline=50)
-        return {d["metric"]: d["points"] for d in result["details"]}[metric_key]
+def _history(days, **values):
+    """Dni przed 2026-10-02 z tymi samymi wartościami (lista wartości = wahania)."""
+    from datetime import date, timedelta
+    out = []
+    for i in range(days):
+        day = (date(2026, 10, 2) - timedelta(days=i + 1)).isoformat()
+        out.append({"date": day, **{k: (v[i % len(v)] if isinstance(v, list) else v) for k, v in values.items()}})
+    return out
 
-    assert points("Stress", stress_avg=30) == 2 and points("Stress", stress_avg=31) == 1 and points("Stress", stress_avg=41) == 0
-    assert points("RHR", rhr=52) == 2.5 and points("RHR", rhr=55) == 1.5 and points("RHR", rhr=56) == 0
-    assert "2 pkt — do 30" in SCORING_RULES["Stress"] and "1 pkt — 31–40" in SCORING_RULES["Stress"]
-    assert "2,5 pkt — do 2 uderzeń" in SCORING_RULES["RHR"] and "1,5 pkt — 3–5" in SCORING_RULES["RHR"]
-    assert set(SCORING_RULES) == {"RHR", "HRV", "Sleep", "Stress"}
+
+def _score(metric, health=None, sleep=None, history_health=None, history_sleep=None):
+    from services.readiness import personal_norms, compute_readiness_breakdown
+    data = {"daily_health": [{"date": "2026-10-02", **(health or {})}] + (history_health or []),
+            "sleep": ([{"date": "2026-10-02", **sleep}] if sleep else []) + (history_sleep or []), "hrv": []}
+    result = compute_readiness_breakdown(data, norms=personal_norms(data, "2026-10-02"))
+    return next(d for d in result["details"] if d["metric"] == metric)
+
+
+def test_stress_is_judged_against_the_persons_own_average():
+    calm = _history(15, stress_avg=[20, 22, 24])     # osoba zwykle spokojna
+    busy = _history(15, stress_avg=[36, 38, 40])     # osoba z wymagającą pracą
+    assert _score("Stress", {"stress_avg": 34}, history_health=calm)["points"] < 2
+    assert _score("Stress", {"stress_avg": 38}, history_health=busy)["points"] == 2
+
+
+def test_garmin_floors_hold_regardless_of_the_norm():
+    poor_sleeper = _history(14, score=[55, 58, 60], sleep_score=None)
+    assert _score("Sleep", sleep={"score": 57}, history_sleep=poor_sleeper)["points"] == 0   # poniżej 60 zawsze słaby
+    assert _score("Sleep", sleep={"score": 92}, history_sleep=_history(14, score=95))["points"] == 2.5  # 90+ zawsze dobry
+    stressed = _history(14, stress_avg=[55, 58, 60])
+    assert _score("Stress", {"stress_avg": 56}, history_health=stressed)["points"] == 0       # powyżej 50 zawsze 0
+
+
+def test_without_a_week_of_data_garmin_categories_are_used():
+    assert _score("Sleep", sleep={"score": 85})["points"] == 2.5
+    assert _score("Sleep", sleep={"score": 70})["points"] == 1.5
+    assert _score("Stress", {"stress_avg": 30})["points"] == 1
+
+
+def test_resting_hr_tolerance_follows_the_persons_variability():
+    steady = _history(14, rhr=50)                        # bardzo równe pomiary: wahania przyjmowane jako 2 bpm
+    jumpy = _history(15, rhr=[46, 50, 54])               # duże wahania
+    assert _score("RHR", {"rhr": 53}, history_health=steady)["points"] == 1.5
+    assert _score("RHR", {"rhr": 53}, history_health=jumpy)["points"] == 2.5
+
+
+def test_scoring_text_names_the_persons_own_numbers_and_matches_the_points():
+    detail = _score("Stress", {"stress_avg": 30}, history_health=_history(15, stress_avg=[20, 22, 24]))
+    assert "Twoja średnia 22" in detail["scoring"] and "2 pkt — do 26" in detail["scoring"]
+    assert detail["points"] == 1 and "1 pkt — 27–32" in detail["scoring"]

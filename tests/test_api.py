@@ -1108,11 +1108,12 @@ def test_signals_explain_themselves_on_analysis_only():
     """„?” przy każdym sygnale: zwykły tekst dla osoby, która nie wie, co to HRV."""
     readiness = _analysis_readiness(available_metrics=["sleep", "rhr", "hrv", "stress"], missing_metrics=[],
                                     confidence="high", raw_score=8.0, available_max_score=10.0)
+    readiness["details"][2]["scoring"] = "2,5 pkt — ocena 78 i więcej (Twoja średnia 83)"
     with _analysis_client(readiness) as client:
         analysis = client.get("/analysis").text
     # Objaśnienie i punktacja w panelu pod wierszem (nie w linii z nazwą, gdzie przesuwało ikonę i punkty).
     assert '<details class="analysis-row">' in analysis and '<div class="explain-panel">' in analysis
-    assert "Za co punkty:" in analysis and "2,5 pkt — ocena snu 90 i więcej" in analysis
+    assert "Za co punkty:" in analysis and "2,5 pkt — ocena 78 i więcej (Twoja średnia 83)" in analysis
     assert "drobne różnice w odstępach między kolejnymi uderzeniami serca" in analysis
     assert "Ocena 0–10 sumuje cztery sygnały" in analysis
     with TestClient(create_app(report_provider=lambda: _report())) as client:
