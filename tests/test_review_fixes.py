@@ -92,11 +92,6 @@ def test_readiness_reasons_have_no_english_codes():
     assert not re.search(r"\b(RHR|LOW|score|baseline)\b", messages)
 
 
-def test_week_legend_is_gender_neutral():
-    page = TestClient(create_app(report_provider=lambda: _report())).get("/week").text
-    assert "nie jesteś gotowy" not in page
-
-
 def test_today_shows_the_workout_profile_and_greys_it_out_during_a_pause():
     spec = {"kind": "hr_zone_run", "duration_min": 40, "zone_number": 2, "warmup_min": 6}
     planned = {"name": "Łatwy 40 min – Z2", "spec": spec}

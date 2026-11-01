@@ -53,7 +53,6 @@ Uruchom `update.bat`, aby pobrać najnowsze wydanie i zaktualizować aplikację.
 | --- | --- |
 | **Dzisiaj** | Sygnały, gotowość, trening na dziś i synchronizację |
 | **Plan treningowy** | Cel tygodnia, treningi dzień po dniu, porównanie czasu oraz wysyłkę do Garmina |
-| **Kalendarz** | Zaplanowane treningi i aktywności z zegarka |
 | **Statystyki** | Dystans, czas biegów, plan i trendy pomiarów |
 | **Analiza** | Wyjaśnienie oceny gotowości i zmierzone wartości |
 | **Dziennik** | Samopoczucie, RPE, ból, notatki i przerwy |

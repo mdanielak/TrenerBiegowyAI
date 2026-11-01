@@ -7,21 +7,6 @@ from services import today
 from services.today import build_today_report
 
 
-def test_readiness_chart_does_not_connect_days_without_measurements():
-    from types import SimpleNamespace
-    from api.views.today import _readiness_chart
-
-    days = [SimpleNamespace(readiness={"score": value} if value is not None else None,
-                            weekday_index=index, temporal_state="past")
-            for index, value in enumerate([6, 7, None, 4, 5, None, 8])]
-    chart = _readiness_chart(days)
-    assert len(chart["lines"]) == 2
-    assert len(chart["areas"]) == 2
-    assert chart["lines"][0].split() == [f"{p['x']},{p['y']}" for p in chart["points"][:2]]
-    assert chart["lines"][1].split() == [f"{p['x']},{p['y']}" for p in chart["points"][3:5]]
-    assert chart["points"][2]["score"] is None
-
-
 def _snapshot(status=SnapshotStatus.FRESH, **data):
     return SnapshotReadResult(status, {"activities": [], "daily_health": [], "sleep": [], "hrv": [], **data})
 

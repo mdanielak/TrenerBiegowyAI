@@ -26,7 +26,7 @@
     {# Strażnik: serwer uruchomiony na starszym kodzie nie zna tej funkcji, a szablony przeładowują się same. #}
     {% if request is defined and sidebar_ai_badge is defined %}{% with ai_badge = sidebar_ai_badge(request) %}{% include "_ai_badge.html" %}{% endwith %}{% endif %}
 
-    <button class="nav-toggle btn-secondary" type="button" aria-controls="primary-nav" aria-expanded="false">Menu · {{ {'today':'Strona główna', 'plan':'Plan treningowy', 'week':'Kalendarz', 'stats':'Statystyki', 'analysis':'Analiza', 'journal':'Dziennik', 'goal':'Cel', 'settings':'Ustawienia'}.get(active_nav, 'Nawigacja') }}</button>
+    <button class="nav-toggle btn-secondary" type="button" aria-controls="primary-nav" aria-expanded="false">Menu · {{ {'today':'Strona główna', 'plan':'Plan treningowy', 'stats':'Statystyki', 'analysis':'Analiza', 'journal':'Dziennik', 'goal':'Cel', 'settings':'Ustawienia'}.get(active_nav, 'Nawigacja') }}</button>
     <nav class="nav" id="primary-nav" aria-label="Nawigacja główna">
       <span class="nav-label">Widoki</span>
 
@@ -36,10 +36,6 @@
 
       <a class="nav-item{% if active_nav == 'plan' %} active{% endif %}" href="/plan"{% if active_nav == 'plan' %} aria-current="page"{% endif %}>
         <img class="asset" src="/assets/01_navigation/plan.png" width="34" height="34" alt=""><span>Plan treningowy</span>
-      </a>
-
-      <a class="nav-item{% if active_nav == 'week' %} active{% endif %}" href="/week"{% if active_nav == 'week' %} aria-current="page"{% endif %}>
-        <img class="asset" src="/assets/01_navigation/calendar.png" width="34" height="34" alt=""><span>Kalendarz</span>
       </a>
 
       <a class="nav-item{% if active_nav == 'stats' %} active{% endif %}" href="/stats"{% if active_nav == 'stats' %} aria-current="page"{% endif %}>

@@ -16,28 +16,21 @@ from services.journal import entries_by_day
 from services.wizard import needs_onboarding
 from services.jobs import JobStore
 from services.today import TodayReport
-from services.week import WeekReport
 from api.schemas import HealthResponse, ReadinessResponse
 from api.views.analysis import _CONFIDENCE_LABELS, _analysis_measurements, _analysis_rows
 from api.views.common import (
     _HRV_STATUSES,
     _READINESS_LABELS,
-    _WEEK_STATUS_LABELS,
-    _WEEK_WARNING_LABELS,
     _WEEKDAYS,
-    _WEEKDAYS_SHORT,
     _format_date,
-    _format_minutes,
     _format_score,
     _format_sync_time,
-    _readiness_pill,
 )
 from api.views.jobs import _sync_banner
 from api.views.plan import _plan_workout_view
 from api.views.today import (
     _SUGGESTIONS,
     _raise_report_error,
-    _readiness_chart,
     _recommendation_view,
     _report_error,
     _ring_geometry,
@@ -54,7 +47,6 @@ logger = logging.getLogger(__name__)
 def get_dashboard_router(
     *,
     report_provider: Callable[[], TodayReport],
-    week_report_provider: Callable[[], WeekReport],
     profile_provider: Callable[[], dict],
     review_loader: Callable[..., Optional[dict]],
     recommendation_loader: Callable[..., Optional[dict]],
@@ -170,52 +162,10 @@ def get_dashboard_router(
         )
         return ReadinessResponse(**readiness_data, warning=warning)
 
-    @router.get("/week", response_class=HTMLResponse)
-    def week(request: Request):
-        try:
-            report = week_report_provider()
-        except FileNotFoundError:
-            return templates.TemplateResponse(
-                request=request,
-                name="week.html",
-                context={
-                    "error_message": "Brakuje lokalnych danych raportu.",
-                    "error_command": "python -m trainer sync",
-                    "active_nav": "week",
-                },
-                status_code=404,
-                headers={"Cache-Control": "no-store"},
-            )
-        except Exception:
-            logger.error("Could not build weekly report")
-            return templates.TemplateResponse(
-                request=request,
-                name="week.html",
-                context={
-                    "error_message": "Nie można odczytać lokalnych danych raportu.",
-                    "error_command": "python -m trainer sync",
-                    "active_nav": "week",
-                },
-                status_code=503,
-                headers={"Cache-Control": "no-store"},
-            )
-        return templates.TemplateResponse(
-            request=request,
-            name="week.html",
-            context={
-                "report": report,
-                "weekdays": _WEEKDAYS,
-                "day_status_labels": _WEEK_STATUS_LABELS,
-                "warning_labels": _WEEK_WARNING_LABELS,
-                "format_date": _format_date,
-                "format_minutes": _format_minutes,
-                "readiness_pill": _readiness_pill,
-                "weekdays_short": _WEEKDAYS_SHORT,
-                "chart": _readiness_chart(report.days),
-                "active_nav": "week",
-            },
-            headers={"Cache-Control": "no-store"},
-        )
+    @router.get("/week")
+    def week():
+        """Kalendarz został połączony z Planem; stare zakładki prowadzą na Plan."""
+        return RedirectResponse(url="/plan", status_code=303)
 
     @router.get("/analysis", response_class=HTMLResponse)
     def analysis(request: Request):

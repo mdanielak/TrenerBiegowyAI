@@ -31,7 +31,6 @@ from services.journal import JOURNAL_PATH
 from services.stats import StatsReport, get_stats_report
 from services.sync_progress import progress_view
 from services.today import TodayReport, get_today_report
-from services.week import WeekReport, get_week_report
 from services.workout_reviews import load_review
 from trainer.ai_settings import ENV_PATH, apply_to_running_app
 from trainer.logging_config import setup_logging
@@ -142,7 +141,6 @@ def ai_settings_view(ai_env_path: Path) -> dict:
 def create_app(
     *,
     report_provider: Callable[[], TodayReport] = get_today_report,
-    week_report_provider: Callable[[], WeekReport] = get_week_report,
     stats_report_provider: Callable[[int], StatsReport] = get_stats_report,
     goal_report_provider: Callable[[], GoalReport] = get_goal_report,
     journal_path: Path | None = None,
@@ -259,7 +257,6 @@ def create_app(
     app.include_router(
         get_dashboard_router(
             report_provider=report_provider,
-            week_report_provider=week_report_provider,
             profile_provider=profile_provider,
             review_loader=review_loader,
             recommendation_loader=recommendation_loader,

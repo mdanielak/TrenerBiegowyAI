@@ -23,16 +23,6 @@ _MONTHS_GENITIVE = (
     "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
     "lipca", "sierpnia", "września", "października", "listopada", "grudnia",
 )
-_WEEK_STATUS_LABELS = {
-    "no_plan": "Brak zapisanego treningu",
-    "planned_pause": "Planowana przerwa (rekonwalescencja)",
-    "activity_only": "Aktywności bez zapisanego treningu",
-    "planned": "Zaplanowane",
-    "matched": "Znaleziono wykonanie",
-    "partially_matched": "Znaleziono wykonanie części treningów",
-    "no_record": "Brak wykonania w lokalnych danych",
-    "uncertain": "Nie można jednoznacznie porównać",
-}
 _WEEK_WARNING_LABELS = {
     "snapshot_stale": "Dane o aktywnościach mogą być nieaktualne.",
     "snapshot_activities_may_be_incomplete": "Lista aktywności może być niepełna, bo dane zapisano w starszym, węższym zakresie.",
@@ -50,19 +40,6 @@ _SIGNAL_META = {
 }
 _WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
 _READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}
-
-
-def _format_minutes(value) -> str | None:
-    """Zamień minuty na czas czytelny dla człowieka."""
-    if value is None:
-        return None
-    total = int(round(float(value)))
-    hours, minutes = divmod(total, 60)
-    if hours and minutes:
-        return f"{hours} h {minutes} min"
-    if hours:
-        return f"{hours} h"
-    return f"{minutes} min"
 
 
 def _readiness_pill(day_readiness) -> dict | None:
