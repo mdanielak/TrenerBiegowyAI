@@ -1116,3 +1116,13 @@ def test_signals_explain_themselves_on_analysis_and_home():
     with TestClient(create_app(report_provider=lambda: _report())) as client:
         home = client.get("/").text
     assert 'aria-label="Co to znaczy: Tętno spoczynkowe"' in home and "średnią z Twoich ostatnich czterech tygodni" in home
+
+
+def test_job_page_names_the_operation(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    job = store.submit("plan", {"week_start": "2026-11-02"})
+    store.mark_running(job.id)
+    store.mark_failed(job.id)
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=store)) as client:
+        page = client.get(f"/jobs/{job.id}").text
+    assert "<h1>Układanie planu</h1>" in page and "Synchronizacja danych" not in page

@@ -521,7 +521,7 @@ def get_actions_router(
             raise HTTPException(404, "Nie znaleziono zadania.")
         labels = {
             "accepted": "Zadanie przyjęte, za chwilę się zacznie.",
-            "running": "Trwa synchronizacja danych. Postęp aktualizuje się automatycznie.",
+            "running": "Trwa. Strona aktualizuje się automatycznie.",
             "succeeded": "Gotowe. Dane są zaktualizowane.",
             "failed": "Nie udało się. Spróbuj ponownie.",
             "unknown": "Nie wiemy, czy operacja się dokończyła. Sprawdź dane, zanim spróbujesz ponownie.",
@@ -531,6 +531,10 @@ def get_actions_router(
             name="job.html",
             context={
                 "job": job,
+                "title": {"sync": "Synchronizacja danych", "plan": "Układanie planu",
+                          "plan_push": "Wysyłka planu na zegarek", "plan_remove": "Usuwanie treningu z zegarka",
+                          "review": "Ocena treningu", "recommendation": "Rekomendacja na dziś",
+                          }.get(job.operation, "Zadanie w tle"),
                 "message": labels[job.status],
                 "progress": (progress_view(store.directory, job.id)
                              if job.operation == "sync" and job.status in {"accepted", "running"} else None),

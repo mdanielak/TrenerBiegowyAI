@@ -59,7 +59,8 @@ def _plan_banner(store: JobStore, now: datetime, operation: str, messages: dict)
         return {"message": None, "details_url": None, "refresh": False, "disabled": False}
     job = jobs[0]
     if job.status in {"accepted", "running"}:
-        return {"message": messages.get("running"), "details_url": None, "refresh": True, "disabled": True}
+        return {"message": messages.get(job.status) or messages.get("running"), "details_url": None,
+                "refresh": True, "disabled": True}
     completed_at = _job_timestamp(job.finished_at or job.created_at)
     current = now.astimezone(timezone.utc)
     recent = completed_at is not None and current - completed_at <= timedelta(minutes=10)

@@ -171,3 +171,34 @@ def test_message_without_trends_or_journal_says_so():
 
 def test_system_prompt_puts_journal_pain_before_metrics():
     assert "Ból zgłoszony w sekcji DZIENNIK ma pierwszeństwo przed metrykami" in build_system_prompt()
+
+
+def test_unreadable_answer_is_asked_once_more():
+    from ai.openai_compatible import AIResponseError
+
+    class Flaky(_Provider):
+        calls = 0
+
+        def chat(self, *args, **kwargs):
+            Flaky.calls += 1
+            if Flaky.calls == 1:
+                raise AIResponseError("AI returned invalid JSON (10 characters)")
+            return super().chat(*args, **kwargs)
+
+    assert isinstance(generate_week_plan(Flaky(), _context()), WeekPlanResponse)
+    assert Flaky.calls == 2
+
+
+def test_second_unreadable_answer_gives_up():
+    from ai.openai_compatible import AIResponseError
+
+    class Broken:
+        calls = 0
+
+        def chat(self, *args, **kwargs):
+            Broken.calls += 1
+            raise AIResponseError("AI returned invalid JSON (10 characters)")
+
+    with pytest.raises(AIResponseError):
+        generate_week_plan(Broken(), _context())
+    assert Broken.calls == 2

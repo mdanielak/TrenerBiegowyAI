@@ -196,3 +196,18 @@ def test_run_review_job_records_busy_message(tmp_path, monkeypatch):
                    operation=lambda **kwargs: None, lock_directory=tmp_path)
 
     assert store.calls == [("running", "job-1"), ("failed", "job-1", {"message": REVIEW_BUSY_MESSAGE})]
+
+
+def test_run_plan_job_explains_unreadable_ai_answer(tmp_path):
+    from ai.openai_compatible import AIResponseError
+    from services.actions import run_plan_job
+    from services.jobs import AI_FORMAT_MESSAGE
+
+    def broken(**kwargs):
+        raise AIResponseError("AI returned invalid JSON (10 characters)")
+
+    store = JobStore(tmp_path / "jobs")
+    job = store.submit("plan", {"week_start": "2026-11-02"})
+    result = run_plan_job(store=store, job_id=job.id, operation=broken, lock_directory=tmp_path)
+
+    assert result.error_message == AI_FORMAT_MESSAGE

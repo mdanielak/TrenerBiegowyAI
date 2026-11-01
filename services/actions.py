@@ -1,9 +1,11 @@
 """Wykonawcy mutujących operacji uruchamianych jako zadania w tle."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from services.jobs import (
+    AI_FORMAT_MESSAGE,
     AI_PAYMENT_MESSAGE,
     AI_REJECTED_MESSAGE,
     GARMIN_LOGIN_REQUIRED_MESSAGE,
@@ -14,6 +16,8 @@ from services.jobs import (
 from services.locking import LockBusyError, acquire_lock
 from services.plan import as_datetime
 from services.sync_progress import SyncProgress
+
+logger = logging.getLogger(__name__)
 
 
 SYNC_BUSY_MESSAGE = "Operacja już trwa. Spróbuj ponownie za chwilę."
@@ -59,7 +63,15 @@ def run_sync_job(*, store: JobStore, job_id: str, operation=synchronize_data,
 
 
 def _ai_failure_message(exc) -> str | None:
-    """Powód dla błędów dostawcy AI; inne błędy zostają z ogólnym komunikatem."""
+    """Powód dla błędów dostawcy AI; inne błędy zostają z ogólnym komunikatem.
+
+    Przyczyna trafia do logu (tylko lokalnie), bo w aplikacji widać jedynie zmapowany komunikat.
+    """
+    from ai.openai_compatible import AIResponseError
+
+    logger.error("Background job failed: %s", type(exc).__name__, exc_info=exc)
+    if isinstance(exc, AIResponseError):
+        return AI_FORMAT_MESSAGE
     status = getattr(exc, "status_code", None)
     if status == 402:
         return AI_PAYMENT_MESSAGE

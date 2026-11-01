@@ -23,9 +23,10 @@ from api.views.plan import _conflict_view, _format_generated_at, _plan_load_char
 logger = logging.getLogger(__name__)
 
 PLAN_MESSAGES = {
-    "running": "Trwa układanie planu na ten tydzień.",
+    "accepted": "Plan czeka w kolejce, np. na koniec synchronizacji z Garminem. Strona odświeży się sama.",
+    "running": "Trener układa plan — zwykle trwa to do minuty. Strona odświeży się sama.",
     "failed": "Nie udało się ułożyć planu. Spróbuj ponownie.",
-    "succeeded": "Plan na ten tydzień jest gotowy.",
+    "succeeded": "Plan tygodnia jest ułożony.",
 }
 PLAN_PUSH_MESSAGES = {
     "running": "Trwa wysyłka planu na zegarek.",

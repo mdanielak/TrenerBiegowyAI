@@ -6,12 +6,16 @@ twarde reguły tygodnia egzekwuje warstwa deterministyczna w `services/plan.py`.
 """
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from ai.context import journal_lines
 from services.strategy import STRATEGY_PATH
+
+logger = logging.getLogger(__name__)
 
 
 class PlanWorkout(BaseModel):
@@ -336,11 +340,17 @@ def build_plan_message(context: dict) -> str:
 
 
 def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
-    """Poproś model o plan tygodnia i zwróć jego odpowiedź w ustalonym schemacie."""
-    return provider.chat(
-        build_system_prompt(runner=(context or {}).get("runner")),
-        build_plan_message(context),
-        response_model=WeekPlanResponse,
-        temperature=0.0,
-        seed=7,
-    )
+    """Poproś model o plan tygodnia i zwróć jego odpowiedź w ustalonym schemacie.
+
+    Model czasem odda nieczytelny JSON albo pominie pole; wtedy pytamy jeszcze raz (inny seed).
+    """
+    from ai.openai_compatible import AIResponseError
+
+    system, message = build_system_prompt(runner=(context or {}).get("runner")), build_plan_message(context)
+    for seed in (7, 8):
+        try:
+            return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed)
+        except AIResponseError:
+            if seed == 8:
+                raise
+            logger.warning("Plan answer from AI was unreadable; asking once more")

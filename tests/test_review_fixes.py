@@ -34,8 +34,12 @@ def test_workout_done_during_a_pause_is_still_shown_without_the_pause_notice():
 
 
 @pytest.mark.parametrize("path", ["/", "/plan", "/analysis"])
-def test_footers_and_labels_are_gender_neutral(path):
-    page = TestClient(create_app(report_provider=lambda: _report())).get(path).text
+def test_footers_and_labels_are_gender_neutral(path, tmp_path):
+    from services.jobs import JobStore
+
+    # Własny magazyn zadań: paski z prawdziwego local/jobs nie mogą wpływać na wynik testu.
+    page = TestClient(create_app(report_provider=lambda: _report(),
+                                 job_store=JobStore(tmp_path / "jobs"))).get(path).text
     assert "podejmujesz sam" not in page and "gotowy" not in page
 
 

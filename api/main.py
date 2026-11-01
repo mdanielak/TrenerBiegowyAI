@@ -193,7 +193,7 @@ def create_app(
         setup_logging(level=logging.INFO)
         logger.info("Trener Biegowy AI API starting")
         store.mark_abandoned_running_as_unknown()
-        store.prune_finished()
+        store.prune_finished(now=now_provider())
         app_instance.state.job_executor = ThreadPoolExecutor(max_workers=1)
         try:
             yield
