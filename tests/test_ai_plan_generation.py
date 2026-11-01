@@ -108,11 +108,7 @@ def test_missing_values_are_written_as_brak():
 
 
 def test_system_prompt_reports_missing_strategy_and_keeps_rules(tmp_path):
-    prompt = build_system_prompt(
-        important_prompt_path=tmp_path / "brak.txt",
-        rules_path=tmp_path / "brak-rules.md",
-        strategy_path=tmp_path / "brak.md",
-    )
+    prompt = build_system_prompt(strategy_path=tmp_path / "brak.md")
 
     assert "Strategia długoterminowa nie jest dostępna" in prompt
     assert "ZASADY UKŁADANIA TYGODNIA" in prompt

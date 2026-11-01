@@ -237,7 +237,7 @@
         {% for plan_day in plan.days %}
           {% set run = runs[loop.index0] if runs else none %}
           {# Pasek w kolorze strefy u góry karty: tydzień czyta się jak profil obciążenia. #}
-          <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}{% if plan_day.is_rest %} rest-day{% elif plan_day.hr_zone %} zone-band {{ plan_day.hr_zone|lower }}{% endif %}"
+          <div class="day {% if plan_day.is_today %}today{% elif plan_day.is_past %}past{% endif %}{% if plan_day.is_rest %} rest-day{% elif plan_day.hr_zone %} zone-band {{ plan_day.hr_zone|lower }}{% if plan_day.kind == 'long' %} long{% endif %}{% endif %}"
                role="group" aria-label="{{ plan_day.weekday|capitalize }}, {{ format_date(plan_day.date) }}">
             <div class="day-head">
               <span class="day-name">{{ plan_day.weekday_short }}</span>

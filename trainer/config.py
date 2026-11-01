@@ -40,7 +40,6 @@ class AppSettings:
     memory_dir: Path
     workout_registry: Path
     training_plans_dir: Path
-    important_prompt: Path
     runner_profile_example: Path
     health_data_dir: Path
     snapshot_ttl_seconds: int
@@ -65,7 +64,6 @@ SETTINGS = AppSettings(
     memory_dir=LOCAL_DIR / "memory",
     workout_registry=LOCAL_DIR / "workout-registry.jsonl",
     training_plans_dir=ROOT / "training-plans",
-    important_prompt=ROOT / "IMPORTANT_PROMPT.txt",
     runner_profile_example=ROOT / "runner_profile.example.json",
     health_data_dir=Path(os.environ.get("HEALTH_DATA_DIR") or Path.home() / "HealthData").expanduser(),
     snapshot_ttl_seconds=_positive_int_env("SNAPSHOT_TTL_SECONDS", 24 * 60 * 60),
@@ -83,7 +81,6 @@ SETTINGS = AppSettings(
 PROJECT_ROOT = SETTINGS.project_root
 DATA_LATEST = SETTINGS.data_latest
 TRAINING_PLANS_DIR = SETTINGS.training_plans_dir
-IMPORTANT_PROMPT = SETTINGS.important_prompt
 RUNNER_PROFILE_LOCAL = SETTINGS.runner_profile_local
 RUNNER_PROFILE_EXAMPLE = SETTINGS.runner_profile_example
 HEALTH_DATA_DIR = SETTINGS.health_data_dir

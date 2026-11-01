@@ -119,7 +119,7 @@ class TestBuildContext:
     def test_returns_all_keys(self):
         data = _make_sample_data()
         context = build_training_context(data)
-        assert "system_prompt" in context
+        assert "runner" in context
         assert "runner_profile" in context
         assert "goal" in context
         assert "recent_activities" in context

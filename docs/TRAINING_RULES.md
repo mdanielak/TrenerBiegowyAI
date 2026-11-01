@@ -1,6 +1,9 @@
 # Zasady tworzenia treningów
 
-Dokument obowiązujący dla budowania treningów i rekomendacji. Jeśli inny dokument mu przeczy, obowiązują te zasady.
+Dokument dla ludzi pracujących nad aplikacją. Do AI trafiają prompty z `ai/prompts/` (trener i moduły
+dobierane do profilu biegacza) oraz twarde reguły z `ai/plan_generation.py`; plan po odpowiedzi AI
+pilnują bezpieczniki w `services/plan.py::normalize_plan`. Ten plik do promptu nie trafia.
+Własne, prywatne zasady dla trenera można dopisać w `local/moje-zasady-trenera.md`.
 
 ## Bezpieczeństwo i dane
 
@@ -19,7 +22,7 @@ Dokument obowiązujący dla budowania treningów i rekomendacji. Jeśli inny dok
 
 ## Strategia i pliki
 
-- `training-plans/long-term/half-marathon-2027.md` określa kierunek długoterminowy.
+- Opcjonalna, prywatna strategia długoterminowa (`training-plans/long-term/half-marathon-2027.md`, wzór w `przyklad-strategii.md`) wyznacza kierunek, jeśli istnieje.
 - Tygodniowy JSON jest opcjonalnym planem wykonawczym; jego brak nie blokuje analizy ani rekomendacji.
 - `local/workout-registry.jsonl` jest prywatnym rejestrem operacji na treningach Garmin, nie planem treningowym.
 - Treningi twórz przez CLI: `python -m trainer workouts create easy|tempo|intervals|long|strides ...`. Polecenie zmienia dane treningów na Garminie.

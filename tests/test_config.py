@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from trainer.config import (
-    SETTINGS, PROJECT_ROOT, DATA_LATEST, TRAINING_PLANS_DIR, IMPORTANT_PROMPT,
+    SETTINGS, PROJECT_ROOT, DATA_LATEST, TRAINING_PLANS_DIR,
     HEALTH_DATA_DIR, ACT_DB, MAIN_DB,
     GARMINDB_SYNC_TIMEOUT, GARMINDB_FRESH_TIMEOUT, resolve_database_dir,
 )
@@ -23,7 +23,6 @@ class TestPaths:
         assert PROJECT_ROOT == Path(__file__).resolve().parents[1]
         assert SETTINGS.local_dir == PROJECT_ROOT / "local"
         assert TRAINING_PLANS_DIR == PROJECT_ROOT / "training-plans"
-        assert IMPORTANT_PROMPT == PROJECT_ROOT / "IMPORTANT_PROMPT.txt"
         assert SETTINGS.runner_profile_local == PROJECT_ROOT / "local" / "profile.json"
 
     def test_data_latest_is_path(self):
@@ -42,11 +41,6 @@ class TestPaths:
         from pathlib import Path
         assert isinstance(TRAINING_PLANS_DIR, Path)
         assert TRAINING_PLANS_DIR.name == "training-plans"
-
-    def test_important_prompt(self):
-        from pathlib import Path
-        assert isinstance(IMPORTANT_PROMPT, Path)
-        assert IMPORTANT_PROMPT.name == "IMPORTANT_PROMPT.txt"
 
     def test_health_data_dir(self):
         from pathlib import Path

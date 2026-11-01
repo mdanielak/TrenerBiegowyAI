@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta
 from services.form_errors import FieldError
+from services.runner_profile import address_form
 
 DISTANCES = {
     "5k": "5 km",
@@ -20,8 +21,15 @@ DISTANCES = {
 }
 DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DAY_LABELS = dict(zip(DAYS, ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")))
-STEPS = ("goal", "times", "week", "summary")
+STEPS = ("goal", "times", "you", "week", "summary")
 NAME_LIMIT = 80
+HEALTH_LIMIT = 300
+# Staż biegania: pomaga ocenić poziom, gdy zegarek ma jeszcze krótką historię.
+RUNNING_SINCE = {"start": "Dopiero zaczynam", "under6": "Do 6 miesięcy", "6to24": "Od 6 miesięcy do 2 lat",
+                 "over24": "Ponad 2 lata"}
+# Forma, w jakiej trener AI pisze do biegacza (klucze jak services.runner_profile.ADDRESS_FORMS).
+ADDRESS_FORMS = {"female": "W formie żeńskiej (np. „zrobiłaś”)", "male": "W formie męskiej (np. „zrobiłeś”)",
+                 "neutral": "Bez form płciowych (np. „trening zrobiony”)"}
 _TIME = re.compile(r"^(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)$")
 
 
@@ -56,6 +64,9 @@ def prefill(profile: dict, availability: dict) -> dict:
         "event_date": date_match.group(0) if date_match else "",
         "target_time": profile.get("target_time") or "",
         "record": profile.get("current_hm_record") or "",
+        "running_since": profile.get("running_since") or "",
+        "health_notes": profile.get("health_notes") or "",
+        "address_form": address_form(profile),
         "frequency": frequency.group(0) if frequency else "4",
     }
     for day in DAYS:
@@ -114,6 +125,12 @@ def validate_step(step: str, values: dict, *, today: date) -> dict:
             except ValueError as error:
                 raise FieldError(str(error), field) from None
         return cleaned
+    if step == "you":
+        if values.get("running_since") not in RUNNING_SINCE:
+            raise FieldError("Zaznacz, od jak dawna biegasz.", "running_since")
+        return {"running_since": values["running_since"],
+                "health_notes": _clean(values.get("health_notes"), HEALTH_LIMIT),
+                "address_form": values.get("address_form") if values.get("address_form") in ADDRESS_FORMS else "neutral"}
     if step == "week":
         try:
             frequency = int(values.get("frequency") or 0)
@@ -162,6 +179,9 @@ def save(values: dict, *, update_profile, set_availability, now=None) -> None:
         # Pola zgodne wstecz: AI i strona Cel czytają te nazwy.
         target_hm=" ".join(part for part in (race, values.get("target_time") or "") if part) if not fitness else race,
         current_hm_record=values.get("record") or "",
+        running_since=values.get("running_since") or "",
+        health_notes=values.get("health_notes") or "",
+        address_form=values.get("address_form") or "neutral",
         training_frequency=f"{frequency} {word} w tygodniu",
         onboarding_completed_at=(now or datetime.now()).replace(microsecond=0).isoformat(),
     )

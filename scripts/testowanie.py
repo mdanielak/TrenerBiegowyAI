@@ -52,19 +52,87 @@ DAY_NAMES = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota
 _ASCII = str.maketrans("ąćęłńóśźż", "acelnoszz")
 
 
-def _chosen_weekday(argv):
-    """`--dzien czwartek` albo samo `czwartek`; polskie litery są opcjonalne."""
-    words = [a for a in argv if a not in ("--dzien", "--dzień")]
-    if not words:
+def _options(argv):
+    """`--dzien czwartek --biegacz poczatkujacy`; samo `czwartek` też wybiera dzień."""
+    options, rest, words = {}, [], iter(argv)
+    for word in words:
+        if word in ("--dzien", "--dzień"):
+            options["dzien"] = next(words, "")
+        elif word == "--biegacz":
+            options["biegacz"] = next(words, "")
+        elif word in ("--verbose", "-v"):
+            options["verbose"] = True
+        elif word == "--zachowaj":
+            options["zachowaj"] = True
+        else:
+            rest.append(word)
+    if rest and "dzien" not in options:
+        options["dzien"] = rest[0]
+    return options
+
+
+def _chosen_weekday(word):
+    """Dzień tygodnia z nazwy; polskie litery są opcjonalne. Domyślnie środa."""
+    if not word:
         return 2
-    wanted = words[0].lower().translate(_ASCII)
+    wanted = word.lower().translate(_ASCII)
     for index, name in enumerate(DAY_NAMES):
         if name.translate(_ASCII) == wanted:
             return index
-    sys.exit(f"Nieznany dzień: {words[0]}. Użyj np. --dzien czwartek.")
+    sys.exit(f"Nieznany dzień: {word}. Użyj np. --dzien czwartek.")
 
 
-WEEKDAY = _chosen_weekday(sys.argv[1:])
+# Trzy typy biegaczy: historia biegów (dzień tygodnia → nazwa, min, km, tętno), profil i plan tego tygodnia.
+RUNNERS = {
+    "poczatkujacy": {
+        "history_days": 56,  # zegarek od dwóch miesięcy
+        "runs": {1: ("Bieg spokojny", 35, 4.8, 142), 4: ("Bieg spokojny", 30, 4.1, 145), 6: ("Bieg spokojny", 38, 5.2, 140)},
+        "this_week": {0: ("Bieg spokojny", 34, 4.7, 143), 3: ("Bieg spokojny", 30, 4.2, 141),
+                      4: ("Bieg spokojny", 31, 4.3, 144), 6: ("Bieg spokojny", 44, 6.0, 139)},
+        "profile": {"sex": "female", "running_since": "under6", "target_distance": "5k", "target_race": "5 km",
+                    "target_hm": "5 km 30:00", "target_time": "30:00", "current_hm_record": "",
+                    "training_frequency": "3 treningi w tygodniu"},
+        "plan": {0: ("easy", "Bieg spokojny 35 min", 35, 4.8, "Z2"), 3: ("easy", "Bieg spokojny 30 min", 30, 4.2, "Z2"),
+                 4: ("easy", "Bieg spokojny 30 min", 30, 4.2, "Z2"), 6: ("long", "Dłuższy bieg 45 min", 45, 6.0, "Z2")},
+    },
+    "regularny": {
+        "history_days": 70,
+        "runs": {1: ("Bieg łatwy", 45, 7.4, 134), 3: ("Interwały", 52, 8.8, 152), 6: ("Długi bieg", 85, 13.8, 139)},
+        "this_week": {0: ("Bieg łatwy", 41, 6.8, 133), 3: ("Interwały", 52, 8.8, 153),
+                      4: ("Bieg łatwy", 36, 5.9, 131), 6: ("Długi bieg", 82, 13.1, 138)},
+        "profile": {"sex": "male", "running_since": "6to24", "target_distance": "hm", "target_race": "Półmaraton",
+                    "target_hm": "Półmaraton 1:55:00", "target_time": "1:55:00", "current_hm_record": "2:02:00",
+                    "training_frequency": "4 treningi w tygodniu"},
+        "plan": {0: ("easy", "Bieg łatwy 40 min", 40, 6.5, "Z2"), 3: ("intervals", "Interwały 5×3 min", 50, 8.5, "Z4"),
+                 4: ("easy", "Bieg łatwy 35 min", 35, 5.8, "Z2"), 6: ("long", "Długi bieg 80 min", 80, 13.0, "Z2")},
+    },
+    "zaawansowany": {
+        "history_days": 70,
+        "runs": {0: ("Bieg łatwy", 50, 9.5, 135), 1: ("Interwały", 65, 12.0, 152), 3: ("Bieg łatwy", 55, 10.5, 136),
+                 4: ("Tempo", 60, 12.0, 150), 6: ("Długi bieg", 110, 20.0, 140)},
+        "this_week": {0: ("Bieg łatwy", 50, 9.5, 134), 1: ("Interwały", 64, 12.0, 151), 3: ("Interwały", 65, 12.2, 152),
+                      4: ("Bieg łatwy", 50, 9.4, 135), 6: ("Długi bieg", 108, 19.6, 139)},
+        "profile": {"running_since": "over24", "target_distance": "marathon", "target_race": "Maraton",
+                    "target_hm": "Maraton 3:30:00", "target_time": "3:30:00", "current_hm_record": "3:41:00",
+                    "training_frequency": "5 treningów w tygodniu"},
+        "plan": {0: ("easy", "Bieg łatwy 50 min", 50, 9.5, "Z2"), 3: ("intervals", "Interwały 6×4 min", 65, 12.0, "Z4"),
+                 4: ("easy", "Bieg łatwy 50 min", 50, 9.4, "Z2"), 6: ("long", "Długi bieg 110 min", 110, 20.0, "Z2")},
+    },
+}
+
+OPTIONS = _options(sys.argv[1:])
+VERBOSE = bool(OPTIONS.get("verbose"))
+# Przy --zachowaj dane z poprzedniego testu pasują do tamtego dnia i biegacza: bez nowych podajemy te same.
+_SAVED = SANDBOX / "testowanie-ustawienia.json"
+KEEP = bool(OPTIONS.get("zachowaj")) and (SANDBOX / "local" / "profile.json").is_file()
+if KEEP and _SAVED.is_file():
+    OPTIONS = {**json.loads(_SAVED.read_text(encoding="utf-8")), **OPTIONS}
+_SAVED.write_text(json.dumps({k: OPTIONS[k] for k in ("dzien", "biegacz") if OPTIONS.get(k)}), encoding="utf-8")
+WEEKDAY = _chosen_weekday(OPTIONS.get("dzien"))
+RUNNER_KEY = (OPTIONS.get("biegacz") or "regularny").lower().translate(_ASCII)
+if RUNNER_KEY not in RUNNERS:
+    sys.exit(f"Nieznany biegacz: {OPTIONS['biegacz']}. Użyj: --biegacz poczatkujacy, regularny albo zaawansowany.")
+RUNNER = RUNNERS[RUNNER_KEY]
 REAL_DT, REAL_DATE = _dt.datetime, _dt.date
 _real_today = REAL_DATE.today()
 OFFSET = _dt.timedelta(days=WEEKDAY - _real_today.weekday())
@@ -169,16 +237,24 @@ def _spec(kind, kwargs):
             "pace_slower": kwargs.get("pace_to"), "warmup_min": 10, "cooldown_min": 10}
 
 
+def log(text):
+    """Komunikat w oknie testowania tylko przy --verbose."""
+    if VERBOSE:
+        print(f"  [{datetime.now():%H:%M:%S}] {text}", flush=True)
+
+
 def fake_garmin_session():
     def create(kind, name, **kwargs):
         time.sleep(1.5)
         workout_id = next(_next_id)
+        log(f"[udawany Garmin] wysłano trening {workout_id}: {name} ({kind}, {kwargs.get('date')})")
         workout_registry.record_added(name, kwargs.get("date"), workout_id, schedule_id=workout_id + 1,
                                       spec=_spec(kind, kwargs), schedule_status="confirmed")
         return workout_id
 
     def delete(workout_id, schedule_id=None, reason=None):
         time.sleep(1.5)
+        log(f"[udawany Garmin] usunięto trening {workout_id} (powód: {reason})")
         workout_registry.record_deleted(workout_id, schedule_id=schedule_id, reason=reason)
 
     return create, delete
@@ -188,8 +264,10 @@ def fake_sync(*, fresh=False, progress=None):
     for stage, seconds in (("garmin", 2), ("today", 4), ("history", 12 if fresh else 8), ("extract", 3)):
         if progress:
             progress(stage)
+        log(f"[udawana synchronizacja] etap {stage} ({seconds} s){' — pełne pobranie' if fresh else ''}")
         time.sleep(seconds)
     _write_snapshot()
+    log("[udawana synchronizacja] zapisano nowy snapshot danych")
 
 
 def fake_start_login(email, password, **kwargs):
@@ -200,12 +278,34 @@ def fake_start_login(email, password, **kwargs):
 
 
 # --- Udawane AI ------------------------------------------------------------------------------
+_calls = []
+
+
 class FakeProvider:
     def __init__(self, *args, **kwargs):
         pass
 
     def chat(self, system_prompt, user_message, response_model=None, **kwargs):
+        # Tytuły modułów poza stałymi (rola i core/01–05): forma, poziom, cel, zdrowie, tryb.
+        modules = [line[2:] for line in system_prompt.splitlines()
+                   if line.startswith("# ") and not line.startswith(("# 0", "# TrenerBiegowyAI"))]
+        print(f"  [udawane AI] moduły promptu: {', '.join(modules) or 'brak'}", flush=True)
+        if VERBOSE:
+            # Całość do pliku w piaskownicy: w oknie konsoli tysiące znaków trudno czytać.
+            _calls.append(1)
+            path = SANDBOX / "logs" / f"ai-{len(_calls):02d}-{getattr(response_model, '__name__', 'tekst')}.md"
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(f"# PROMPT SYSTEMOWY\n\n{system_prompt}\n\n# WIADOMOŚĆ Z DANYMI\n\n{user_message}\n",
+                            encoding="utf-8")
+            log(f"[udawane AI] zapytanie {len(_calls)} ({len(system_prompt) + len(user_message)} znaków) → {path}")
+            print("\n".join(f"      | {line}" for line in user_message.splitlines()), flush=True)
         time.sleep(4)
+        answer = self._answer(user_message, response_model)
+        log(f"[udawane AI] odpowiedź: {answer.model_dump_json()[:600] if hasattr(answer, 'model_dump_json') else answer}")
+        return answer
+
+    @staticmethod
+    def _answer(user_message, response_model):
         if response_model is WeekPlanResponse:
             return _fake_plan(user_message)
         if response_model is DailyRecommendation:
@@ -263,11 +363,11 @@ def _write_snapshot():
                     "baseline_low": 52, "baseline_high": 68, "status": "BALANCED"})
         if back % 7 == 0:
             weight.append({"date": _iso(day), "weight_kg": 68.5})
-        runs = {1: ("Bieg łatwy", 45, 7.4, 134), 3: ("Interwały", 52, 8.8, 152), 6: ("Długi bieg", 85, 13.8, 139)}
         # Ten tydzień: każdy trening z planu przed dzisiejszym dniem jest przebiegnięty.
-        this_week = {0: ("Bieg łatwy", 41, 6.8, 133), 3: ("Interwały", 52, 8.8, 153),
-                     4: ("Bieg łatwy", 36, 5.9, 131), 6: ("Długi bieg", 82, 13.1, 138)}
-        run = runs.get(day.weekday()) if day < MONDAY else (this_week.get(day.weekday()) if day < TODAY else None)
+        if day < MONDAY:
+            run = RUNNER["runs"].get(day.weekday()) if back <= RUNNER["history_days"] else None
+        else:
+            run = RUNNER["this_week"].get(day.weekday()) if day < TODAY else None
         if run:
             name, minutes, km, avg_hr = run
             pace = minutes / km
@@ -296,12 +396,14 @@ def _workout(day_index, kind, name, **fields):
 def _seed():
     local = config.LOCAL_DIR
     local.mkdir(exist_ok=True)
+    from services.strategy import STRATEGY_PATH
+    if RUNNER_KEY != "regularny":  # przykładowa strategia jest półmaratońska — pasuje tylko do tego scenariusza
+        STRATEGY_PATH.unlink(missing_ok=True)
     (local / "profile.json").write_text(json.dumps({
         "name": "Testowy Biegacz", "age": 34, "weight_kg": 68.5, "height_cm": 176, "hr_max": 188, "hr_rest": 48,
         "lactate_threshold_hr": 168, "hr_zone_floors": FLOORS,
         "hr_zones": "Z1 98-119, Z2 120-137, Z3 138-155, Z4 156-171, Z5 172-188",
-        "current_hm_record": "2:02:00", "target_hm": "1:55:00", "target_race": "Półmaraton",
-        "target_date": _iso(TODAY + timedelta(days=150)), "training_frequency": "4 treningi w tygodniu",
+        "target_date": _iso(TODAY + timedelta(days=150)), **RUNNER["profile"],
     }, ensure_ascii=False), encoding="utf-8")
     slot = lambda free, low=30, high=60: {"available": free, "min_minutes": low if free else 0,  # noqa: E731
                                           "max_minutes": high if free else 0}
@@ -317,20 +419,18 @@ def _seed():
                 path=local / "ai_status.json")
     _write_snapshot()
 
-    workouts = [
-        _workout(0, "easy", "Bieg łatwy 40 min", duration_min=40, distance_km=6.5, hr_zone="Z2",
-                 hr_target="120-137 bpm", description="Rozmowa bez zadyszki."),
-        _workout(1, "rest", "Odpoczynek"),
-        _workout(2, "rest", "Odpoczynek", description="Dzień bez zadeklarowanej dostępności."),
-        _workout(3, "intervals", "Interwały 5×3 min", duration_min=50, distance_km=8.5, hr_zone="Z4",
-                 hr_target="156-171 bpm", pace_target="4:55-5:05", repetitions=5, work_seconds=180,
-                 rest_seconds=120, description="Mocno, ale równo."),
-        _workout(4, "easy", "Bieg łatwy 35 min", duration_min=35, distance_km=5.8, hr_zone="Z2",
-                 hr_target="120-137 bpm", description="Rozluźnienie po interwałach."),
-        _workout(5, "rest", "Odpoczynek", description="Dzień bez zadeklarowanej dostępności."),
-        _workout(6, "long", "Długi bieg 80 min", duration_min=80, distance_km=13.0, hr_zone="Z2",
-                 hr_target="120-137 bpm", description="Spokojnie, równe tempo."),
-    ]
+    bands = {"Z2": "120-137 bpm", "Z4": "156-171 bpm"}
+    workouts = []
+    for index in range(7):
+        if index not in RUNNER["plan"]:
+            workouts.append(_workout(index, "rest", "Odpoczynek", description="" if index == 1 else
+                                     "Dzień bez zadeklarowanej dostępności."))
+            continue
+        kind, name, minutes, km, zone = RUNNER["plan"][index]
+        extra = ({"pace_target": "4:55-5:05", "repetitions": 5, "work_seconds": 180, "rest_seconds": 120,
+                  "description": "Mocno, ale równo."} if kind == "intervals" else {"description": "Spokojnie, równe tempo."})
+        workouts.append(_workout(index, kind, name, duration_min=minutes, distance_km=km, hr_zone=zone,
+                                 hr_target=bands[zone], **extra))
     create, _ = fake_garmin_session()
     for index in (0, 3, 4):  # poniedziałek (już przebiegnięty), czwartek i piątek są na zegarku
         workout = workouts[index]
@@ -351,9 +451,15 @@ if __name__ == "__main__":
     import uvicorn
     from api.main import create_app
 
-    _seed()
+    if KEEP:
+        print(f"\n  --zachowaj: dane z poprzedniego testu zostają ({SANDBOX / 'local'}).")
+    else:
+        _seed()
     actions.synchronize_data = fake_sync  # run_sync_job podaje postęp tylko „swojej” synchronizacji
     app = create_app(sync_operation=fake_sync)
-    print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = {DAY_NAMES[WEEKDAY]} {TODAY:%d.%m.%Y})")
+    print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = {DAY_NAMES[WEEKDAY]} {TODAY:%d.%m.%Y}, biegacz: {RUNNER_KEY})")
     print(f"  Piaskownica: {SANDBOX}\n  Garmin i AI są udawane. Zamknij okno albo Ctrl+C, żeby zakończyć.\n")
-    uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
+    if VERBOSE:
+        print("  Tryb --verbose: zapytania HTTP, Garmin, synchronizacja i pełne zapytania do AI "
+              f"(całe prompty w {SANDBOX / 'logs'}).\n")
+    uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="info" if VERBOSE else "warning")

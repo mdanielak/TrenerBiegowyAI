@@ -84,6 +84,7 @@ def test_the_x_is_only_on_today_and_future_workouts(tmp_path):
         page = client.get("/plan?week=2026-09-28").text
     assert 'aria-label="Usuń trening Bieg łatwy 40 min"' in page
     assert 'aria-label="Usuń trening Długi bieg 90 min"' in page
+    assert 'zone-band z2 long"' in page  # długi bieg ma podwójny pasek strefy
     assert 'aria-label="Usuń trening Tempo 3×8 min"' not in page  # wtorek już minął
     assert 'id="usun"' not in page
     # Przyszły trening jeszcze nie wysłany ma szary zegarek; wysłany zielony; minione dni żadnego szarego.

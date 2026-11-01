@@ -68,6 +68,9 @@ def fetch_snapshot(api) -> dict:
             result["age"] = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
         except ValueError:
             pass
+    # Płeć z konta Garmin: trener uwzględnia ją przy ocenie obciążenia, bez osobnego pytania.
+    if str(user.get("gender") or "").upper() in ("FEMALE", "MALE"):
+        result["sex"] = str(user["gender"]).lower()
     weight_grams = _bounded(user.get("weight"), 30_000, 250_000)
     if weight_grams is not None:
         result["weight"] = round(weight_grams / 1000)

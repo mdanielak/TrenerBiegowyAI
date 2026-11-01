@@ -24,7 +24,7 @@ ZASADY BEZWZGLĘDNE
    o bólu napisz jedynie, żeby skonsultować się ze specjalistą.
 8. Bez wykrzykników, bez emoji, bez pochwał na siłę, bez haseł motywacyjnych.
 9. Nie zaczynaj od słów "Dzisiejszy trening" ani "Twój trening".
-10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score) i bez form zależnych od płci.'''
+10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score).'''
 
 
 def _value(value):
@@ -42,7 +42,15 @@ def _with_unit(value, unit):
     return "brak" if value == "brak" else f"{value} {unit}"
 
 
-def build_comment_message(*, planned, execution, score, readiness, hr_zones_text) -> str:
+def runner_text(profile) -> str:
+    """Kto biega: cel i staż z profilu, żeby komentarz pasował do poziomu biegacza."""
+    from services.runner_profile import RUNNING_SINCE_LABELS
+    profile = profile or {}
+    since = RUNNING_SINCE_LABELS.get(profile.get("running_since"), "brak")
+    return f"BIEGACZ\n- cel: {_value(profile.get('target_race'))}\n- biega regularnie: {since}\n\n"
+
+
+def build_comment_message(*, planned, execution, score, readiness, hr_zones_text, runner="") -> str:
     planned, execution, score, readiness = planned or {}, execution or {}, score or {}, readiness or {}
     spec = planned.get("spec") or {}
     band = score.get("zakres_docelowy")
@@ -53,7 +61,7 @@ def build_comment_message(*, planned, execution, score, readiness, hr_zones_text
     happened = "tak" if execution.get("happened") is True else "nie"
     hrv = _value(readiness.get("hrv_last"))
     baseline = _value(readiness.get("hrv_baseline"))
-    return f'''ZAPLANOWANY TRENING
+    return runner + f'''ZAPLANOWANY TRENING
 - nazwa: {_value(planned.get("name"))}
 - zaplanowany czas: {_with_unit(spec.get("duration_min"), "min")}
 - docelowa strefa: {target}
@@ -89,8 +97,12 @@ STREFY TETNA BIEGACZA
 - {_value(hr_zones_text)}'''
 
 
-def get_workout_comment(provider, *, planned, execution, score, readiness, hr_zones_text) -> WorkoutComment:
+def get_workout_comment(provider, *, planned, execution, score, readiness, hr_zones_text,
+                        runner="", address_form=None) -> WorkoutComment:
+    from ai.prompts import coach_prompt
     message = build_comment_message(planned=planned, execution=execution, score=score,
-                                    readiness=readiness, hr_zones_text=hr_zones_text)
-    return provider.chat(WORKOUT_COMMENT_SYSTEM_PROMPT, message, response_model=WorkoutComment,
+                                    readiness=readiness, hr_zones_text=hr_zones_text, runner=runner)
+    # Zasady trenera i forma zwracania się, a na końcu ścisłe zasady formatu komentarza (te wygrywają).
+    system = coach_prompt(mode="trening", address_form=address_form) + "\n\n" + WORKOUT_COMMENT_SYSTEM_PROMPT
+    return provider.chat(system, message, response_model=WorkoutComment,
                          temperature=0.0, seed=7)
