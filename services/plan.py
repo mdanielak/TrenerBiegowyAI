@@ -228,7 +228,7 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
     previous_week = _compute_weekly_load(data, current - timedelta(days=7))
     trends = _plan_trends(data, current.date())
     try:
-        previous_plan = load_week_plan(current - timedelta(days=7))
+        previous_plan = load_week_plan(monday - timedelta(days=7))  # tydzień przed planowanym, nie przed dzisiejszym
     except (OSError, ValueError):
         previous_plan = None
     from services.runner_profile import build_runner_profile

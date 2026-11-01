@@ -12,7 +12,8 @@ from api.views.goal import _goal_view
 from services.goal import GoalReport
 
 _ERRORS = {
-    "strategy_missing": (404, "Nie masz jeszcze strategii długoterminowej.",
+    # Brak strategii to zwykły stan (strategia jest opcjonalna), a nie błąd strony.
+    "strategy_missing": (200, "Nie masz jeszcze strategii długoterminowej.",
                          "strategy"),
     "snapshot_missing": (404, "Brakuje lokalnego snapshotu danych.", "python -m trainer sync"),
     "snapshot_invalid": (503, "Lokalny snapshot danych jest niepoprawny.", "python -m trainer sync"),
@@ -39,7 +40,8 @@ def get_goal_router(*, goal_report_provider: Callable[[], GoalReport], templates
             return templates.TemplateResponse(
                 request=request,
                 name="goal.html",
-                context={"error_message": message, "error_hint": hint, "active_nav": "goal", "saved_goal": saved_goal},
+                context={"error_message": message, "error_hint": hint, "active_nav": "goal", "saved_goal": saved_goal,
+                         "wizard_done": request.query_params.get("wizard") == "done"},
                 status_code=status_code,
                 headers={"Cache-Control": "no-store"},
             )

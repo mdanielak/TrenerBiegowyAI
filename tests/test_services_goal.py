@@ -72,11 +72,21 @@ def test_goal_page_renders_phases_and_criteria():
 
 
 def test_goal_page_explains_a_missing_strategy():
-    client = TestClient(create_app(goal_report_provider=lambda: GoalReport(status="strategy_missing")))
+    client = TestClient(create_app(goal_report_provider=lambda: GoalReport(status="strategy_missing"),
+                                   profile_provider=lambda: {}))
     response = client.get("/goal")
-    assert response.status_code == 404
+    assert response.status_code == 200  # strategia jest opcjonalna: to zwykły stan, nie błąd
     assert "Nie masz jeszcze strategii długoterminowej." in response.text
     assert "przyklad-strategii.md" in response.text and 'href="/wizard"' in response.text
+
+
+def test_after_the_wizard_the_goal_page_shows_the_saved_goal_without_a_strategy():
+    """Bez strategii strona nie może wyglądać tak, jakby zapis kreatora nic nie dał."""
+    client = TestClient(create_app(goal_report_provider=lambda: GoalReport(status="strategy_missing"),
+                                   profile_provider=lambda: {"target_race": "10 km", "target_date": "2027-04-12"}))
+    page = client.get("/goal?wizard=done").text
+    assert "<h1>Twój cel</h1>" in page and "Zapisano cel i dni treningowe." in page and "10 km" in page
+    assert "Nie masz jeszcze strategii" not in page and "Ustaw cel i dni treningowe" not in page
 
 
 @pytest.mark.parametrize(("race", "time", "pace", "label"), [

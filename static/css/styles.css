@@ -651,6 +651,7 @@
   .plan-week .rest-day .day-block-icon { width: 40px; height: 40px; }
   .plan-week .rest-day .day-block-title { color: var(--fg-mid); font-weight: 500; }
   .grid-4 + h3 { margin-top: 24px; }
+  .goal-saved { margin: 16px 0; }
   .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); }
   .day-remove { position: relative; display: inline-flex; padding: 5px; border-radius: 999px; color: var(--fg-muted); }
   /* Rysunek zostaje mały, ale cel kliknięcia ma 36×36 px (WCAG 2.2: min. 24×24). */

@@ -63,10 +63,14 @@ def _returning(run_days: list[date], today: date) -> bool:
     return bool(before) and (min(recent) - max(before)).days >= 21
 
 
-def _adherence(previous_plan, activities, monday: date):
-    """Ile treningów z poprzedniego tygodnia wykonano i ile z nich było wyraźnie krótszych."""
+def _adherence(previous_plan, activities, today: date):
+    """Ile treningów z poprzedniego tygodnia wykonano i ile z nich było wyraźnie krótszych.
+
+    Liczą się tylko dni, które już minęły: plan na przyszły tydzień układany w niedzielę ocenia
+    bieżący tydzień bez dni, które dopiero nadejdą.
+    """
     planned = [w for w in (previous_plan or {}).get("workouts") or []
-               if isinstance(w, dict) and w.get("type") != "rest" and str(w.get("date") or "") < monday.isoformat()]
+               if isinstance(w, dict) and w.get("type") != "rest" and str(w.get("date") or "") < today.isoformat()]
     if not planned:
         return None, 0, 0
     done = shortened = 0
@@ -146,7 +150,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     rhr_normal = _number((rhr_trend or {}).get("average"))
     rhr_up = round(rhr_recent - rhr_normal) if rhr_recent is not None and rhr_normal is not None else None
 
-    adherence, done, shortened = _adherence(previous_plan, activities, monday)
+    adherence, done, shortened = _adherence(previous_plan, activities, today)
     returning = _returning(run_days, today)
     if pain or (rhr_up is not None and rhr_up >= 5) or (adherence is not None and adherence < 0.6):
         decision = "odpusc"
@@ -190,8 +194,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     }
 
 
-def profile_lines(runner: dict) -> list[str]:
-    """Sekcja PROFIL BIEGACZA w wiadomości do AI: fakty i decyzja tygodnia."""
+def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
+    """Sekcja PROFIL BIEGACZA w wiadomości do AI; ``weekly`` dodaje decyzję i limity tygodnia (tylko plan)."""
     def value(number, unit=""):
         return "brak" if number is None else f"{str(number).replace('.', ',')}{unit}"
 
@@ -224,6 +228,8 @@ def profile_lines(runner: dict) -> list[str]:
     lines.append("- ciało: " + ", ".join(body))
     if runner["health_notes"]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
+    if not weekly:
+        return lines
     lines.append(f"- DECYZJA TYGODNIA: {DECISION_LABELS[runner['decision']]}")
     limits = []
     if runner["longest_min"]:

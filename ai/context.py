@@ -116,7 +116,7 @@ def build_training_context(data, plan=None, today=None):
     """Build the context dict for AI coach.
 
     Returns dict with:
-        system_prompt: prompt trenera dobrany do profilu biegacza (ai/prompts)
+        runner: profil biegacza (services.runner_profile) do promptu rekomendacji dnia
         runner_profile: configured athlete profile
         goal: target and deadline from the configured profile
         recent_activities: last 7 running sessions
@@ -143,12 +143,10 @@ def build_training_context(data, plan=None, today=None):
 
     # Za każdym razem z dysku: cel zmieniony w kreatorze ma trafić do najbliższego planu.
     profile = _load_runner_profile()
-    from ai.prompts import coach_prompt
     from services.runner_profile import build_runner_profile
     runner = build_runner_profile(activities=data.get('activities'), profile=profile, today=today.date(),
                                   pain=bool((journal or {}).get("pain_days")))
     return {
-        "system_prompt": coach_prompt(runner, mode="dzien"),
         "runner": runner,
         "runner_profile": profile,
         "goal": _goal_from_profile(profile),
@@ -194,7 +192,7 @@ def format_context_for_user(context):
     lines.append(f"Termin: {p['target_date']}")
     if context.get("runner"):
         from services.runner_profile import profile_lines
-        lines.extend(profile_lines(context["runner"]))
+        lines.extend(profile_lines(context["runner"], weekly=False))
     lines.append("")
 
     # Goal

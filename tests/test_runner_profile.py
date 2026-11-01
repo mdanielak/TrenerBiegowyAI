@@ -154,3 +154,35 @@ def test_high_bmi_module_only_for_someone_still_building_a_base():
     beginner = build_runner_profile(activities=_tester(), today=TODAY, profile=_profile(running_since="under6", **heavy))
     assert "zdrowie/wysoka-waga" not in modules_for(experienced)
     assert "zdrowie/wysoka-waga" in modules_for(beginner)
+
+
+def test_planning_next_week_judges_the_current_week_without_its_future_days():
+    """W środę ocena bieżącego tygodnia: poniedziałek zrobiony, piątek dopiero nadejdzie — nie jest opuszczony."""
+    this_week = {"workouts": [{"date": "2026-11-02", "type": "easy", "duration_min": 35},
+                              {"date": "2026-11-06", "type": "long", "duration_min": 45}]}
+    runs = _tester() + [{"date": "2026-11-02 18:00", "type": "running/generic", "duration_min": 35}]
+    runner = build_runner_profile(activities=runs, profile=_profile(running_since="6to24"), today=TODAY,
+                                  previous_plan=this_week)
+    assert runner["adherence"] == 1.0 and runner["done"] == 1
+
+
+def test_daily_recommendation_gets_no_weekly_decision_or_limits():
+    from unittest.mock import MagicMock
+    from ai.recommendation import DailyRecommendation, get_daily_recommendation
+    runner = build_runner_profile(activities=_tester(), profile=_profile(running_since="under6"), today=TODAY)
+    daily = "\n".join(profile_lines(runner, weekly=False))
+    assert "DECYZJA TYGODNIA" not in daily and "LIMITY APLIKACJI" not in daily and "poziom: początkujący" in daily
+    provider = MagicMock()
+    provider.chat.return_value = DailyRecommendation(readiness="ready", recommendation="x", adjustment_needed=False,
+                                                     reasoning_summary="x", warnings=[])
+    context = {"runner": runner, "runner_profile": {"age": 32, "weight_kg": 60, "height_cm": 165, "hr_max": 190,
+               "hr_rest": 50, "lactate_threshold_hr": 170, "hr_zones": "", "current_hm_record": "", "target_hm": "5 km",
+               "target_date": "2027-03-01"}, "goal": {"target": "5 km", "deadline": "2027-03-01", "current_record": ""},
+               "recent_activities": [], "weekly_load": {"total_km": 0, "total_min": 0, "sessions": 0}, "today_plan": None,
+               "health_metrics": {k: None for k in ("rhr", "hrv_last_night", "hrv_status", "hrv_baseline", "sleep_total_h",
+                                                     "sleep_score", "sleep_deep_h", "stress_avg")},
+               "hrv_alert": None, "journal": None}
+    get_daily_recommendation(provider, context)
+    kwargs = provider.chat.call_args[1]
+    assert "# Tryb: rekomendacja na dziś" in kwargs["system_prompt"]  # prompt składa sama rekomendacja dnia
+    assert "DECYZJA TYGODNIA" not in kwargs["user_message"]

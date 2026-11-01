@@ -76,7 +76,8 @@ def get_daily_recommendation(provider: AIProvider, context: dict) -> DailyRecomm
         AIProviderError: On API errors.
         AIResponseError: If AI response cannot be parsed/validated.
     """
-    system_prompt = context.get("system_prompt", "")
+    from ai.prompts import coach_prompt
+    system_prompt = context.get("system_prompt") or coach_prompt(context.get("runner"), mode="dzien")
     user_message = format_context_for_user(context)
 
     return provider.chat(
