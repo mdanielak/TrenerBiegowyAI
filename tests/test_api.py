@@ -568,9 +568,7 @@ def test_analysis_shows_coverage_and_confidence():
     )
     with _analysis_client(readiness) as client:
         response = client.get("/analysis")
-    assert "z 4" in response.text
-    assert "Średnia" in response.text
-    assert "z 6" in response.text
+    assert "2 z 4 sygnałów zmierzonych — pewność średnia" in response.text
 
 
 def test_analysis_shows_dash_for_missing_measurements_without_leaking_none():

@@ -1,11 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Widok analizy: rozkład punktów gotowości i zmierzone wartości."""
+"""Widok analizy: skąd wzięła się ocena — punkty za sygnały, główny powód i ostatnie 7 dni."""
 from __future__ import annotations
 
-from api.views.common import _HRV_STATUSES, _SIGNAL_META, _SIGNAL_STATE_LABELS
+from api.views.common import _SIGNAL_META, _SIGNAL_STATE_LABELS
 
 _ANALYSIS_PILL_CLASSES = {"OK": "ok", "WARN": "warn", "FAIL": "bad", "UNKNOWN": "neutral"}
 _CONFIDENCE_LABELS = {"high": "wysoka", "medium": "średnia", "low": "niska", "none": "brak"}
+
+
+def _points(value) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def _short_message(label: str, message: str) -> str:
+    """Bez powtarzania nazwy sygnału nad wierszem: „Tętno spoczynkowe podwyższone…” → „Podwyższone…”."""
+    if label and message.lower().startswith(label.lower() + " "):
+        rest = message[len(label) + 1:]
+        return rest[:1].upper() + rest[1:]
+    return message
 
 
 def _analysis_rows(readiness_data: dict) -> list[dict]:
@@ -15,34 +27,40 @@ def _analysis_rows(readiness_data: dict) -> list[dict]:
         metric = detail.get("metric")
         status = detail.get("status")
         meta = _SIGNAL_META.get(metric, {})
+        label = meta.get("label") or metric or "Sygnał"
+        points, max_points = detail.get("points"), detail.get("max_points")
         rows.append({
-            "label": meta.get("label") or metric or "Sygnał",
+            "label": label,
             "icon": meta.get("icon"),
             "pill_class": _ANALYSIS_PILL_CLASSES.get(status, "neutral"),
             "status_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
-            "message": detail.get("message") or "",
+            "message": _short_message(label, detail.get("message") or ""),
             "explain": meta.get("explain"),
+            "points_text": (f"{_points(points)} z {_points(max_points)} pkt" if points is not None and max_points
+                            else "—"),
+            "lost": (max_points - points) if points is not None and max_points else 0,
         })
     return rows
 
 
-def _analysis_measurements(readiness_data: dict) -> list[dict]:
-    """Pokaż zmierzone wartości stojące za oceną. Brak pomiaru zostaje brakiem, nie zerem."""
-    baseline = readiness_data.get("hrv_baseline")
-    baseline_text = None
-    if baseline is not None and "None" not in str(baseline):
-        baseline_text = str(baseline).replace("-", "–")
-    hrv_status = readiness_data.get("hrv_status")
-    return [
-        {"label": "Tętno spoczynkowe", "value": readiness_data.get("rhr"), "unit": "bpm", "icon": "heart"},
-        {"label": "Tętno spoczynkowe — Twoja norma",
-         "value": round(readiness_data["rhr_baseline"]) if readiness_data.get("rhr_baseline") is not None else None,
-         "unit": "bpm", "icon": "heart"},
-        {"label": "HRV ostatniej nocy", "value": readiness_data.get("hrv_last"), "unit": "", "icon": "pulse"},
-        {"label": "HRV — zakres bazowy", "value": baseline_text, "unit": "", "icon": "pulse"},
-        {"label": "HRV — ocena zegarka", "icon": "pulse",
-         "value": _HRV_STATUSES.get(hrv_status) if hrv_status is not None else None, "unit": ""},
-        {"label": "Sen — ocena", "value": readiness_data.get("sleep_score_val"), "unit": "/100", "icon": "moon"},
-        {"label": "Sen — długość", "value": readiness_data.get("sleep_total"), "unit": "h", "icon": "moon"},
-        {"label": "Stres — średnia dobowa", "value": readiness_data.get("stress"), "unit": "", "icon": "bolt"},
-    ]
+def _analysis_reason(rows: list[dict]) -> str | None:
+    """Jedno zdanie: które sygnały najbardziej obniżyły ocenę (najwięcej utraconych punktów)."""
+    weakest = sorted((row for row in rows if row["lost"] > 0), key=lambda row: -row["lost"])[:2]
+    if not weakest:
+        return "Wszystkie zmierzone sygnały są w normie." if any(row["points_text"] != "—" for row in rows) else None
+    names = " i ".join(row["label"].lower() for row in weakest)
+    # Czas teraźniejszy: „obniża/obniżają” nie zależy od rodzaju gramatycznego sygnału.
+    return f"Ocenę najbardziej {'obniżają' if len(weakest) > 1 else 'obniża'}: {names}."
+
+
+def _readiness_week(days: list[dict], weekdays_short) -> list[dict]:
+    """Słupki gotowości z 7 dni (dziś na końcu); brak pomiaru zostaje brakiem, nie zerem."""
+    from datetime import date
+
+    bars = []
+    for index, day in enumerate(days or []):
+        score = day.get("score")
+        bars.append({"label": "dziś" if index == len(days) - 1 else weekdays_short[date.fromisoformat(day["date"]).weekday()],
+                     "score": score, "text": _points(score) if score is not None else "brak",
+                     "height": round(score * 10) if score is not None else 0, "today": index == len(days) - 1})
+    return bars

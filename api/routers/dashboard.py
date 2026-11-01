@@ -17,11 +17,12 @@ from services.wizard import needs_onboarding
 from services.jobs import JobStore
 from services.today import TodayReport
 from api.schemas import HealthResponse, ReadinessResponse
-from api.views.analysis import _CONFIDENCE_LABELS, _analysis_measurements, _analysis_rows
+from api.views.analysis import _CONFIDENCE_LABELS, _analysis_reason, _analysis_rows, _readiness_week
 from api.views.common import (
     _HRV_STATUSES,
     _READINESS_LABELS,
     _WEEKDAYS,
+    _WEEKDAYS_SHORT,
     _format_date,
     _format_score,
     _format_sync_time,
@@ -187,6 +188,7 @@ def get_dashboard_router(
         readiness_data = cast(dict, report.readiness)
         available = readiness_data.get("available_metrics") or []
         missing = readiness_data.get("missing_metrics") or []
+        rows = _analysis_rows(readiness_data)
         return templates.TemplateResponse(
             request=request,
             name="analysis.html",
@@ -199,13 +201,13 @@ def get_dashboard_router(
                                     else _format_score(readiness_data["score"])),
                 "readiness_max_score": _format_score(readiness_data["max_score"]),
                 "readiness_label": _READINESS_LABELS.get(readiness_data["level"], readiness_data["level"]),
-                "metric_rows": _analysis_rows(readiness_data),
-                "measurements": _analysis_measurements(readiness_data),
+                "ring": _ring_geometry(readiness_data["score"], readiness_data["max_score"]),
+                "metric_rows": rows,
+                "reason": _analysis_reason(rows),
+                "week": _readiness_week(getattr(report, "readiness_week", None) or [], _WEEKDAYS_SHORT),
                 "confidence_label": _CONFIDENCE_LABELS.get(str(readiness_data.get("confidence") or ""), "brak"),
                 "metrics_available": len(available),
                 "metrics_total": len(available) + len(missing),
-                "raw_score": _format_score(float(readiness_data.get("raw_score") or 0)),
-                "available_max_score": _format_score(float(readiness_data.get("available_max_score") or 0)),
                 "active_nav": "analysis",
             },
             headers={"Cache-Control": "no-store"},

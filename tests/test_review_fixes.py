@@ -87,8 +87,8 @@ def test_readiness_reasons_have_no_english_codes():
     data = {"daily_health": [{"rhr": 53, "stress_avg": 16}], "sleep": [{"score": 85, "total_h": 7}],
             "hrv": [{"status": "LOW", "last_night": 61, "baseline_low": 65, "baseline_high": 79}]}
     messages = " ".join(detail["message"] for detail in compute_readiness_breakdown(data, rhr_baseline=49)["details"])
-    assert "Tętno spoczynkowe lekko podwyższone (53 bpm, norma 49)" in messages and "HRV niskie — zwolnij" in messages
-    assert "Sen przeciętny (ocena 85/100)" in messages
+    assert "Tętno spoczynkowe lekko podwyższone (53 bpm, norma 49)" in messages and "HRV niskie (61 ms, Twój zakres 65–79) — zwolnij" in messages
+    assert "Sen przeciętny (ocena 85/100, 7 h)" in messages
     assert not re.search(r"\b(RHR|LOW|score|baseline)\b", messages)
 
 

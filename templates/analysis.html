@@ -40,50 +40,44 @@
       </div>
     {% endif %}
 
-    <div class="grid grid-4">
-      <div class="tile">
-        <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_readiness.png" width="28" height="28" alt="">
-          <span class="tile-label"><span>Ocena gotowości</span></span>
-        </span>
-        <span class="tile-value">{{ readiness_score }}<span class="tile-unit">z {{ readiness_max_score }}</span></span>
-        <span class="tile-foot">
-          <span class="verdict {{ level }}">
-            {% if level == 'ready' %}{{ ico.check(15) }}
-            {% elif level == 'ready_with_reserves' %}{{ ico.info(15) }}
-            {% else %}{{ ico.moon(15) }}{% endif %}
-            <span>{{ readiness_label|capitalize }}</span>
-          </span>
+    <section class="card analysis-hero">
+      <div class="ring-wrap ring-small">
+        <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
+             viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
+          <circle class="ring-track" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                  r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"/>
+          <circle class="ring-value {{ level }}" cx="{{ ring.center }}" cy="{{ ring.center }}"
+                  r="{{ ring.radius }}" stroke-width="{{ ring.stroke }}"
+                  stroke-dasharray="{{ ring.circumference }}" stroke-dashoffset="{{ ring.offset }}"/>
+        </svg>
+        <span class="ring-center">
+          <span class="ring-score">{{ readiness_score }}</span>
+          <span class="ring-max">z {{ readiness_max_score }}</span>
         </span>
       </div>
-
-      <div class="tile">
-        <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_signals.png" width="28" height="28" alt="">
-          <span class="tile-label"><span>Zmierzone sygnały</span></span>
+      <div class="analysis-summary">
+        <p class="analysis-title">Gotowość {{ readiness_score }}/{{ readiness_max_score }}</p>
+        <span class="verdict {{ level }}">
+          {% if level == 'ready' %}{{ ico.check(15) }}
+          {% elif level == 'ready_with_reserves' %}{{ ico.info(15) }}
+          {% else %}{{ ico.moon(15) }}{% endif %}
+          <span>{{ readiness_label|capitalize }}</span>
         </span>
-        <span class="tile-value">{{ metrics_available }}<span class="tile-unit">z {{ metrics_total }}</span></span>
-        <span class="tile-foot">Sygnały, które zegarek faktycznie zmierzył</span>
+        <p class="mid">{{ metrics_available }} z {{ metrics_total }} sygnałów zmierzonych — pewność {{ confidence_label }}</p>
+        {% if reason %}<p class="analysis-reason">{{ reason }}</p>{% endif %}
       </div>
-
-      <div class="tile">
-        <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt="">
-          <span class="tile-label"><span>Pewność oceny</span></span>
-        </span>
-        <span class="tile-value">{{ confidence_label|capitalize }}</span>
-        <span class="tile-foot">Tym niższa, im mniej sygnałów zmierzono</span>
-      </div>
-
-      <div class="tile">
-        <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_points.png" width="28" height="28" alt="">
-          <span class="tile-label"><span>Zdobyte punkty</span></span>
-        </span>
-        <span class="tile-value">{{ raw_score }}<span class="tile-unit">z {{ available_max_score }}</span></span>
-        <span class="tile-foot">Suma punktów za sygnały, które zegarek zmierzył</span>
-      </div>
-    </div>
+      {% if week %}
+        <div class="readiness-week" role="img" aria-label="Gotowość z ostatnich 7 dni: {% for bar in week %}{{ bar.label }} {{ bar.text }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          {% for bar in week %}
+            <div class="week-bar{% if bar.today %} today{% endif %}">
+              <span class="week-bar-value">{{ bar.text }}</span>
+              <span class="week-bar-track"><span class="week-bar-fill" style="height: {{ bar.height }}%"></span></span>
+              <span class="week-bar-label">{{ bar.label }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
 
     <section class="card">
       <div class="card-head">
@@ -106,6 +100,7 @@
                 <span class="item-meta"><span>{{ row.message }}</span></span>
               </span>
               <span class="item-side">
+                <span class="item-strong">{{ row.points_text }}</span>
                 <span class="pill {{ row.pill_class }}">{{ row.status_label }}</span>
               </span>
             </div>
@@ -118,46 +113,6 @@
         </div>
       {% endif %}
     </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""><span>Zmierzone wartości</span></h2>
-      </div>
-      <div class="compact-facts measurement-grid">
-        {% for item in measurements %}
-          <div class="compact-fact">
-            <span class="item-icon">
-              {% if item.icon == 'moon' %}<img class="asset" src="/assets/02_health_status/sleep.png" width="28" height="28" alt="">
-              {% elif item.icon == 'pulse' %}<img class="asset" src="/assets/02_health_status/hrv.png" width="28" height="28" alt="">
-              {% elif item.icon == 'heart' %}<img class="asset" src="/assets/02_health_status/resting_hr.png" width="28" height="28" alt="">
-              {% elif item.icon == 'bolt' %}<img class="asset" src="/assets/02_health_status/stress.png" width="28" height="28" alt="">
-              {% else %}<img class="asset" src="/assets/02_health_status/info.png" width="28" height="28" alt="">{% endif %}
-            </span>
-            <span class="item-body">
-              <span class="item-title">{{ item.label }}</span>
-            </span>
-            <span class="fact-value">
-              <span class="item-strong">
-                {% if item.value is not none %}{{ item.value|num }}{% if item.unit %} {{ item.unit }}{% endif %}
-                {%- else %}Brak pomiaru{% endif %}
-              </span>
-            </span>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-
-    <div class="suggestion">
-      <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
-      <div>
-        <p class="suggestion-title">Jak czytać tę stronę</p>
-        <p class="suggestion-text">
-          Każdy zmierzony sygnał dostaje punkty. Jeśli zegarek czegoś nie zmierzył, ten sygnał
-          jest pomijany, a wynik przeliczany jest tylko z tego, co dostępne — dlatego przy mniejszej
-          liczbie sygnałów pewność oceny spada.
-        </p>
-      </div>
-    </div>
 
     <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>
 

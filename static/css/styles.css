@@ -1033,3 +1033,20 @@ details[open] > summary { margin-bottom: 12px; }
   .plan-week .day-block { flex: 1 1 auto; align-self: stretch; }
   .plan-week .day-details { margin-top: auto; width: 100%; padding-top: 8px; }
 }
+
+/* Analiza: wynik, powód i 7 dni gotowości */
+.analysis-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.ring-small .ring { width: 96px; height: 96px; }
+.ring-small .ring-score { font-size: 26px; }
+.ring-small .ring-max { font-size: 12px; }
+.analysis-title { font-size: 1.25rem; font-weight: 700; }
+.analysis-summary { display: flex; flex-direction: column; gap: 6px; flex: 1 1 220px; }
+.analysis-summary p { margin: 0; }
+.analysis-summary .verdict { align-self: flex-start; }
+.analysis-reason { font-weight: 600; }
+.readiness-week { display: flex; gap: 8px; align-items: flex-end; flex: 1 1 260px; }
+.week-bar { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; font-size: 0.8125rem; }
+.week-bar-track { display: flex; align-items: flex-end; width: 100%; max-width: 28px; height: 64px; border-radius: 6px; background: var(--surface-alt); overflow: hidden; }
+.week-bar-fill { width: 100%; background: var(--accent, currentColor); opacity: .55; }
+.week-bar.today .week-bar-fill { opacity: 1; }
+.week-bar.today .week-bar-label { font-weight: 700; }

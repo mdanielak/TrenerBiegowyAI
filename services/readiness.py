@@ -57,9 +57,23 @@ def compute_readiness_breakdown(data, *, rhr_baseline=None):
     available_metrics = []
     missing_metrics = []
 
+    weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0}
+
     def unavailable(name, metric, message):
         missing_metrics.append(name)
-        details.append({"metric": metric, "status": "UNKNOWN", "message": message})
+        details.append({"metric": metric, "status": "UNKNOWN", "message": message,
+                        "points": None, "max_points": weights[name]})
+
+    def measured(name, metric, status, points, message):
+        """Oceniony sygnał: punkty trafiają do wyniku i do wiersza na stronie Analiza."""
+        nonlocal raw_score
+        available_metrics.append(name)
+        raw_score += points
+        details.append({"metric": metric, "status": status, "message": message,
+                        "points": points, "max_points": weights[name]})
+
+    def decimal(value):
+        return str(value).replace('.', ',')
 
     # 1. RHR — wobec własnej normy biegacza (różnica od średniej z ostatnich tygodni).
     norm = f"norma {round(rhr_baseline)}" if rhr_baseline is not None else ""
@@ -68,64 +82,44 @@ def compute_readiness_breakdown(data, *, rhr_baseline=None):
     elif rhr_baseline is None:
         unavailable('rhr', 'RHR', f"Za mało pomiarów, by poznać Twoją normę tętna spoczynkowego ({rhr} bpm; potrzeba tygodnia)")
     elif rhr - rhr_baseline <= 2:
-        available_metrics.append('rhr')
-        raw_score += 2.5
-        details.append({"metric": "RHR", "status": "OK", "message": f"Tętno spoczynkowe w Twojej normie ({rhr} bpm, {norm})"})
+        measured('rhr', 'RHR', "OK", 2.5, f"Tętno spoczynkowe w Twojej normie ({rhr} bpm, {norm})")
     elif rhr - rhr_baseline <= 5:
-        available_metrics.append('rhr')
-        raw_score += 1.5
-        details.append({"metric": "RHR", "status": "WARN", "message": f"Tętno spoczynkowe lekko podwyższone ({rhr} bpm, {norm})"})
+        measured('rhr', 'RHR', "WARN", 1.5, f"Tętno spoczynkowe lekko podwyższone ({rhr} bpm, {norm})")
     else:
-        available_metrics.append('rhr')
-        details.append({"metric": "RHR", "status": "FAIL",
-                        "message": f"Tętno spoczynkowe podwyższone ({rhr} bpm, {norm}) — postaw na regenerację"})
+        measured('rhr', 'RHR', "FAIL", 0, f"Tętno spoczynkowe podwyższone ({rhr} bpm, {norm}) — postaw na regenerację")
 
-    # 2. HRV
+    # 2. HRV — wobec Twojego zakresu z zegarka.
     if any(value is None for value in (hrv_status, hrv_last, hrv_baseline_low, hrv_baseline_high)):
         unavailable('hrv', 'HRV', "Brak pełnych danych HRV (ocena zegarka, wartość lub zakres bazowy)")
-    elif hrv_status == "BALANCED" and hrv_last is not None and hrv_baseline_low is not None and hrv_last >= hrv_baseline_low:
-        available_metrics.append('hrv')
-        raw_score += 3
-        details.append({"metric": "HRV", "status": "OK", "message": f"HRV zrównoważone ({hrv_last} ms)"})
-    elif hrv_status == "BALANCED":
-        available_metrics.append('hrv')
-        raw_score += 1
-        details.append({"metric": "HRV", "status": "WARN", "message": f"HRV zrównoważone, ale poniżej zakresu bazowego ({hrv_last} ms)"})
     else:
-        available_metrics.append('hrv')
-        details.append({"metric": "HRV", "status": "FAIL", "message": f"HRV {_HRV_WORDS.get(hrv_status, 'niezrównoważone')} — zwolnij"})
+        hrv_range = f"{hrv_last} ms, Twój zakres {hrv_baseline_low}–{hrv_baseline_high}"
+        if hrv_status == "BALANCED" and hrv_last >= hrv_baseline_low:
+            measured('hrv', 'HRV', "OK", 3, f"HRV zrównoważone ({hrv_range})")
+        elif hrv_status == "BALANCED":
+            measured('hrv', 'HRV', "WARN", 1, f"HRV zrównoważone, ale poniżej Twojego zakresu ({hrv_range})")
+        else:
+            measured('hrv', 'HRV', "FAIL", 0, f"HRV {_HRV_WORDS.get(hrv_status, 'niezrównoważone')} ({hrv_range}) — zwolnij")
 
     # 3. Sleep
+    hours = f", {decimal(sleep_total)} h" if sleep_total else ""
     if sleep_score_val is None:
         unavailable('sleep', 'Sleep', "Brak oceny snu")
     elif sleep_score_val >= 90:
-        available_metrics.append('sleep')
-        raw_score += 2.5
-        details.append({"metric": "Sleep", "status": "OK", "message": f"Sen bardzo dobry (ocena {sleep_score_val}/100, {sleep_total} h)"})
+        measured('sleep', 'Sleep', "OK", 2.5, f"Sen bardzo dobry (ocena {sleep_score_val}/100{hours})")
     elif sleep_score_val >= 70:
-        available_metrics.append('sleep')
-        raw_score += 1.5
-        details.append({"metric": "Sleep", "status": "WARN", "message": f"Sen przeciętny (ocena {sleep_score_val}/100)"})
+        measured('sleep', 'Sleep', "WARN", 1.5, f"Sen przeciętny (ocena {sleep_score_val}/100{hours})")
     else:
-        available_metrics.append('sleep')
-        details.append({"metric": "Sleep", "status": "FAIL", "message": f"Słaby sen (ocena {sleep_score_val}/100)"})
+        measured('sleep', 'Sleep', "FAIL", 0, f"Słaby sen (ocena {sleep_score_val}/100{hours})")
 
     # 4. Stress
     if stress is None:
         unavailable('stress', 'Stress', "Brak pomiaru stresu")
     elif stress <= 30:
-        available_metrics.append('stress')
-        raw_score += 2
-        details.append({"metric": "Stress", "status": "OK", "message": f"Niski poziom stresu ({stress})"})
+        measured('stress', 'Stress', "OK", 2, f"Niski poziom stresu ({stress})")
     elif stress <= 40:
-        available_metrics.append('stress')
-        raw_score += 1
-        details.append({"metric": "Stress", "status": "WARN", "message": f"Umiarkowany stres ({stress})"})
+        measured('stress', 'Stress', "WARN", 1, f"Umiarkowany stres ({stress})")
     else:
-        available_metrics.append('stress')
-        details.append({"metric": "Stress", "status": "WARN", "message": f"Podwyższony stres ({stress})"})
-
-    weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0}
+        measured('stress', 'Stress', "WARN", 0, f"Podwyższony stres ({stress})")
     available_max_score = sum(weights[name] for name in available_metrics)
     score = round(raw_score / available_max_score * max_score, 1) if available_max_score else 0
     if not available_metrics:

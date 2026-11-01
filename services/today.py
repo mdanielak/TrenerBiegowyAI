@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from services.data_extract import SnapshotReadResult, SnapshotStatus, read_snapshot_status
 from services.activity_matching import find_activity_for_workout
-from services.readiness import compute_readiness_breakdown, record_for_day, rhr_baseline, signal_trends
+from services.readiness import compute_readiness_breakdown, readiness_for_day, record_for_day, rhr_baseline, signal_trends
 from services.plan_files import find_current_plan, get_today_workout_from_plan
 from services.workout_registry import list_workouts
 from trainer.preferences import get_active_pause, get_weekly_availability
@@ -39,6 +39,7 @@ class TodayReport:
     hrv_alert: dict | None = None
     other_planned: list = field(default_factory=list)
     next_workout: dict | None = None
+    readiness_week: list = field(default_factory=list)
 
 
 def _today_registry_entries(today: str):
@@ -128,6 +129,13 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         "daily_health": [health] if health else [], "sleep": [sleep] if sleep else [], "hrv": [hrv] if hrv else []},
         rhr_baseline=rhr_baseline(data.get("daily_health"), today))
     trends = signal_trends(data, today)
+    # Gotowość z 7 dni (dziś na końcu): kontekst „czy dzisiejsza ocena jest u mnie nietypowa”.
+    readiness_week = []
+    for offset in range(6, -1, -1):
+        day = (now.date() - timedelta(days=offset)).isoformat()
+        result = readiness if offset == 0 else readiness_for_day(data, day)
+        measured = result and result.get("level") != "no_data"
+        readiness_week.append({"date": day, "score": result["score"] if measured else None})
     signals = {
         "sleep_score": sleep.get("score"),
         "hrv_status": hrv.get("status"),
@@ -165,6 +173,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         hrv_alert=check_hrv_alert(data.get("hrv") or []),
         other_planned=[w.get("name") or "Trening" for w in planned_workouts[1:] if isinstance(w, dict)],
         next_workout=next_workout,
+        readiness_week=readiness_week,
     )
 
 
