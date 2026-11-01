@@ -76,7 +76,7 @@ Hasło Garmin jest używane podczas logowania i nie jest zapisywane przez aplika
 
 ## Strategia i ograniczenia danych
 
-Cel i dostępność zapiszesz w kreatorze. Fazy przygotowań i kryteria na stronie **Cel** pochodzą z opcjonalnego pliku `training-plans/long-term/half-marathon-2027.md`. Przykład znajduje się w [`przyklad-strategii.md`](training-plans/long-term/przyklad-strategii.md). Zmiana celu w kreatorze nie aktualizuje automatycznie strategii.
+Cel i dostępność zapiszesz w kreatorze. Fazy przygotowań i kryteria na stronie **Cel** pochodzą z opcjonalnego pliku `training-plans/long-term/strategia.md`. Przykład znajduje się w [`przyklad-strategii.md`](training-plans/long-term/przyklad-strategii.md). Zmiana celu w kreatorze nie aktualizuje automatycznie strategii.
 
 Snapshot obejmuje do 120 dni aktywności i 90 dni pomiarów zdrowia, licząc od najnowszych danych w GarminDB. Synchronizacja może być częściowa: przed decyzją treningową sprawdź aktualność i kompletność danych.
 

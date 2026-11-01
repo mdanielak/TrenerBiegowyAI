@@ -17,7 +17,9 @@ from .garmin_auth import GarminAuthError, ensure_garmindb_config, ensure_token, 
 
 # Fallback tylko gdy nie ma zapisanych preferencji ani danych z Garmin Connect.
 DEFAULT_TRAINING_MINUTES = (35, 45)
-DEFAULT_LONG_TRAINING_MINUTES = (60, 90)
+# Dzień długiego biegu: więcej miejsca u góry, ale bez sztywnego minimum godziny — dostępność to wolny czas,
+# nie długość treningu (o niej decyduje historia biegów).
+DEFAULT_LONG_TRAINING_MINUTES = (35, 90)
 _DAYS = (("mon", "Pon"), ("tue", "Wt"), ("wed", "Śr"), ("thu", "Czw"),
          ("fri", "Pt"), ("sat", "Sob"), ("sun", "Nd"))
 

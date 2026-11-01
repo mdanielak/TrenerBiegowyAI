@@ -9,13 +9,22 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from trainer.config import PROJECT_ROOT
 
 # Własna strategia zostaje na komputerze (git jej nie śledzi); do repozytorium trafia tylko przykład.
 # Przykład nigdy nie zastępuje własnej strategii: plan AI układany na cudzych celach byłby mylący.
-STRATEGY_PATH = PROJECT_ROOT / "training-plans" / "long-term" / "half-marathon-2027.md"
-STRATEGY_EXAMPLE_PATH = PROJECT_ROOT / "training-plans" / "long-term" / "przyklad-strategii.md"
+_LONG_TERM = PROJECT_ROOT / "training-plans" / "long-term"
+# Neutralna nazwa dla każdego biegacza; dawny plik (nazwany od półmaratonu autora) działa, gdy nowego nie ma.
+def strategy_path(long_term: Path) -> Path:
+    """`strategia.md`, a gdy jej nie ma, a jest dawny `half-marathon-2027.md` — ten dawny."""
+    current, legacy = long_term / "strategia.md", long_term / "half-marathon-2027.md"
+    return legacy if legacy.exists() and not current.exists() else current
+
+
+STRATEGY_PATH = strategy_path(_LONG_TERM)
+STRATEGY_EXAMPLE_PATH = _LONG_TERM / "przyklad-strategii.md"
 
 _DATE_RANGE = re.compile(
     r"(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\s*[—–-]+\s*(\d{1,2})\.(\d{1,2})\.(\d{4})")

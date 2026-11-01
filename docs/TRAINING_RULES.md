@@ -22,7 +22,7 @@ Własne, prywatne zasady dla trenera można dopisać w `local/moje-zasady-trener
 
 ## Strategia i pliki
 
-- Opcjonalna, prywatna strategia długoterminowa (`training-plans/long-term/half-marathon-2027.md`, wzór w `przyklad-strategii.md`) wyznacza kierunek, jeśli istnieje.
+- Opcjonalna, prywatna strategia długoterminowa (`training-plans/long-term/strategia.md`, wzór w `przyklad-strategii.md`) wyznacza kierunek, jeśli istnieje.
 - Tygodniowy JSON jest opcjonalnym planem wykonawczym; jego brak nie blokuje analizy ani rekomendacji.
 - `local/workout-registry.jsonl` jest prywatnym rejestrem operacji na treningach Garmin, nie planem treningowym.
 - Treningi twórz przez CLI: `python -m trainer workouts create easy|tempo|intervals|long|strides ...`. Polecenie zmienia dane treningów na Garminie.

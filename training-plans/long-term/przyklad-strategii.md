@@ -1,6 +1,6 @@
 # Przykład: półmaraton 2:00 w 2027
 
-**To jest przykład.** Skopiuj ten plik jako `training-plans/long-term/half-marathon-2027.md` i wpisz własne daty, objętości i cele. Twoja kopia zostaje na tym komputerze — git jej nie śledzi. Aplikacja nie używa przykładu do układania planu.
+**To jest przykład.** Skopiuj ten plik jako `training-plans/long-term/strategia.md` i wpisz własne daty, objętości i cele. Twoja kopia zostaje na tym komputerze — git jej nie śledzi. Aplikacja nie używa przykładu do układania planu.
 
 ## Źródła i ograniczenia danych
 

@@ -37,7 +37,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - `templates/`, `static/` — Jinja i CSS (tokeny kolorów w `static/css/styles.css`, zasady w `DESIGN.md`), `static/js/interface.js`.
 - `services/` — logika: `today.py`, `plan.py` (normalizacja planu AI i **bezpieczniki**), `runner_profile.py`
   (profil biegacza, decyzja tygodnia, limity), `actions.py` (zadania w tle: synchronizacja, plan, wysyłka, usuwanie),
-  `jobs.py` (stan zadań w `local/jobs`), `wizard.py` (kreator celu), `strategy.py` (opcjonalna strategia z pliku).
+  `jobs.py` (stan zadań w `local/jobs`), `wizard.py` (kreator celu), `strategy.py` (opcjonalna strategia z `training-plans/long-term/strategia.md`).
 - `ai/` — wywołania AI: `plan_generation.py` (plan tygodnia, schemat JSON i twarde reguły), `recommendation.py`
   (rekomendacja dnia), `workout_review.py` (komentarz do treningu), `context.py` (dane do promptu).
 - `ai/prompts/` — prompty trenera: `trener.md`, `jezyk/` (forma męska/żeńska/bez form), `core/01–05`, `poziom/`, `cel/`,

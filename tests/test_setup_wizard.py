@@ -239,7 +239,8 @@ def test_weekly_proposal_rejection_asks_daily_questions(monkeypatch, tmp_path):
 def test_weekly_proposal_uses_garmin_days_and_long_range():
     proposal = setup_wizard._weekly_proposal({}, {'available_training_days': ['tue'], 'long_training_days': ['sun']})
     assert proposal['tue'] == {'available': True, 'min_minutes': 35, 'max_minutes': 45}
-    assert proposal['sun'] == {'available': True, 'min_minutes': 60, 'max_minutes': 90}
+    # Bez minimum godziny: dostępność to wolny czas, a nie długość treningu.
+    assert proposal['sun'] == {'available': True, 'min_minutes': 35, 'max_minutes': 90}
 
 
 def test_target_goal_half_marathon_time(monkeypatch):

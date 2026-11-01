@@ -48,7 +48,7 @@ for %%F in (pyproject.toml runner_profile.example.json) do copy /Y "%REPO%%%F" "
 rem Publiczny przyklad strategii jako strategia testowa; prywatna strategia nie jest kopiowana.
 if not defined KEEP (
     mkdir "%SANDBOX%\training-plans\long-term"
-    copy /Y "%REPO%training-plans\long-term\przyklad-strategii.md" "%SANDBOX%\training-plans\long-term\half-marathon-2027.md" >nul
+    copy /Y "%REPO%training-plans\long-term\przyklad-strategii.md" "%SANDBOX%\training-plans\long-term\strategia.md" >nul
 )
 
 if not "%TRENER_NO_BROWSER%"=="1" start "" /min cmd /c "timeout /t 4 /nobreak >nul & start %URL%"

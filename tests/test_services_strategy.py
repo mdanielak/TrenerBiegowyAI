@@ -57,3 +57,12 @@ def test_the_public_example_strategy_parses():
 
     assert strategy is not None and len(strategy.phases) >= 5
     assert strategy.long_run_target and strategy.test_10k_seconds
+
+
+def test_strategy_file_has_a_neutral_name_and_the_old_one_still_works(tmp_path):
+    from services.strategy import strategy_path
+    assert strategy_path(tmp_path).name == "strategia.md"  # nowa instalacja
+    (tmp_path / "half-marathon-2027.md").write_text("stara", encoding="utf-8")
+    assert strategy_path(tmp_path).name == "half-marathon-2027.md"  # dawny plik autora działa dalej
+    (tmp_path / "strategia.md").write_text("nowa", encoding="utf-8")
+    assert strategy_path(tmp_path).name == "strategia.md"  # nowa nazwa wygrywa
