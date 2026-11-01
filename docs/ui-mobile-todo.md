@@ -3,7 +3,12 @@
 Spisane z audytu wizualnego (Playwright, headless Firefox, ekran 390×844, kopia testowa ze zmyślonymi danymi, 1.11.2026).
 W wydaniu z dopracowanym desktopem celowo **bez zmian pod telefon**. Kolejność: od najpoważniejszego.
 
-## 1. Plan i Statystyki przewijają się w bok (poważne)
+## 1. Plan i Statystyki przewijają się w bok — NAPRAWIONE (1.11.2026)
+Przyczyna była inna, niż zakładał opis niżej: `.app` w układzie kolumnowym miał `align-items: flex-start`, więc `main`
+dostawał szerokość najszerszego elementu (wykresu). Poprawka: do 1024 px `align-items: stretch` i `main { width: 100% }`.
+Sprawdzone: `scrollWidth` = szerokość ekranu na wszystkich widokach przy 390 i 768 px.
+
+### Pierwotny opis
 - Strona ma 702 px szerokości przy ekranie 390 px.
 - Przyczyna: wykres w `.chart-scroll` ma na telefonie `min-width: 640px` (`static/css/styles.css`, reguła w `@media (max-width: 520px)`),
   a kontenery nad nim (`.stack`, `.card`) nie mają `min-width: 0`, więc ich minimalna szerokość rośnie do szerokości wykresu

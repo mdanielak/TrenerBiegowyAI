@@ -166,7 +166,7 @@ Poza głównymi rolami arkusz zawiera rozmiary 9.5, 10.5, 11, 11.5, 12.5, 13.5, 
 
 ## Layout
 
-Na szerokim ekranie przyklejony panel nawigacji ma 248px szerokości, a obszar treści maksymalnie 1180px. Karty układają się w siatki z odstępem 20px; ekran główny łączy węższą kolumnę oceny z szerszą kolumną sygnałów. Standardowy wewnętrzny odstęp karty wynosi 18px.
+Na szerokim ekranie przyklejony panel nawigacji ma 248px szerokości, a obszar treści maksymalnie 1320px, wyśrodkowany w pozostałej przestrzeni (na 1080p bez pustej prawej połowy). Do 1024px (tablet i telefon) menu przechodzi na górę i treść zajmuje całą szerokość. Karty układają się w siatki z odstępem 20px; ekran główny łączy węższą kolumnę oceny z szerszą kolumną sygnałów. Standardowy wewnętrzny odstęp karty wynosi 18px.
 
 Przy szerokości do 1080px część siatek się zwęża. Do 760px nawigacja przechodzi na górę i przewija się poziomo, a wykresy metryk układają się w jednej kolumnie. Do 520px większość siatek przechodzi do jednej kolumny, a zestawy liczbowych kafelków pozostają dwukolumnowe. To opis obecnego zachowania, nie wynik osobnego testu mobilnego.
 
@@ -190,7 +190,7 @@ Powierzchnia karty, obramowanie, cień i odstęp wewnętrzny tworzą powtarzalny
 
 ### Icons and illustrations
 
-Decyzja z krytyki Impeccable (1.11.2026, gałąź `feature/critique-fixes`): ozdobne kolorowe ikony PNG przy nagłówkach sekcji, w kafelkach i przy podpowiedziach zostały usunięte — były najbardziej szablonowym elementem i mieszały się z liniowymi ikonami SVG w przyciskach. Zostają grafiki, które niosą znaczenie: ikony sygnałów (sen, HRV, tętno, stres), ilustracje rodzajów treningu na kartach dni, ikony wierszy profilu i ilustracje pustych stanów. Do sprawdzenia przez właściciela; powrót do poprzedniego wyglądu to cofnięcie tej zmiany w szablonach.
+Kolorowe ikony PNG przy nagłówkach sekcji i w kafelkach liczb są częścią charakteru aplikacji — z tej samej rodziny co ikony menu i ilustracje treningów. Mają 24 px (nagłówki) i 22 px (kafelki), mniej niż tytuł, więc pomagają skanować stronę, nie konkurując z treścią. Ikony SVG zostają dla przycisków i kontrolek. Historia: w krytyce Impeccable (1.11.2026) ikony usunięto; przegląd wszystkich widoków w obu motywach pokazał, że strony stały się suche, a menu z kolorowymi ikonami przestało pasować do reszty — przywrócono je w mniejszym rozmiarze. Usunięte na stałe zostały tylko żarówki przy podpowiedziach (powtarzały ikonę sekcji).
 
 ### Inputs / Fields
 

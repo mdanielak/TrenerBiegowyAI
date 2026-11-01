@@ -27,7 +27,7 @@
 
     {% if stage == 'login' %}
       <section class="card">
-        <div class="card-head"><h2><span>Zaloguj się do Garmin Connect</span></h2></div>
+        <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_watch.png" width="28" height="28" alt=""><span>Zaloguj się do Garmin Connect</span></h2></div>
         <form method="post" action="/setup/garmin" class="stack form-stack">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <label class="field">E-mail konta Garmin
@@ -45,7 +45,7 @@
       </section>
 
     <section class="card security-card">
-      <div class="card-head"><h2><span>Jak chronimy Twoje konto Garmin</span></h2></div>
+      <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></h2></div>
       <ul class="security-list">
         <li>
           <strong class="point">Hasło wpisujesz tylko raz.</strong>
@@ -72,7 +72,7 @@
 
     {% elif stage == 'mfa' %}
       <section class="card">
-        <div class="card-head"><h2><span>Wpisz kod weryfikacyjny</span></h2></div>
+        <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Wpisz kod weryfikacyjny</span></h2></div>
         <p class="mid">Garmin wysłał kod na Twój e-mail albo SMS-em. Kod jest ważny kilka minut.</p>
         <form method="post" action="/setup/garmin/mfa" class="stack form-stack">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -124,7 +124,7 @@
       </section>
 
     <section class="card security-card">
-      <div class="card-head"><h2><span>Jak chronimy Twoje konto Garmin</span></h2></div>
+      <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Jak chronimy Twoje konto Garmin</span></h2></div>
       <ul class="security-list">
         <li>
           <strong class="point">Hasło wpisujesz tylko raz.</strong>

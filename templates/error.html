@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+
+{% block title %}TrenerBiegowyAI — {{ title }}{% endblock %}
+
+{% block content %}
+{% import "_icons.html" as ico %}
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+  </div>
+  <div class="banner info">
+    {{ ico.info() }}
+    <div class="banner-body">
+      <p class="banner-title">{{ message }}</p>
+      <p><a href="/">Wróć do strony głównej</a></p>
+    </div>
+  </div>
+{% endblock %}

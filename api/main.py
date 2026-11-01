@@ -14,6 +14,8 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import RedirectResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -221,6 +223,19 @@ def create_app(
     )
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def friendly_http_error(request: Request, exc: StarletteHTTPException):
+        """Przeglądarka dostaje stronę w wyglądzie aplikacji zamiast surowego JSON-a; klienci API — jak dotąd JSON."""
+        if "text/html" not in request.headers.get("accept", ""):
+            return await http_exception_handler(request, exc)
+        own_message = isinstance(exc.detail, str) and exc.detail not in {"Not Found", "Method Not Allowed"}
+        message = (exc.detail if own_message else
+                   "Nie ma takiej strony." if exc.status_code == 404 else "Nie można wykonać tej operacji.")
+        return _TEMPLATES.TemplateResponse(
+            request=request, name="error.html", status_code=exc.status_code,
+            context={"title": "Nie znaleziono" if exc.status_code == 404 else "Coś poszło nie tak", "message": message},
+        )
 
     def sync_status():
         """Najnowsza synchronizacja, jeśli wciąż trwa: adres postępu i stan paska; inaczej None."""

@@ -92,7 +92,7 @@
       <div class="today-grid">
       <div class="today-main">
         <div class="card-head">
-          <h2><span>Trening na dziś</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
           <span class="row">
             {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
               <span class="pill warn">Nie wykonuj</span>
@@ -150,21 +150,24 @@
                 <div class="tile">
                   <span class="tile-head">
                     
-                    <span class="tile-label"><span>Czas</span></span>
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+          <span class="tile-label"><span>Czas</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min|num }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
                 </div>
                 <div class="tile">
                   <span class="tile-head">
                     
-                    <span class="tile-label"><span>Dystans</span></span>
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
+          <span class="tile-label"><span>Dystans</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
                 </div>
                 <div class="tile">
                   <span class="tile-head">
                     
-                    <span class="tile-label"><span>Średnie tętno</span></span>
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt="">
+          <span class="tile-label"><span>Średnie tętno</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
                   {% if workout.score and workout.score.strefa_wykonania is not none %}
@@ -174,7 +177,8 @@
                 <div class="tile">
                   <span class="tile-head">
                     
-                    <span class="tile-label"><span>Maksymalne tętno</span></span>
+                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart_max.png" width="28" height="28" alt="">
+          <span class="tile-label"><span>Maksymalne tętno</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
                 </div>
@@ -195,7 +199,8 @@
                   <div class="tile">
                     <span class="tile-head">
                       
-                      <span class="tile-label"><span>{{ row.label }}</span></span>
+                      <img class="asset tile-icon" src="/assets/07_ui_icons/tile_load.png" width="28" height="28" alt="">
+          <span class="tile-label"><span>{{ row.label }}</span></span>
                     </span>
                     <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
                     <span class="tile-foot">{{ row.hint }}</span>
@@ -299,7 +304,7 @@
     <div class="signals-wide">
       <section class="card">
         <div class="card-head">
-          <h2><span>Sygnały z organizmu</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
         </div>
         <div class="signals">
           {% for card in signal_cards %}
@@ -346,7 +351,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><span>Co dziś zrobić</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Co dziś zrobić</span></h2>
         {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
       {% if ai_recommendation %}
@@ -390,7 +395,7 @@
 
       <section class="card">
         <div class="card-head">
-          <h2><span>Twoja dostępność</span></h2>
+          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Twoja dostępność</span></h2>
         </div>
         {% if pause %}
           <div class="empty-art compact">
@@ -417,7 +422,7 @@
       {% if report.yesterday_activities %}
       <details class="card activity-disclosure">
         <summary class="card-head">
-          <h2><span>Wczorajsze aktywności</span></h2>
+          <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Wczorajsze aktywności</span></h2>
           <span class="tile-foot">{% if report.yesterday_activities %}{{ report.yesterday_activities|length }}{% else %}brak{% endif %}</span>
         </summary>
       {% if report.yesterday_activities %}

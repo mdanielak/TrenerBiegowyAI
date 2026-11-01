@@ -1170,3 +1170,33 @@ p { text-wrap: pretty; }
 
 /* Cel: bieżąca faza w kolorze osi (akcent), nie zielonym. */
 .zone-chip.lead.is-current { background: var(--accent); color: var(--on-accent); }
+
+/* ===================== Pełny przegląd UI/UX (1.11.2026) ===================== */
+/* Ikony sekcji wróciły (były częścią charakteru, tak jak ikony menu), ale mniejsze, żeby nie konkurowały z tytułem. */
+.head-icon { width: 24px; height: 24px; }
+.tile-icon { width: 22px; height: 22px; }
+
+/* Duże ekrany (1080p): treść szersza i wyśrodkowana zamiast pustej prawej połowy. */
+.main { max-width: 1320px; margin-inline: auto; }
+
+/* Puste stany w kartach bez drugiego szarego pudełka. */
+.card > .empty-art { background: none; }
+
+/* Tablet i telefon: menu u góry (to samo co na telefonie), treść na całą szerokość.
+   Bez tego przy 768 px boczny pasek zabierał 250 px, a wykresy Statystyk kurczyły się do miniatur. */
+@media (max-width: 1024px) {
+  .app { flex-direction: column; align-items: stretch; }
+  .sidebar { position: static; width: 100%; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 14px; gap: 14px; }
+  .nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .nav-label, .nav-note { display: none; }
+  .theme-switch { margin-top: 0; padding: 0; }
+  .nav-item { padding: 8px 11px; flex: none; }
+  .has-js .nav-toggle { display: block; width: 100%; text-align: left; }
+  .has-js .nav { display: none; }
+  .has-js .nav.is-open { display: flex; flex-direction: column; }
+  /* Kolumnowy układ z align-items: flex-start dawał treści szerokość wykresu (702 px na telefonie) — stąd przewijanie w bok. */
+  .main { width: 100%; max-width: none; }
+  .chart-scroll { max-width: 100%; }
+  /* Wykres sygnału pod opisem, na całą szerokość — obok opisu był wielkości miniatury. */
+  .metric-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}

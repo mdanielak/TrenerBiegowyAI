@@ -32,7 +32,7 @@
     <div class="journal-workspace">
     <section class="card journal-entry-card">
       <div class="card-head">
-        <h2><span>Twój codzienny wpis</span></h2>
+        <h2><img class="asset head-icon" src="/assets/01_navigation/journal.png" width="28" height="28" alt=""><span>Twój codzienny wpis</span></h2>
       </div>
       {% if not journal_guard_ready %}<div class="banner warn">Uruchom ponownie aplikację, aby zapisywać wpisy i bezpiecznie usuwać przerwy.</div>{% endif %}
       <form method="post" action="/journal" class="stack form-stack journal-editor" id="journal-form" tabindex="-1">
@@ -92,7 +92,7 @@
     </section>
     <section class="card journal-history-card{% if not entries %} is-empty{% endif %}">
       <div class="card-head">
-        <h2><span>Ostatnie 14 dni</span></h2>
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Ostatnie 14 dni</span></h2>
       </div>
       {% if entries %}
         <div class="journal-history">
@@ -133,7 +133,7 @@
     {% endfor %}
     <details class="card" id="przerwy"{% if pause_error or pause_saved or pause_removed or confirm_pause %} open{% endif %}><summary>Zarządzaj przerwami treningowymi</summary>
       <div class="card-head">
-        <h2><span>Przerwy: choroba, wyjazd, zabieg</span></h2>
+        <h2><img class="asset head-icon" src="/assets/03_activity/kind_rest.png" width="28" height="28" alt=""><span>Przerwy: choroba, wyjazd, zabieg</span></h2>
       </div>
       {% if pause_error %}
         <div class="banner bad" role="alert" tabindex="-1" autofocus>{{ ico.info() }}<div class="banner-body"><p class="banner-title">{{ pause_error }}</p><a href="#{{ error_field or 'pause-form' }}">Przejdź do {{ 'pola' if error_field else 'formularza' }}</a></div></div>

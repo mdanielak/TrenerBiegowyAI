@@ -1133,3 +1133,17 @@ def test_journal_effort_is_a_one_click_scale():
     with TestClient(create_app(report_provider=lambda: _report())) as client:
         page = client.get("/journal").text
     assert page.count('type="radio" name="rpe"') == 11 and "RPE" not in page.split("<main", 1)[1]
+
+
+def test_unknown_job_shows_a_page_not_raw_json(tmp_path):
+    with TestClient(create_app(report_provider=lambda: _report(), job_store=JobStore(tmp_path / "jobs"))) as client:
+        page = client.get("/jobs/nieistniejace-zadanie-12345", headers={"Accept": "text/html"})
+        api = client.get("/jobs/nieistniejace-zadanie-12345", headers={"Accept": "application/json"})
+    assert page.status_code == 404 and "<h1>Nie znaleziono</h1>" in page.text and "Nie znaleziono zadania." in page.text
+    assert '{"detail"' not in page.text and api.json() == {"detail": "Nie znaleziono zadania."}
+
+
+def test_wizard_stepper_lists_every_step():
+    with TestClient(create_app(report_provider=lambda: _report())) as client:
+        page = client.get("/wizard").text
+    assert page.count('<span class="wizard-num">') == 5 and "Krok 1 z 5" in page
