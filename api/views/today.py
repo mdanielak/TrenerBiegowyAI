@@ -121,6 +121,7 @@ def _signal_cards(report) -> list:
         trend_key = meta["trend_key"]
         cards.append({
             "label": meta["label"],
+            "explain": meta.get("explain"),
             "unit": meta["unit"],
             "icon": meta["icon"],
             "asset": meta["asset"],

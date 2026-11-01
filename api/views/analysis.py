@@ -21,6 +21,7 @@ def _analysis_rows(readiness_data: dict) -> list[dict]:
             "pill_class": _ANALYSIS_PILL_CLASSES.get(status, "neutral"),
             "status_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
             "message": detail.get("message") or "",
+            "explain": meta.get("explain"),
         })
     return rows
 
@@ -34,6 +35,9 @@ def _analysis_measurements(readiness_data: dict) -> list[dict]:
     hrv_status = readiness_data.get("hrv_status")
     return [
         {"label": "Tętno spoczynkowe", "value": readiness_data.get("rhr"), "unit": "bpm", "icon": "heart"},
+        {"label": "Tętno spoczynkowe — Twoja norma",
+         "value": round(readiness_data["rhr_baseline"]) if readiness_data.get("rhr_baseline") is not None else None,
+         "unit": "bpm", "icon": "heart"},
         {"label": "HRV ostatniej nocy", "value": readiness_data.get("hrv_last"), "unit": "", "icon": "pulse"},
         {"label": "HRV — zakres bazowy", "value": baseline_text, "unit": "", "icon": "pulse"},
         {"label": "HRV — ocena zegarka", "icon": "pulse",

@@ -1,0 +1,4 @@
+{# Objaśnienie „?” przy sygnale: details działa bez JavaScriptu, dotykiem, klawiaturą i z czytnikiem ekranu. #}
+{% macro explain(label, text) -%}
+{%- if text %}<details class="explain"><summary aria-label="Co to znaczy: {{ label }}" title="Co to znaczy?">?</summary><p>{{ text }}</p></details>{% endif -%}
+{%- endmacro %}

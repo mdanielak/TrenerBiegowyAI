@@ -1104,3 +1104,17 @@ def test_dashboard_hides_the_steps_after_the_training():
     with _workout_client(execution=_execution()) as client:
         page = client.get("/").text
     assert 'class="workout-steps"' not in page
+
+
+def test_signals_explain_themselves_on_analysis_and_home():
+    """„?” przy każdym sygnale: zwykły tekst dla osoby, która nie wie, co to HRV."""
+    readiness = _analysis_readiness(available_metrics=["sleep", "rhr", "hrv", "stress"], missing_metrics=[],
+                                    confidence="high", raw_score=8.0, available_max_score=10.0)
+    with _analysis_client(readiness) as client:
+        analysis = client.get("/analysis").text
+    assert 'aria-label="Co to znaczy: Zmienność tętna"' in analysis
+    assert "drobne różnice w odstępach między kolejnymi uderzeniami serca" in analysis
+    assert "Ocena 0–10 sumuje cztery sygnały" in analysis
+    with TestClient(create_app(report_provider=lambda: _report())) as client:
+        home = client.get("/").text
+    assert 'aria-label="Co to znaczy: Tętno spoczynkowe"' in home and "średnią z Twoich ostatnich czterech tygodni" in home

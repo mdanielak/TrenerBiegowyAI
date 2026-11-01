@@ -29,14 +29,29 @@ _WEEK_WARNING_LABELS = {
 }
 _SIGNAL_STATE_LABELS = {"OK": "dobrze", "WARN": "uwaga", "FAIL": "słabo", "UNKNOWN": "brak danych"}
 _SIGNAL_META = {
+    # explain: objaśnienie „(?)” dla osoby, która nie zna terminów; progi zgodne z services/readiness.py.
     "Sleep": {"label": "Sen", "unit": "/100", "icon": "moon",
-              "asset": "02_health_status/sleep.png", "trend_key": "sleep_score"},
+              "asset": "02_health_status/sleep.png", "trend_key": "sleep_score",
+              "explain": "Ocena snu 0–100 liczona przez zegarek Garmin z długości snu, faz snu głębokiego i REM oraz "
+                         "wybudzeń. Aplikacja przyjmuje: 90 i więcej — bardzo dobry sen, 70–89 — przeciętny, poniżej 70 "
+                         "— słaby. Po słabej nocy organizm regeneruje się gorzej, więc lżejszy trening jest bezpieczniejszy."},
     "HRV": {"label": "Zmienność tętna", "unit": "", "icon": "pulse",
-            "asset": "02_health_status/hrv.png", "trend_key": None},
+            "asset": "02_health_status/hrv.png", "trend_key": None,
+            "explain": "Zmienność tętna (HRV) to drobne różnice w odstępach między kolejnymi uderzeniami serca, mierzone "
+                       "w nocy. Wyższa zwykle znaczy, że organizm jest wypoczęty; niższa — że zmaga się ze zmęczeniem, "
+                       "stresem albo infekcją. Zegarek porównuje ją z Twoim własnym zakresem z ostatnich tygodni: "
+                       "„niskie” albo „niezrównoważone” znaczy, że wypada poza ten zakres — wtedy lepiej dziś biec spokojniej."},
     "RHR": {"label": "Tętno spoczynkowe", "unit": "bpm", "icon": "heart",
-            "asset": "02_health_status/resting_hr.png", "trend_key": "rhr"},
+            "asset": "02_health_status/resting_hr.png", "trend_key": "rhr",
+            "explain": "Tętno spoczynkowe to najniższe tętno w ciągu doby, w pełnym spoczynku. Każdy ma własną normę, "
+                       "więc aplikacja porównuje dzisiejszy pomiar ze średnią z Twoich ostatnich czterech tygodni: do 2 uderzeń "
+                       "więcej to norma, 3–5 — lekko podwyższone, więcej — podwyższone. Wyższe niż zwykle bywa sygnałem "
+                       "zmęczenia, odwodnienia albo nadchodzącej infekcji."},
     "Stress": {"label": "Stres", "unit": "", "icon": "bolt",
-               "asset": "02_health_status/stress.png", "trend_key": "stress_avg"},
+               "asset": "02_health_status/stress.png", "trend_key": "stress_avg",
+               "explain": "Średni poziom stresu w ciągu dnia w skali 0–100, liczony przez zegarek z tętna i HRV. Do 30 "
+                          "— niski, 31–40 — umiarkowany, powyżej 40 — podwyższony. Stres w pracy czy słaby sen obciążają "
+                          "organizm podobnie jak trening, dlatego też wpływają na ocenę."},
 }
 _WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
 _READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}
