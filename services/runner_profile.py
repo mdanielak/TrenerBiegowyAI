@@ -172,7 +172,6 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "longest_min": longest,
         "max_week_minutes": max_week,
         "week_cap_min": round(max_week * WEEK_LIMIT[decision]) if max_week and not short_history else None,
-        "regular_weeks": sum(1 for w in weeks.values() if w["runs"] >= 2),
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
         "rhr_up": rhr_up,

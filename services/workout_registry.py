@@ -355,11 +355,6 @@ def cleanup_candidates(days=90, today=None, status='active'):
     return sorted(out, key=lambda w: w.get('last_used') or '')
 
 
-def _entry_date(entry):
-    """When the workout entered the library — scheduled date if known, else added_at."""
-    return (entry.get('date') or (entry.get('added_at') or '')[:10]) or None
-
-
 def restore_entry(workout_id):
     """Return the full registry entry needed to re-upload a deleted workout.
 

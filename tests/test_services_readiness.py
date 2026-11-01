@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Tests for services/readiness.py — readiness assessment and plan comparison."""
 import sys
 import os

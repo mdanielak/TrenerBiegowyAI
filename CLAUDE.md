@@ -52,4 +52,4 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z”, tag `vX.Y.Z`,
   `git archive --format=zip --prefix=TrenerBiegowyAI/ -o dist/TrenerBiegowyAI-X.Y.Z.zip vX.Y.Z`,
   `gh release create` z polskimi notatkami (zip jako asset — z niego korzysta `update.bat`).
-- `docs/PROMPT_TECHNICAL.md` i `docs/PROMPT_TRAINING.md` są nieaktualne; aktualne prompty są w `ai/prompts/`.
+- Aktualne prompty są wyłącznie w `ai/prompts/`; `docs/TRAINING_RULES.md` to opis dla ludzi i do promptu nie trafia.
