@@ -62,6 +62,8 @@ def _options(argv):
             options["biegacz"] = next(words, "")
         elif word in ("--verbose", "-v"):
             options["verbose"] = True
+        elif word == "--zachowaj":
+            options["zachowaj"] = True
         else:
             rest.append(word)
     if rest and "dzien" not in options:
@@ -120,6 +122,12 @@ RUNNERS = {
 
 OPTIONS = _options(sys.argv[1:])
 VERBOSE = bool(OPTIONS.get("verbose"))
+# Przy --zachowaj dane z poprzedniego testu pasują do tamtego dnia i biegacza: bez nowych podajemy te same.
+_SAVED = SANDBOX / "testowanie-ustawienia.json"
+KEEP = bool(OPTIONS.get("zachowaj")) and (SANDBOX / "local" / "profile.json").is_file()
+if KEEP and _SAVED.is_file():
+    OPTIONS = {**json.loads(_SAVED.read_text(encoding="utf-8")), **OPTIONS}
+_SAVED.write_text(json.dumps({k: OPTIONS[k] for k in ("dzien", "biegacz") if OPTIONS.get(k)}), encoding="utf-8")
 WEEKDAY = _chosen_weekday(OPTIONS.get("dzien"))
 RUNNER_KEY = (OPTIONS.get("biegacz") or "regularny").lower().translate(_ASCII)
 if RUNNER_KEY not in RUNNERS:
@@ -443,7 +451,10 @@ if __name__ == "__main__":
     import uvicorn
     from api.main import create_app
 
-    _seed()
+    if KEEP:
+        print(f"\n  --zachowaj: dane z poprzedniego testu zostają ({SANDBOX / 'local'}).")
+    else:
+        _seed()
     actions.synchronize_data = fake_sync  # run_sync_job podaje postęp tylko „swojej” synchronizacji
     app = create_app(sync_operation=fake_sync)
     print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = {DAY_NAMES[WEEKDAY]} {TODAY:%d.%m.%Y}, biegacz: {RUNNER_KEY})")
