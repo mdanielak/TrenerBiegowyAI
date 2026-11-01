@@ -105,6 +105,7 @@ def review_workout(*, review_key, report_provider, profile_loader=None, provider
         raise ValueError(REVIEW_DISABLED_MESSAGE)
 
     from ai.workout_review import get_workout_comment, runner_text
+    from services.runner_profile import address_form
     if provider_factory is None:
         from ai.openai_compatible import OpenAICompatibleProvider
         provider = OpenAICompatibleProvider(config.AI_BASE_URL, config.AI_API_KEY, config.AI_MODEL)
@@ -119,6 +120,7 @@ def review_workout(*, review_key, report_provider, profile_loader=None, provider
         readiness=report.readiness or {},
         hr_zones_text=profile.get("hr_zones"),
         runner=runner_text(profile),
+        address_form=address_form(profile),
     )
     save(review_key=review_key, score=score, comment=comment.komentarz)
     return {"score": score, "comment": comment.komentarz}

@@ -148,7 +148,7 @@ def build_training_context(data, plan=None, today=None):
     runner = build_runner_profile(activities=data.get('activities'), profile=profile, today=today.date(),
                                   pain=bool((journal or {}).get("pain_days")))
     return {
-        "system_prompt": coach_prompt(runner),
+        "system_prompt": coach_prompt(runner, mode="dzien"),
         "runner": runner,
         "runner_profile": profile,
         "goal": _goal_from_profile(profile),

@@ -31,7 +31,8 @@ def test_the_tester_is_a_beginner_with_5k_modules_and_no_author_data():
     assert runner["level"] == "poczatkujacy" and runner["longest_min"] == 35
     assert modules_for(runner) == ["poziom/poczatkujacy", "cel/5km"]
     prompt = coach_prompt(runner, private_path=Path("brak.md"))
-    assert "## Poziom: początkujący" in prompt and "## Cel: 5 km" in prompt and "półmaraton" not in prompt
+    assert "# Poziom: początkujący" in prompt and "# Cel: 5 km" in prompt and "półmaraton" not in prompt
+    assert "# Forma zwracania się: żeńska" in prompt  # płeć z konta Garmin, bez wyboru w kreatorze
 
 
 def test_a_new_watch_trusts_the_years_of_running_from_the_wizard():
@@ -111,3 +112,45 @@ def test_the_week_keeps_the_chosen_number_of_runs_and_trims_proportionally():
     long_run = next(w for w in runs if w["type"] == "long")
     assert long_run["duration_min"] == max(w["duration_min"] for w in runs)  # długi zostaje najdłuższy
     assert sum(w["duration_min"] for w in runs) <= runner["max_week_minutes"]
+
+
+def test_each_ai_call_gets_its_mode_and_examples_only_go_to_the_weekly_plan():
+    runner = build_runner_profile(activities=_tester(), profile=_profile(running_since="under6"), today=TODAY)
+    plan, day, review = (coach_prompt(runner, mode=m, private_path=Path("brak.md")) for m in ("plan", "dzien", "trening"))
+    assert "# Tryb: plan tygodnia" in plan and "# Przykłady decyzji trenera" in plan and "# Prewencja urazów" in plan
+    assert "# Tryb: rekomendacja na dziś" in day and "# Przykłady" not in day
+    assert "# Tryb: komentarz do zakończonego treningu" in review
+    for prompt in (plan, day, review):
+        assert "# 01 — Bramka bezpieczeństwa" in prompt and "jedynym źródłem prawdy" in prompt
+        assert "Czy sprawdziłem" not in prompt and "wyłączyłem" not in prompt  # lista kontrolna bezosobowa
+
+
+def test_address_form_follows_the_wizard_choice_then_garmin_then_neutral():
+    from services.runner_profile import address_form
+    assert address_form({"address_form": "male", "sex": "female"}) == "male"
+    assert address_form({"sex": "female"}) == "female"
+    assert address_form({}) == "neutral" and address_form({"address_form": "bzdura"}) == "neutral"
+    texts = {form: coach_prompt(mode="dzien", address_form=form, private_path=Path("brak.md"))
+             for form in ("male", "female", "neutral")}
+    assert "zrobiłeś" in texts["male"] and "zrobiłaś" in texts["female"] and "bez form płciowych" in texts["neutral"]
+
+
+def test_the_model_is_told_the_same_limits_the_app_enforces():
+    runner = build_runner_profile(activities=_tester(), today=TODAY,
+                                  profile=_profile(running_since="under6", training_frequency="3 treningi w tygodniu"))
+    lines = "\n".join(profile_lines(runner))
+    assert f"długi bieg najwyżej {runner['longest_min'] + 10} min" in lines
+    assert "najwyżej 3 treningów w tygodniu" in lines and f"najwyżej {runner['week_cap_min']} min" in lines
+    assert "bez interwałów, biegu progowego i tempowego" in lines
+    easing = build_runner_profile(activities=_tester(), today=TODAY, pain=True, profile=_profile(running_since="6to24"))
+    assert easing["week_cap_min"] == round(easing["max_week_minutes"] * 0.75)
+    assert "zdrowie/regeneracja-i-przemeczenie" in modules_for(easing) and "zdrowie/kontuzje" in modules_for(easing)
+
+
+def test_high_bmi_module_only_for_someone_still_building_a_base():
+    heavy = dict(weight_kg=100, height_cm=175)
+    experienced = build_runner_profile(activities=_runs(range(3, 31), 50, km=8.0), today=TODAY,
+                                       profile=_profile(running_since="over24", **heavy))
+    beginner = build_runner_profile(activities=_tester(), today=TODAY, profile=_profile(running_since="under6", **heavy))
+    assert "zdrowie/wysoka-waga" not in modules_for(experienced)
+    assert "zdrowie/wysoka-waga" in modules_for(beginner)

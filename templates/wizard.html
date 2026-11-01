@@ -88,12 +88,18 @@
             {% endfor %}
             {{ field_error('running_since') }}
           </fieldset>
+          <fieldset class="field-group">
+            <legend>Jak trener AI ma się do Ciebie zwracać?</legend>
+            {% for key, label in address_forms.items() %}
+              <label class="choice"><input type="radio" name="address_form" value="{{ key }}"{% if values.address_form == key %} checked{% endif %}> {{ label }}</label>
+            {% endfor %}
+          </fieldset>
           <label class="field">Kontuzje albo sprawy zdrowotne, które trener ma znać (opcjonalnie)
             <textarea class="text-input" name="health_notes" rows="3" maxlength="{{ health_limit }}" placeholder="np. dwa lata temu kontuzja kolana; astma wysiłkowa">{{ values.health_notes }}</textarea>
           </label>
           <p class="tile-foot">To pomaga dobrać długość i trudność treningów. Opis trafia do AI razem z resztą danych, tylko jeśli zgodzisz się na wysyłanie danych do AI. Nie zastępuje porady lekarza.</p>
         {% else %}
-          {% for name in ("running_since", "health_notes") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
+          {% for name in ("running_since", "health_notes", "address_form") %}<input type="hidden" name="{{ name }}" value="{{ values[name] }}">{% endfor %}
         {% endif %}
 
         {% if step == 'week' %}
@@ -126,6 +132,7 @@
             <div><dt>Obecny rekord</dt><dd>{{ values.record or '—' }}</dd></div>
             <div><dt>Biegasz regularnie</dt><dd>{{ running_since_choices.get(values.running_since, '—') }}</dd></div>
             <div><dt>Zdrowie</dt><dd>{{ values.health_notes or 'bez uwag' }}</dd></div>
+            <div><dt>Trener pisze</dt><dd>{{ address_forms.get(values.address_form, address_forms['neutral']) }}</dd></div>
             <div><dt>Treningi w tygodniu</dt><dd>{{ values.frequency }}</dd></div>
           </dl>
           <ul class="wizard-week">

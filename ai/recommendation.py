@@ -59,7 +59,7 @@ Uwzględnij:
 
 Bądź konkretny ale ostrożny — priorytetem jest zdrowie i regeneracja.
 Pisz dla osoby nietechnicznej: bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score) —
-„HRV niskie”, „tętno spoczynkowe”, „ocena snu” — i bez form zależnych od płci."""
+„HRV niskie”, „tętno spoczynkowe”, „ocena snu”. Formę zwracania się określa moduł języka."""
 
 
 def get_daily_recommendation(provider: AIProvider, context: dict) -> DailyRecommendation:

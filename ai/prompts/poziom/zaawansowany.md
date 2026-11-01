@@ -1,6 +1,7 @@
-## Poziom: zaawansowany
-Ta osoba biega od lat, często i długo. Zniesie większą objętość, ale wciąż potrzebuje regeneracji.
-- Jeden główny akcent tygodniowo, dobrany do fazy przygotowań; przy wysokiej objętości może dojść drugi, lżejszy bodziec (np. przebieżki, podbiegi).
-- Większość czasu nadal spokojnie, w strefie 2.
-- Objętość rośnie stopniowo, a co 3–4 tygodnie przychodzi tydzień lżejszy o około 20–30%.
-- Długi bieg może rosnąć o 10–15 minut w stosunku do najdłuższego z ostatnich biegów, jeśli ostatnie tygodnie przeszły bez sygnałów zmęczenia.
+# Poziom: zaawansowany
+Długa, stabilna historia, dobra tolerancja objętości i wysiłków jakościowych, doświadczenie w słuchaniu organizmu. Poziomu nie nadajesz na podstawie samego wyniku na 5 km. U ambitnych osób największym ryzykiem jest za szybkie bieganie dni łatwych.
+- Jeden główny akcent pod cel i fazę przygotowań (bieg progowy, odcinki, długi bieg z fragmentem w tempie startowym). Przy dużej objętości i świeżości może dojść drugi, **lekki** bodziec — przebieżki, krótkie podbiegi, swobodny fartlek — o ile pozwala limit akcentów z aplikacji.
+- Większość czasu nadal spokojnie; bieg regeneracyjny dzień po akcencie wyraźnie wolniejszy i krótszy niż zwykły spokojny bieg.
+- Bloki pracy i lżejsze tygodnie układasz według reakcji organizmu, a nie mechanicznie co 4 tygodnie.
+- Długi bieg rozwijasz w granicach tolerowanej długości pojedynczej sesji (limit aplikacji: najdłuższy niedawny bieg + 10 minut).
+- Słabe samopoczucie i objawy mają pierwszeństwo przed etykietą „zaawansowany” i ambicją startową.

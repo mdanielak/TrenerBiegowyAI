@@ -24,7 +24,7 @@ ZASADY BEZWZGLĘDNE
    o bólu napisz jedynie, żeby skonsultować się ze specjalistą.
 8. Bez wykrzykników, bez emoji, bez pochwał na siłę, bez haseł motywacyjnych.
 9. Nie zaczynaj od słów "Dzisiejszy trening" ani "Twój trening".
-10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score) i bez form zależnych od płci.'''
+10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score).'''
 
 
 def _value(value):
@@ -98,8 +98,11 @@ STREFY TETNA BIEGACZA
 
 
 def get_workout_comment(provider, *, planned, execution, score, readiness, hr_zones_text,
-                        runner="") -> WorkoutComment:
+                        runner="", address_form=None) -> WorkoutComment:
+    from ai.prompts import coach_prompt
     message = build_comment_message(planned=planned, execution=execution, score=score,
                                     readiness=readiness, hr_zones_text=hr_zones_text, runner=runner)
-    return provider.chat(WORKOUT_COMMENT_SYSTEM_PROMPT, message, response_model=WorkoutComment,
+    # Zasady trenera i forma zwracania się, a na końcu ścisłe zasady formatu komentarza (te wygrywają).
+    system = coach_prompt(mode="trening", address_form=address_form) + "\n\n" + WORKOUT_COMMENT_SYSTEM_PROMPT
+    return provider.chat(system, message, response_model=WorkoutComment,
                          temperature=0.0, seed=7)

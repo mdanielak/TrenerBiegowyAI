@@ -14,7 +14,7 @@ from services import wizard
 
 _CSRF_ERROR = "Odśwież stronę i spróbuj ponownie."
 _FIELDS = (["distance", "distance_other", "event_name", "event_date", "target_time", "record", "frequency",
-            "running_since", "health_notes"]
+            "running_since", "health_notes", "address_form"]
            + [f"{prefix}_{day}" for day in wizard.DAYS for prefix in ("day", "min", "max")])
 
 
@@ -54,6 +54,7 @@ def get_wizard_router(
             "first_run": wizard.needs_onboarding(profile) if profile is not None else True,
             "distances": wizard.DISTANCES,
             "running_since_choices": wizard.RUNNING_SINCE,
+            "address_forms": wizard.ADDRESS_FORMS,
             "health_limit": wizard.HEALTH_LIMIT,
             "days": wizard.DAYS,
             "day_labels": wizard.DAY_LABELS,

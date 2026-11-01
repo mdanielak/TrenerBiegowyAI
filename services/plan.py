@@ -274,9 +274,6 @@ def _clip_duration(duration, min_minutes, max_minutes):
     return high, True
 
 
-# Długość rośnie stopniowo od tego, co biegacz już biega.
-LONG_RUN_STEP_MIN = 10
-
 
 def _limit_training_days(workouts, runner) -> None:
     """Najwyżej tyle treningów, ile biegacz wybrał w kreatorze; odpadają najkrótsze biegi łatwe."""
@@ -298,11 +295,9 @@ def _limit_week_minutes(workouts, runner) -> None:
     Biegi spokojne i długi skracają się proporcjonalnie (długi zostaje najdłuższy), żaden poniżej 20 minut.
     Przy krótkiej historii z zegarka limitu nie ma — nie wiemy jeszcze, ile ktoś biega.
     """
-    from services.runner_profile import WEEK_LIMIT
-
-    if not runner or runner.get("short_history") or not runner.get("max_week_minutes"):
+    cap = (runner or {}).get("week_cap_min")  # ta sama liczba, którą model dostał w LIMITACH APLIKACJI
+    if not cap:
         return
-    cap = round(runner["max_week_minutes"] * WEEK_LIMIT[runner["decision"]])
     aerobic = [w for w in workouts if w["type"] in AEROBIC_KINDS and w["duration_min"]]
     fixed = sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest" and w not in aerobic)
     adjustable = sum(w["duration_min"] for w in aerobic)
@@ -571,8 +566,10 @@ def normalize_plan(response, *, context) -> dict:
             workout["notes"] = _append_note(
                 workout["notes"], f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
 
-    # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie).
-    longest = longest_recent_run(context.get("recent_activities"))
+    # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie). Z profilem biegacza:
+    # ta sama liczba, którą model dostał w LIMITACH APLIKACJI.
+    from services.runner_profile import LONG_RUN_STEP_MIN
+    longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         limits = {"long": longest + LONG_RUN_STEP_MIN, "easy": longest, "recovery": longest}
         for workout in workouts:

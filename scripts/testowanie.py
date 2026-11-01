@@ -85,7 +85,7 @@ RUNNERS = {
         "runs": {1: ("Bieg spokojny", 35, 4.8, 142), 4: ("Bieg spokojny", 30, 4.1, 145), 6: ("Bieg spokojny", 38, 5.2, 140)},
         "this_week": {0: ("Bieg spokojny", 34, 4.7, 143), 3: ("Bieg spokojny", 30, 4.2, 141),
                       4: ("Bieg spokojny", 31, 4.3, 144), 6: ("Bieg spokojny", 44, 6.0, 139)},
-        "profile": {"running_since": "under6", "target_distance": "5k", "target_race": "5 km",
+        "profile": {"sex": "female", "running_since": "under6", "target_distance": "5k", "target_race": "5 km",
                     "target_hm": "5 km 30:00", "target_time": "30:00", "current_hm_record": "",
                     "training_frequency": "3 treningi w tygodniu"},
         "plan": {0: ("easy", "Bieg spokojny 35 min", 35, 4.8, "Z2"), 3: ("easy", "Bieg spokojny 30 min", 30, 4.2, "Z2"),
@@ -96,7 +96,7 @@ RUNNERS = {
         "runs": {1: ("Bieg łatwy", 45, 7.4, 134), 3: ("Interwały", 52, 8.8, 152), 6: ("Długi bieg", 85, 13.8, 139)},
         "this_week": {0: ("Bieg łatwy", 41, 6.8, 133), 3: ("Interwały", 52, 8.8, 153),
                       4: ("Bieg łatwy", 36, 5.9, 131), 6: ("Długi bieg", 82, 13.1, 138)},
-        "profile": {"running_since": "6to24", "target_distance": "hm", "target_race": "Półmaraton",
+        "profile": {"sex": "male", "running_since": "6to24", "target_distance": "hm", "target_race": "Półmaraton",
                     "target_hm": "Półmaraton 1:55:00", "target_time": "1:55:00", "current_hm_record": "2:02:00",
                     "training_frequency": "4 treningi w tygodniu"},
         "plan": {0: ("easy", "Bieg łatwy 40 min", 40, 6.5, "Z2"), 3: ("intervals", "Interwały 5×3 min", 50, 8.5, "Z4"),
@@ -262,8 +262,9 @@ class FakeProvider:
         pass
 
     def chat(self, system_prompt, user_message, response_model=None, **kwargs):
-        modules = [line[3:] for line in system_prompt.splitlines()
-                   if line.startswith(("## Poziom", "## Cel", "## Wiek", "## Większa", "## Zdrowie", "## Powrót"))]
+        # Tytuły modułów poza stałymi (rola i core/01–05): forma, poziom, cel, zdrowie, tryb.
+        modules = [line[2:] for line in system_prompt.splitlines()
+                   if line.startswith("# ") and not line.startswith(("# 0", "# TrenerBiegowyAI"))]
         print(f"  [udawane AI] moduły promptu: {', '.join(modules) or 'brak'}", flush=True)
         time.sleep(4)
         if response_model is WeekPlanResponse:
@@ -356,6 +357,9 @@ def _workout(day_index, kind, name, **fields):
 def _seed():
     local = config.LOCAL_DIR
     local.mkdir(exist_ok=True)
+    from services.strategy import STRATEGY_PATH
+    if RUNNER_KEY != "regularny":  # przykładowa strategia jest półmaratońska — pasuje tylko do tego scenariusza
+        STRATEGY_PATH.unlink(missing_ok=True)
     (local / "profile.json").write_text(json.dumps({
         "name": "Testowy Biegacz", "age": 34, "weight_kg": 68.5, "height_cm": 176, "hr_max": 188, "hr_rest": 48,
         "lactate_threshold_hr": 168, "hr_zone_floors": FLOORS,

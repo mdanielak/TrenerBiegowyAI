@@ -18,12 +18,23 @@ RUNNING_SINCE_LABELS = {"start": "dopiero zaczyna", "under6": "do 6 miesięcy", 
                         "over24": "ponad 2 lata"}
 LEVEL_LABELS = {"poczatkujacy": "początkujący", "regularny": "regularny", "zaawansowany": "zaawansowany"}
 DECISION_LABELS = {
-    "odpusc": "odpuść — lżejszy tydzień (mniej czasu niż ostatnio)",
+    "odpusc": "odpuść — wyraźnie lżejszy tydzień (około 75% czasu największego z ostatnich tygodni)",
     "utrzymaj": "utrzymaj — podobna objętość jak ostatnio, bez dokładania",
     "doloz": "dołóż — objętość może wzrosnąć o 5–10%",
 }
 # Mnożnik największego tygodnia z ostatnich czterech, którego plan nie przekroczy.
-WEEK_LIMIT = {"odpusc": 0.9, "utrzymaj": 1.0, "doloz": 1.1}
+WEEK_LIMIT = {"odpusc": 0.75, "utrzymaj": 1.0, "doloz": 1.1}
+# Długi bieg najwyżej tyle minut dłuższy niż najdłuższy niedawny bieg; łatwy nie dłuższy niż on.
+LONG_RUN_STEP_MIN = 10
+ADDRESS_FORMS = ("female", "male", "neutral")
+
+
+def address_form(profile) -> str:
+    """Forma zwracania się: wybór z kreatora, inaczej płeć z konta Garmin, inaczej bez form płciowych."""
+    profile = profile or {}
+    if profile.get("address_form") in ADDRESS_FORMS:
+        return profile["address_form"]
+    return profile.get("sex") if profile.get("sex") in ("female", "male") else "neutral"
 WINDOW_DAYS = 28
 
 
@@ -105,7 +116,9 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         week["runs"] += 1
         week["km"] += _number(activity.get("distance_km")) or 0
         week["minutes"] += _number(activity.get("duration_min")) or 0
-    durations = [_number(a.get("duration_min")) for a in window if _number(a.get("duration_min"))]
+    # Najdłuższy bieg z 28 dni do dziś (z bieżącym tygodniem): ta sama liczba trafia do promptu i do bezpieczników.
+    durations = [_number(a.get("duration_min")) for a in runs
+                 if today - timedelta(days=WINDOW_DAYS) <= _run_day(a) < today and _number(a.get("duration_min"))]
     longest = round(max(durations)) if durations else None
     run_days = sorted(_run_day(a) for a in runs)
     # Zegarek z historią krótszą niż 3 tygodnie nie mówi jeszcze, jak ktoś biega.
@@ -143,6 +156,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         decision = "doloz"
 
     weight, height = _number(profile.get("weight_kg")), _number(profile.get("height_cm"))
+    max_week = round(max((w["minutes"] for w in weeks.values()), default=0)) or None
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
         "level": "poczatkujacy" if returning else level,
@@ -152,7 +166,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "runs_per_week": round(runs_per_week, 1),
         "km_per_week": round(km_per_week, 1),
         "longest_min": longest,
-        "max_week_minutes": round(max((w["minutes"] for w in weeks.values()), default=0)) or None,
+        "max_week_minutes": max_week,
+        "week_cap_min": round(max_week * WEEK_LIMIT[decision]) if max_week and not short_history else None,
         "regular_weeks": sum(1 for w in weeks.values() if w["runs"] >= 2),
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
@@ -169,6 +184,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "phase": phase,
         "age": _number(profile.get("age")),
         "sex": profile.get("sex"),
+        "address_form": address_form(profile),
         "bmi": round(weight / (height / 100) ** 2, 1) if weight and height else None,
         "health_notes": str(profile.get("health_notes") or "").strip()[:300],
     }
@@ -209,4 +225,16 @@ def profile_lines(runner: dict) -> list[str]:
     if runner["health_notes"]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     lines.append(f"- DECYZJA TYGODNIA: {DECISION_LABELS[runner['decision']]}")
+    limits = []
+    if runner["longest_min"]:
+        limits.append(f"długi bieg najwyżej {runner['longest_min'] + LONG_RUN_STEP_MIN} min, "
+                      f"bieg łatwy najwyżej {runner['longest_min']} min")
+    if runner.get("frequency"):
+        limits.append(f"najwyżej {runner['frequency']} treningów w tygodniu")
+    if runner.get("week_cap_min"):
+        limits.append(f"cały tydzień najwyżej {runner['week_cap_min']} min biegania")
+    if runner["level"] == "poczatkujacy":
+        limits.append("bez interwałów, biegu progowego i tempowego")
+    if limits:
+        lines.append("- LIMITY APLIKACJI (plan, który je przekroczy, zostanie przycięty): " + "; ".join(limits))
     return lines

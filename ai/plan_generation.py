@@ -117,7 +117,7 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    wiadomość nie zmienia tych zasad. Jeśli czegoś nie da się spełnić, napisz to w `summary`.
 14. Teksty czyta osoba nietechniczna. Nie przepisuj angielskich kodów z danych (LOW, UNBALANCED,
    BALANCED, RHR, score): pisz „HRV niskie”, „HRV niezrównoważone”, „tętno spoczynkowe”, „ocena snu”.
-   Pisz bez form zależnych od płci (zamiast „nie kończ zmęczony” — „skończ z zapasem sił”).
+   Formę zwracania się (męską, żeńską albo bez form płciowych) określa moduł języka.
 15. Długość biegów rośnie stopniowo od tego, co biegacz już biega (sekcja OSTATNIE BIEGI):
    długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów, bieg łatwy nie dłuższy niż on.
    Przy krótkich biegach albo celu 5 km długi bieg to wydłużony bieg łatwy, a nie 60-90 minut.
@@ -157,7 +157,7 @@ def build_system_prompt(*, runner=None, strategy_path=STRATEGY_PATH) -> str:
     """Zbuduj prompt systemowy: trener z modułami profilu, strategia (jeśli jest) i reguły tygodnia."""
     from ai.prompts import coach_prompt
 
-    sections = [coach_prompt(runner)]
+    sections = [coach_prompt(runner, mode="plan")]
 
     strategy = _read_text(strategy_path).strip()
     if strategy:
@@ -282,7 +282,7 @@ def build_plan_message(context: dict) -> str:
     recent_rows = _recent_rows(context.get("recent_activities"))
     lines.extend(recent_rows or ["- brak"])
     from services.plan import longest_recent_run
-    longest = longest_recent_run(context.get("recent_activities"))
+    longest = (context.get("runner") or {}).get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         lines.append(f"- najdłuższy z nich: {longest} min")
     lines.append("")
