@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from api.views.common import _SIGNAL_META, _SIGNAL_STATE_LABELS
+from services.readiness import SCORING_RULES
 
 _ANALYSIS_PILL_CLASSES = {"OK": "ok", "WARN": "warn", "FAIL": "bad", "UNKNOWN": "neutral"}
 _CONFIDENCE_LABELS = {"high": "wysoka", "medium": "średnia", "low": "niska", "none": "brak"}
@@ -36,6 +37,7 @@ def _analysis_rows(readiness_data: dict) -> list[dict]:
             "status_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
             "message": _short_message(label, detail.get("message") or ""),
             "explain": meta.get("explain"),
+            "scoring": SCORING_RULES.get(metric),
             "points_text": (f"{_points(points)} z {_points(max_points)} pkt" if points is not None and max_points
                             else "—"),
             "lost": (max_points - points) if points is not None and max_points else 0,

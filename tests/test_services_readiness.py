@@ -279,3 +279,19 @@ def test_resting_heart_rate_is_judged_against_the_runners_own_norm():
     assert verdict(66, 62)[0] == "WARN" and verdict(68, 62)[0] == "FAIL" and verdict(58, 62)[0] == "OK"
     unknown = compute_readiness_breakdown(_make_data(rhr=63))
     assert "rhr" in unknown["missing_metrics"] and "Za mało pomiarów" in unknown["details"][0]["message"]
+
+
+def test_scoring_rules_name_the_same_points_as_the_scoring():
+    """Opis „za co punkty” na Analizie musi zgadzać się z tym, co liczy compute_readiness_breakdown."""
+    from services.readiness import SCORING_RULES, compute_readiness_breakdown
+
+    def points(metric_key, **health):
+        data = {"daily_health": [{"date": "2026-10-02", **health}], "hrv": [], "sleep": []}
+        result = compute_readiness_breakdown(data, rhr_baseline=50)
+        return {d["metric"]: d["points"] for d in result["details"]}[metric_key]
+
+    assert points("Stress", stress_avg=30) == 2 and points("Stress", stress_avg=31) == 1 and points("Stress", stress_avg=41) == 0
+    assert points("RHR", rhr=52) == 2.5 and points("RHR", rhr=55) == 1.5 and points("RHR", rhr=56) == 0
+    assert "2 pkt — do 30" in SCORING_RULES["Stress"] and "1 pkt — 31–40" in SCORING_RULES["Stress"]
+    assert "2,5 pkt — do 2 uderzeń" in SCORING_RULES["RHR"] and "1,5 pkt — 3–5" in SCORING_RULES["RHR"]
+    assert set(SCORING_RULES) == {"RHR", "HRV", "Sleep", "Stress"}

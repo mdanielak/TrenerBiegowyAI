@@ -4,7 +4,6 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
-{% from "_explain.html" import explain %}
 {% if error_message %}
 
   <div class="page-head">
@@ -83,11 +82,13 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Dlaczego taka ocena</span></h2>
       </div>
-      <p class="mid explain-intro">Ocena 0–10 sumuje cztery sygnały: zmienność tętna do 3 pkt, sen i tętno spoczynkowe po 2,5 pkt, stres 2 pkt. Brakujący pomiar nie obniża oceny — liczą się tylko dostępne sygnały. Kliknij „?”, żeby zobaczyć, co znaczy każdy z nich.</p>
+      <p class="mid explain-intro">Ocena 0–10 sumuje cztery sygnały: zmienność tętna do 3 pkt, sen i tętno spoczynkowe po 2,5 pkt, stres 2 pkt. Brakujący pomiar nie obniża oceny — liczą się tylko dostępne sygnały. Kliknij sygnał, żeby zobaczyć, co znaczy i za co dostaje punkty.</p>
       {% if metric_rows %}
         <div class="list">
           {% for row in metric_rows %}
-            <div class="list-item">
+            {# Cały wiersz rozwija objaśnienie pod sobą; wcześniej tekst wskakiwał w linię z nazwą i przesuwał ikonę oraz punkty. #}
+            <details class="analysis-row">
+            <summary class="list-item">
               <span class="item-icon">
                 {% if row.icon == 'moon' %}<img class="asset" src="/assets/02_health_status/sleep.png" width="28" height="28" alt="">
                 {% elif row.icon == 'pulse' %}<img class="asset" src="/assets/02_health_status/hrv.png" width="28" height="28" alt="">
@@ -96,14 +97,19 @@
                 {% else %}<img class="asset" src="/assets/02_health_status/info.png" width="28" height="28" alt="">{% endif %}
               </span>
               <span class="item-body">
-                <span class="item-title">{{ row.label }}{{ explain(row.label, row.explain) }}</span>
+                <span class="item-title">{{ row.label }}{% if row.explain %}<span class="explain-hint" aria-hidden="true">?</span>{% endif %}</span>
                 <span class="item-meta"><span>{{ row.message }}</span></span>
               </span>
               <span class="item-side">
                 <span class="item-strong">{{ row.points_text }}</span>
                 <span class="pill {{ row.pill_class }}">{{ row.status_label }}</span>
               </span>
+            </summary>
+            <div class="explain-panel">
+              {% if row.explain %}<p>{{ row.explain }}</p>{% endif %}
+              {% if row.scoring %}<p class="explain-scoring"><strong>Za co punkty:</strong> {{ row.scoring }}</p>{% endif %}
             </div>
+            </details>
           {% endfor %}
         </div>
       {% else %}

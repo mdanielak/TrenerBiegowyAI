@@ -652,15 +652,6 @@
   .plan-week .rest-day .day-block-title { color: var(--fg-mid); font-weight: 500; }
   .grid-4 + h3 { margin-top: 24px; }
   .goal-saved { margin: 16px 0; }
-  /* „?” przy sygnale: okrągły przycisk; po kliknięciu objaśnienie pod nazwą, na całą szerokość. */
-  .explain { display: inline; margin-left: 6px; }
-  .explain > summary { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
-                       border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg-mid);
-                       font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; vertical-align: 1px; }
-  .explain > summary::-webkit-details-marker { display: none; }
-  .explain > summary:hover, .explain[open] > summary { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
-  .explain > p { display: block; margin: 6px 0 2px; font-size: 13.5px; font-weight: 400; line-height: 1.5; color: var(--fg-mid);
-                 text-transform: none; letter-spacing: 0; white-space: normal; }
   .explain-intro { margin: 0 0 10px; }
   .day-garmin.is-pending { color: var(--fg-muted); background: var(--surface-alt); }
   .day-remove { position: relative; display: inline-flex; padding: 5px; border-radius: 999px; color: var(--fg-muted); }
@@ -1200,3 +1191,24 @@ p { text-wrap: pretty; }
   /* Wykres sygnału pod opisem, na całą szerokość — obok opisu był wielkości miniatury. */
   .metric-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 }
+
+/* Analiza: wiersz sygnału rozwija objaśnienie i punktację pod sobą — ikona, nazwa i punkty zostają na miejscu. */
+.analysis-row > summary { list-style: none; cursor: pointer; border-radius: var(--radius-sm); }
+.analysis-row > summary::-webkit-details-marker { display: none; }
+.analysis-row > summary:hover { background: var(--surface-alt); }
+.analysis-row > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* summary ma globalnie pogrubienie i własne odstępy — w wierszu sygnału wracamy do wyglądu zwykłego wiersza listy. */
+.analysis-row > summary { font-weight: inherit; padding: 12px 6px; margin: 0; border-top: 0; }
+.analysis-row + .analysis-row > summary { border-top: 1px solid var(--border); }
+.analysis-row[open] > summary { margin-bottom: 8px; }
+/* Opis zajmuje miejsce obok ikony; punkty zawijają się pod spodem, zamiast spychać nazwę pod ikonę. */
+.analysis-row .item-body { flex: 1 1 180px; }
+.explain-hint { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 6px;
+  border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg-mid); font-size: 12px; font-weight: 700; vertical-align: 1px; }
+.analysis-row[open] .explain-hint, .analysis-row > summary:hover .explain-hint { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
+.explain-panel { margin: 0 0 12px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-alt);
+  font-size: 14px; line-height: 1.55; color: var(--fg-mid); max-width: 72ch; }
+.explain-panel p { margin: 0; }
+.explain-panel p + p { margin-top: 8px; }
+.explain-scoring strong { color: var(--fg); }
+@media (min-width: 761px) { .explain-panel { margin-left: 52px; } }

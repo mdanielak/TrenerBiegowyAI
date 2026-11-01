@@ -31,6 +31,18 @@ def rhr_baseline(daily_health, day: str) -> float | None:
     return round(sum(values) / len(values), 1) if len(values) >= 7 else None
 
 
+# Za co sygnał dostaje punkty — pokazywane na Analizie pod „?”. Zmieniasz próg niżej? Zmień też ten opis
+# (test_scoring_rules_name_the_same_points_as_the_scoring pilnuje zgodności).
+SCORING_RULES = {
+    "RHR": "2,5 pkt — do 2 uderzeń powyżej Twojej normy; 1,5 pkt — 3–5 powyżej; 0 pkt — więcej niż 5 powyżej. "
+           "Bez normy (mniej niż tydzień pomiarów) sygnał nie liczy się do oceny.",
+    "HRV": "3 pkt — HRV zrównoważone i w Twoim zakresie; 1 pkt — zrównoważone, ale poniżej zakresu; "
+           "0 pkt — niskie albo niezrównoważone.",
+    "Sleep": "2,5 pkt — ocena snu 90 i więcej; 1,5 pkt — 70–89; 0 pkt — poniżej 70.",
+    "Stress": "2 pkt — do 30; 1 pkt — 31–40; 0 pkt — powyżej 40.",
+}
+
+
 def compute_readiness_breakdown(data, *, rhr_baseline=None):
     """Compute detailed readiness score with per-metric breakdown.
 

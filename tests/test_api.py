@@ -1110,13 +1110,15 @@ def test_signals_explain_themselves_on_analysis_only():
                                     confidence="high", raw_score=8.0, available_max_score=10.0)
     with _analysis_client(readiness) as client:
         analysis = client.get("/analysis").text
-    assert 'aria-label="Co to znaczy: Zmienność tętna"' in analysis
+    # Objaśnienie i punktacja w panelu pod wierszem (nie w linii z nazwą, gdzie przesuwało ikonę i punkty).
+    assert '<details class="analysis-row">' in analysis and '<div class="explain-panel">' in analysis
+    assert "Za co punkty:" in analysis and "2,5 pkt — ocena snu 90 i więcej" in analysis
     assert "drobne różnice w odstępach między kolejnymi uderzeniami serca" in analysis
     assert "Ocena 0–10 sumuje cztery sygnały" in analysis
     with TestClient(create_app(report_provider=lambda: _report())) as client:
         home = client.get("/").text
     # Strona główna to szybki przegląd: „?” rozjeżdżał karty sygnałów, objaśnienia są na Analizie.
-    assert "Co to znaczy:" not in home and 'href="/analysis">Zobacz uzasadnienie</a>' in home
+    assert "explain-panel" not in home and 'href="/analysis">Zobacz uzasadnienie</a>' in home
 
 
 def test_job_page_names_the_operation(tmp_path):
