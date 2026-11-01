@@ -1065,3 +1065,68 @@ details[open] > summary { margin-bottom: 12px; }
 .workout-facts { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 16px 0 0; }
 .workout-facts dt { font-size: 12px; color: var(--fg-muted); }
 .workout-facts dd { margin: 2px 0 0; font-weight: 600; }
+
+/* ===================== Dopracowanie wyglądu (desktop) ===================== */
+/* Liczby jak na stoperze: krój znaku słownego, lekko zwężony, cyfry równej szerokości.
+   Krój ma tylko podstawowy zestaw łaciński, więc dostają go wyłącznie liczby — polskie teksty zostają w Segoe UI. */
+.ring-score, .tile-value:not(.goal-phase), .signal-value.is-number, .day-num, .workout-facts dd,
+.week-bar-value, .analysis-points, .goal-number {
+  font-family: "Archivo Logo", "Segoe UI", system-ui, sans-serif;
+  font-stretch: 87.5%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.tile-unit, .signal-unit, .ring-max { font-family: "Segoe UI", system-ui, sans-serif; font-stretch: 100%; letter-spacing: 0; }
+.tile-value:not(.goal-phase) { font-size: 26px; }
+.signal-value.is-number { font-size: 24px; }
+/* Skala: 12 / 13 / 15 / 17 / 24. Podpisy nad liczbami czytelniejsze i wyraźniej oddzielone od wartości. */
+.tile-label, .signal-top { font-size: 13px; font-weight: 500; }
+.nav-label { font-size: 12px; }
+footer { font-size: 13px; }
+
+/* Strona główna: mniejszy pierścień, więc karta treningu obok nie ma pustej połowy. */
+.ring-wrap:not(.ring-small) .ring { width: 124px; height: 124px; }
+.ring-wrap:not(.ring-small) .ring-score { font-size: 34px; }
+.quiet-line { margin: 14px 0 0; }
+/* Podpowiedź bez własnej ramki: karta już grupuje treść, druga ramka tylko dodawała szumu. */
+.suggestion.plain { background: none; border: 0; padding: 0; }
+
+/* Plan: cel tygodnia bez ramki w ramce, większy tytuł; przycisk szczegółów zawsze w jednej linii na dole karty. */
+.week-goal .suggestion-title { font-size: 17px; }
+.week-goal .suggestion-text { font-size: 15px; max-width: 80ch; }
+.plan-week .day-details { white-space: nowrap; }
+.plan-week .day-block-meta { font-size: 13px; }
+
+/* Statystyki: zakres z fazy jako spokojny, ciągły pas za słupkami; cieńsza linia sygnałów. */
+.chart-band { fill: var(--ok-icon); fill-opacity: 0.12; stroke: none; }
+.chart-line { stroke-width: 2; }
+
+/* Cel: zapisany cel jako główna karta, strategia niżej jako „Plan przygotowań”. */
+.goal-saved { margin: 0 0 22px; }
+.goal-facts { display: flex; flex-wrap: wrap; gap: 14px 40px; margin: 6px 0 12px; }
+.goal-facts dt { font-size: 13px; font-weight: 500; color: var(--fg-mid); }
+.goal-facts dd { margin: 2px 0 0; font-size: 20px; font-weight: 650; }
+.goal-facts dd.goal-number { font-size: 28px; }
+.goal-days { font-size: 14px; font-weight: 500; color: var(--fg-mid); margin-left: 6px; }
+.goal-strategy-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 4px 0 16px; }
+.goal-strategy-head h2 { font-size: 20px; margin: 0 0 4px; }
+.goal-strategy-head .goal-hero { order: 0; }
+/* Ustawienia: fakty o celu bez szarego tła w karcie; strefy tętna w zwartych wierszach. */
+.goal-grid .compact-fact { background: none; padding: 8px 0; }
+.zone-list .list-item { padding-block: 7px; }
+
+/* Menu: działające AI jako jedna lekka linia z kropką; ostrzeżenia zostają wyraźnymi ramkami. */
+.ai-badge.ok { background: none; border-color: transparent; padding-block: 4px; align-items: center; }
+.ai-badge.ok .ai-badge-label { font-weight: 600; color: var(--fg-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Dziennik: skala wysiłku jako rząd przycisków. */
+.rpe-scale { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpe-scale legend { width: 100%; }
+.journal-editor .rpe-choice { min-width: 40px; justify-content: center; padding: 8px 4px; gap: 0; font-variant-numeric: tabular-nums; }
+.rpe-choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rpe-legend { display: flex; justify-content: space-between; max-width: 560px; margin-top: 4px; }
+/* Analiza: słupki 7 dni w zwartym obszarze — przy równych wynikach nie rozlewają się na pół karty. */
+.readiness-week { flex: 0 1 340px; max-width: 340px; margin-left: auto; }

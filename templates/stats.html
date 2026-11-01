@@ -92,7 +92,7 @@
              aria-label="Kilometry biegowe w kolejnych tygodniach.">
           <line class="chart-grid" x1="{{ chart.grid_start }}" x2="{{ chart.grid_end }}" y1="{{ chart.baseline }}" y2="{{ chart.baseline }}"/>
           {% for bar in chart.bars if bar.band %}
-            <rect class="chart-band" x="{{ bar.band.x }}" y="{{ bar.band.y }}" width="{{ bar.band.width }}" height="{{ bar.band.height }}" rx="4"/>
+            <rect class="chart-band" x="{{ bar.band.x }}" y="{{ bar.band.y }}" width="{{ bar.band.width }}" height="{{ bar.band.height }}"/>
           {% endfor %}
           {% for bar in chart.bars %}
             <rect class="chart-bar{% if bar.is_current %} current{% endif %}"
@@ -226,7 +226,7 @@
     <div class="banner info">
       {{ ico.info() }}
       <div class="banner-body">
-        <p class="mid">Statystyki liczy ten komputer z lokalnego snapshotu danych zegarka, bez udziału AI. Snapshot obejmuje ostatnie 90 dni pomiarów i 120 dni aktywności.</p>
+        <p class="mid">Statystyki liczy ten komputer z danych zegarka zapisanych lokalnie, bez udziału AI. Obejmują ostatnie 90 dni pomiarów i 120 dni aktywności.</p>
       </div>
     </div>
 

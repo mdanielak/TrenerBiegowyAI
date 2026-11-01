@@ -48,9 +48,9 @@ def validate_entry(*, day, feeling, rpe, pain_areas, pain_note, note, today: dat
         try:
             rpe_value = int(rpe)
         except (TypeError, ValueError):
-            raise FieldError("RPE to liczba od 1 do 10.", "journal-rpe") from None
+            raise FieldError("Wysiłek to liczba od 1 do 10.", "journal-rpe") from None
         if not 1 <= rpe_value <= 10:
-            raise FieldError("RPE to liczba od 1 do 10.", "journal-rpe")
+            raise FieldError("Wysiłek to liczba od 1 do 10.", "journal-rpe")
     areas = [area for area in dict.fromkeys(pain_areas or []) if area in PAIN_AREAS]
     if len(areas) != len(set(pain_areas or [])):
         raise FieldError("Nieznane miejsce bólu.", "journal-pain")

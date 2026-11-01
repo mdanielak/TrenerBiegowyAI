@@ -23,7 +23,7 @@ def _entry(**overrides):
 def test_validation_messages_are_for_people():
     with pytest.raises(ValueError, match="przyszłego"):
         _entry(day=(TODAY + timedelta(days=1)).isoformat())
-    with pytest.raises(ValueError, match="RPE"):
+    with pytest.raises(ValueError, match="Wysiłek"):
         _entry(rpe="11")
     with pytest.raises(ValueError, match="samopoczucie|czujesz"):
         _entry(feeling="")
@@ -100,7 +100,7 @@ def test_journal_rejects_missing_csrf_and_bad_input(tmp_path):
     assert forged.status_code == 403
     invalid = client.post("/journal", data={"csrf_token": _csrf(client), "date": date.today().isoformat(), "feeling": "good", "rpe": "99"},
                           headers={"Origin": "http://testserver"})
-    assert invalid.status_code == 400 and "RPE to liczba od 1 do 10." in invalid.text
+    assert invalid.status_code == 400 and "Wysiłek to liczba od 1 do 10." in invalid.text
     assert not path.exists()
 
 

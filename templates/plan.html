@@ -200,8 +200,7 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Cel tygodnia</span></h2>
       </div>
-      <div class="suggestion">
-        <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
+      <div class="suggestion plain week-goal">
         <div>
           <p class="suggestion-title">{{ plan.focus or 'Plan tygodniowy' }}</p>
           <p class="suggestion-text">{{ plan.summary or '—' }}</p>
@@ -279,7 +278,7 @@
                 <img class="asset day-block-icon" src="{{ plan_day.icon }}" width="64" height="64" alt="">
               {% endif %}
               {% if plan_day.is_rest %}
-                <span class="day-block-title">Dzień bez treningu</span>
+                {# Pigułka „Odpoczynek” i ikona już to mówią; bez drugiego „Dzień bez treningu”. #}
               {% else %}
                 <span class="day-block-title">{{ plan_day.name or '—' }}</span>
               {% endif %}
@@ -299,7 +298,7 @@
               {% if plan_day.description or plan_day.notes %}
                 {# Opis w wąskiej kolumnie dnia był nieczytelny: pełne szczegóły w okienku. #}
                 {% set dialog_id = 'szczegoly-' ~ plan_day.date %}
-                <button type="button" class="secondary day-details" data-dialog="{{ dialog_id }}" aria-haspopup="dialog">{{ 'Szczegóły' if plan_day.is_rest else 'Szczegóły treningu' }}</button>
+                <button type="button" class="secondary day-details" data-dialog="{{ dialog_id }}" aria-haspopup="dialog" aria-label="Szczegóły: {{ plan_day.weekday }}, {{ plan_day.name or plan_day.kind_label }}">Szczegóły</button>
                 <dialog class="workout-dialog" id="{{ dialog_id }}" aria-labelledby="{{ dialog_id }}-tytul">
                   <div class="workout-dialog-body">
                     <div class="workout-dialog-head">

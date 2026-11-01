@@ -54,11 +54,18 @@
           {{ field_error('journal-feeling', error_message) }}
         </fieldset>
 
-        <label class="field">Wysiłek (RPE 1–10, opcjonalnie)
-          <input class="text-input narrow" type="number" name="rpe"{{ attrs('journal-rpe') }}{% if error_field != 'journal-rpe' %} aria-describedby="rpe-help"{% endif %} min="1" max="10" step="1" value="{{ form.rpe if form.rpe is not none else '' }}">{{ field_error('journal-rpe', error_message) }}
-        </label>
+        {# Skala jednym kliknięciem zamiast pustego pola na liczbę; „—” zostawia wysiłek nieustawiony. #}
+        {% set rpe_now = form.rpe|string if form.rpe is not none and form.rpe != '' else '' %}
+        <fieldset class="field-group rpe-scale"{% if error_field != 'journal-rpe' %} aria-describedby="rpe-help"{% endif %}>
+          <legend>Wysiłek (1–10, opcjonalnie)</legend>
+          <label class="choice journal-choice rpe-choice"><input type="radio" name="rpe"{{ attrs('journal-rpe') }} value=""{% if not rpe_now %} checked{% endif %}> —</label>
+          {% for value in range(1, 11) %}
+            <label class="choice journal-choice rpe-choice"><input type="radio" name="rpe" value="{{ value }}"{% if rpe_now == value|string %} checked{% endif %}> {{ value }}</label>
+          {% endfor %}
+          {{ field_error('journal-rpe', error_message) }}
+        </fieldset>
 
-        <p id="rpe-help" class="tile-foot">1 — bardzo lekko, 5 — umiarkowanie, 10 — maksymalny wysiłek.</p>
+        <p id="rpe-help" class="tile-foot rpe-legend"><span>1 — bardzo lekko</span><span>5 — umiarkowanie</span><span>10 — maksymalnie</span></p>
 
         <fieldset class="field-group">
           <legend>Ból — zaznacz, jeśli coś boli</legend>
@@ -95,7 +102,7 @@
                 <span class="item-title">{{ entry.date_label }}</span>
                 <span class="item-meta">
                   <span>samopoczucie: {{ entry.feeling_label }}</span>
-                  <span>RPE: {{ entry.rpe if entry.rpe is not none else '—' }}</span>
+                  <span>Wysiłek: {{ entry.rpe if entry.rpe is not none else '—' }}</span>
                   {% if entry.note %}<span>{{ entry.note }}</span>{% endif %}
                 </span>
               </span>
@@ -116,7 +123,7 @@
           <p>Nie ma jeszcze wpisów. Pierwszy wpis zajmuje kilka sekund.</p>
         </div>
       {% endif %}
-      <p class="tile-foot">Gdy wysyłanie danych do AI jest włączone, podsumowanie ostatnich 7 dni (samopoczucie, RPE, ból, krótkie notatki) trafia do układania planu i rekomendacji dziennej.</p>
+      <p class="tile-foot">Gdy wysyłanie danych do AI jest włączone, podsumowanie ostatnich 7 dni (samopoczucie, wysiłek, ból, krótkie notatki) trafia do układania planu i rekomendacji dziennej.</p>
     </section>
     </div>
 

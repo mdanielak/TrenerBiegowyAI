@@ -6,18 +6,27 @@
 {% import "_icons.html" as ico %}
 {% set has_goal = saved_goal is defined and (saved_goal.target_race or saved_goal.target_date) %}
 {% set no_strategy = error_message and error_hint == 'strategy' %}
+{% if (no_strategy and has_goal) or not error_message %}
+  {# Tytuł strony zawsze nad zapisanym celem; strategia (jeśli jest) to dopiero „Plan przygotowań” niżej. #}
+  <div class="page-head"><h1>Twój cel</h1></div>
+{% endif %}
 {% if no_strategy and has_goal %}
   {# Bez strategii strona jest o zapisanym celu: po kreatorze widać, że zapis zadziałał. #}
-  <div class="page-head"><h1>Twój cel</h1></div>
   {% if wizard_done %}
     <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Zapisano cel i dni treningowe. Kolejne „Ułóż plan” weźmie je pod uwagę.</p></div></div>
   {% endif %}
 {% endif %}
 {% if has_goal %}
 <section class="card goal-saved" aria-label="Twój zapisany cel">
-  <h2>Twój zapisany cel</h2>
-  <p>{{ saved_goal.target_race }} · {{ saved_goal.target_date }}{% if saved_goal.target_time %} · czas {{ saved_goal.target_time }}{% endif %}</p>
-  <a class="btn btn-secondary" href="/wizard">Zmień cel i dostępność</a>
+  <div class="card-head">
+    <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Twój zapisany cel</span></h2>
+    <a class="btn btn-secondary" href="/wizard">Zmień cel i dostępność</a>
+  </div>
+  <dl class="goal-facts">
+    {% if saved_goal.target_race %}<div><dt>Zawody</dt><dd>{{ saved_goal.target_race }}</dd></div>{% endif %}
+    {% if saved_goal.target_date %}<div><dt>Data</dt><dd>{{ format_date(saved_goal.target_date) }}{% if goal is defined and goal.days_left is not none and goal.days_left >= 0 %} <span class="goal-days">za {{ goal.days_left }} {{ goal.days_word }}</span>{% endif %}</dd></div>{% endif %}
+    {% if saved_goal.target_time %}<div><dt>Czas docelowy</dt><dd class="goal-number">{{ saved_goal.target_time }}</dd></div>{% endif %}
+  </dl>
   {% if no_strategy %}
   <p class="tile-foot">Ten cel jest używany przy układaniu planu tygodnia.</p>
   {% else %}
@@ -65,16 +74,16 @@
 
 {% else %}
 
-  <div class="page-head spread">
-    <img class="asset goal-hero" src="/assets/09_illustrations/goal_finish.png" width="180" height="120" alt="">
+  <div class="goal-strategy-head">
     <div class="goal-head">
-      <h1>{{ goal.title or 'Cel długoterminowy' }}</h1>
+      <h2>Plan przygotowań</h2>
       <p class="page-sub">
-        {% if goal.target_label %}Zawody: {{ goal.target_label }}{% endif %}
+        {% if goal.title %}{{ goal.title }}{% endif %}{% if goal.target_label %} · zawody {{ goal.target_label }}{% endif %}
         {% if goal.days_left is not none and goal.days_left >= 0 %} · za {{ goal.days_left }} {{ goal.days_word }}{% endif %}
-        · <a href="/wizard">Zmień cel</a>
+        {% if not has_goal %} · <a href="/wizard">Ustaw swój cel</a>{% endif %}
       </p>
     </div>
+    <img class="asset goal-hero" src="/assets/09_illustrations/goal_finish.png" width="120" height="80" alt="">
   </div>
 
   <div class="stack">
@@ -83,7 +92,9 @@
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Zapisano cel i dni treningowe. Kolejne „Ułóż plan” weźmie je pod uwagę.</p></div></div>
     {% endif %}
 
-    <div class="grid grid-4">
+    {# Czas docelowy jest już w karcie zapisanego celu; kafelek tylko, gdy tej karty nie ma. #}
+    <div class="grid {{ 'grid-3' if has_goal and saved_goal.target_time else 'grid-4' }}">
+      {% if not (has_goal and saved_goal.target_time) %}
       <div class="tile">
         <span class="tile-head">
           <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
@@ -92,6 +103,7 @@
         <span class="tile-value">{{ goal.target_time or '—' }}</span>
         <span class="tile-foot">Z profilu biegacza</span>
       </div>
+      {% endif %}
       <div class="tile">
         <span class="tile-head">
           <img class="asset tile-icon" src="/assets/07_ui_icons/tile_pace.png" width="28" height="28" alt="">
@@ -168,10 +180,10 @@
           </div>
         {% endfor %}
       </div>
-      <p class="tile-foot">Kryteria są przybliżone: snapshot zawiera całe aktywności bez splitów, więc „test 10 km” to najszybszy bieg o długości około 10 km z ostatnich 120 dni.</p>
+      <p class="tile-foot">Kryteria są przybliżone: zegarek zapisuje całe biegi bez podziału na odcinki, więc „test 10 km” to najszybszy bieg o długości około 10 km z ostatnich 120 dni.</p>
     </section>
 
-    <footer>To nie jest porada medyczna. Strategia pochodzi z Twojego pliku w <code>training-plans/long-term/</code>.</footer>
+    <footer>To nie jest porada medyczna. Fazy i kryteria pochodzą z Twojego pliku strategii.</footer>
 
   </div>
 

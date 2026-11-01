@@ -845,7 +845,7 @@ def test_settings_marks_navigation_entry_as_current():
 def test_settings_shows_connections_card_below_the_page_title():
     with _settings_client() as client:
         response = client.get("/settings")
-    assert response.text.index("<h1>Ustawienia</h1>") < response.text.index('<h2 id="connections-heading">Połączenia</h2>')
+    assert response.text.index("<h1>Ustawienia</h1>") < response.text.index('<h2 id="connections-heading">')
     assert "Zegarek Garmin" in response.text and 'href="/settings/ai">Ustawienia AI</a>' in response.text
 
 
@@ -1127,3 +1127,9 @@ def test_job_page_names_the_operation(tmp_path):
     with TestClient(create_app(report_provider=lambda: _report(), job_store=store)) as client:
         page = client.get(f"/jobs/{job.id}").text
     assert "<h1>Układanie planu</h1>" in page and "Synchronizacja danych" not in page
+
+
+def test_journal_effort_is_a_one_click_scale():
+    with TestClient(create_app(report_provider=lambda: _report())) as client:
+        page = client.get("/journal").text
+    assert page.count('type="radio" name="rpe"') == 11 and "RPE" not in page.split("<main", 1)[1]

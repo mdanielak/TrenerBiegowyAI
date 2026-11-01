@@ -1,10 +1,11 @@
 {# Plakietka stanu AI w bocznym menu: kolor wspiera tekst, nigdy go nie zastępuje. #}
 {% if ai_badge %}
-  <a class="ai-badge {{ ai_badge.tone }}" href="/settings/ai#polaczenie">
+  <a class="ai-badge {{ ai_badge.tone }}" href="/settings/ai#polaczenie"{% if ai_badge.tone == 'ok' %} title="{{ ai_badge.label }} — {{ ai_badge.detail }}"{% endif %}>
     <span class="ai-dot" aria-hidden="true"></span>
     <span class="ai-badge-text">
       <span class="ai-badge-label">{{ ai_badge.label }}</span>
-      <span class="ai-badge-detail">{{ ai_badge.detail }}</span>
+      {# Gdy wszystko działa, szczegóły (model, czas sprawdzenia) tylko dla czytnika i w dymku — menu zostaje lekkie. #}
+      <span class="ai-badge-detail{% if ai_badge.tone == 'ok' %} visually-hidden{% endif %}">{{ ai_badge.detail }}</span>
       {% if ai_badge.tone != 'ok' %}<span class="ai-badge-action">{% if ai_badge.state == 'missing' %}Podłącz AI →{% elif ai_badge.state == 'no_consent' %}Włącz zgodę →{% else %}Sprawdź połączenie →{% endif %}</span>{% endif %}
     </span>
   </a>

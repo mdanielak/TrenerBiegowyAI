@@ -17,15 +17,16 @@ _PAD_TOP = 18
 _PAD_BOTTOM = 28
 
 _METRIC_META = {
-    "readiness": {"label": "Gotowość", "unit": "/10", "domain": (0, 10), "asset": "02_health_status/readiness.png",
+    # min_span: najmniejszy zakres osi — bez niego wahanie o 1 bpm wypełniało cały wykres jak gwałtowny skok.
+    "readiness": {"label": "Gotowość", "unit": "/10", "domain": (0, 10), "min_span": 4, "asset": "02_health_status/readiness.png",
                   "hint": "Ocena z nocnych pomiarów, ta sama co na stronie głównej."},
-    "rhr": {"label": "Tętno spoczynkowe", "unit": "bpm", "asset": "02_health_status/resting_hr.png",
+    "rhr": {"label": "Tętno spoczynkowe", "unit": "bpm", "min_span": 10, "asset": "02_health_status/resting_hr.png",
             "hint": "Niższe zwykle oznacza lepszą regenerację."},
-    "hrv": {"label": "HRV ostatniej nocy", "unit": "ms", "asset": "02_health_status/hrv.png",
+    "hrv": {"label": "HRV ostatniej nocy", "unit": "ms", "min_span": 20, "asset": "02_health_status/hrv.png",
             "hint": "Wyższe zwykle oznacza lepszą regenerację."},
-    "sleep": {"label": "Sen — ocena", "unit": "/100", "domain": (0, 100), "asset": "02_health_status/sleep.png",
+    "sleep": {"label": "Sen — ocena", "unit": "/100", "domain": (0, 100), "min_span": 30, "asset": "02_health_status/sleep.png",
               "hint": "Ocena snu wyliczona przez zegarek."},
-    "stress": {"label": "Stres — średnia dobowa", "unit": "", "domain": (0, 100), "asset": "02_health_status/stress.png",
+    "stress": {"label": "Stres — średnia dobowa", "unit": "", "domain": (0, 100), "min_span": 20, "asset": "02_health_status/stress.png",
                "hint": "Niższy zwykle oznacza spokojniejszy dzień."},
 }
 _METRIC_ORDER = ("readiness", "rhr", "hrv", "sleep", "stress")
@@ -65,7 +66,8 @@ def _weekly_chart(weekly) -> dict | None:
         center = _PAD_LEFT + slot * index + slot / 2
         band = None
         if week.phase_km:
-            band = {"x": round(center - slot * 0.42, 2), "width": round(slot * 0.84, 2),
+            # Pas na całą szerokość tygodnia: sąsiednie tygodnie tej samej fazy tworzą ciągły pas, nie „puste słupki”.
+            band = {"x": round(center - slot / 2, 2), "width": round(slot, 2),
                     "y": y_of(week.phase_km[1]), "height": round(y_of(week.phase_km[0]) - y_of(week.phase_km[1]), 2)}
         bars.append({
             "band": band,
@@ -150,23 +152,30 @@ def _plan_rows(weekly) -> list[dict]:
     return rows
 
 
-def _axis_bounds(values, domain=None) -> tuple[float, float]:
-    """Zakres osi z marginesem, zaokrąglony do pełnych wartości i przycięty do skali miary."""
+def _axis_bounds(values, domain=None, min_span=0) -> tuple[float, float]:
+    """Zakres osi z marginesem, zaokrąglony do pełnych wartości, co najmniej `min_span` i przycięty do skali miary."""
     low, high = min(values), max(values)
     span = high - low or max(abs(high) * 0.1, 1.0)
     low, high = math.floor(low - span * 0.15), math.ceil(high + span * 0.15)
+    if high - low < min_span:
+        middle = (low + high) / 2
+        low, high = math.floor(middle - min_span / 2), math.ceil(middle + min_span / 2)
     if domain is not None:
-        low, high = max(low, domain[0]), min(high, domain[1])
+        # Przy krawędzi skali przesuń okno zamiast je ucinać, żeby zakres nadal miał co najmniej min_span.
+        if low < domain[0]:
+            low, high = domain[0], min(domain[1], high + domain[0] - low)
+        if high > domain[1]:
+            low, high = max(domain[0], low - (high - domain[1])), domain[1]
     return low, high
 
 
-def _line_chart(trend, domain=None) -> dict | None:
+def _line_chart(trend, domain=None, min_span=0) -> dict | None:
     """Linia dzień po dniu; brak pomiaru przerywa linię zamiast udawać wartość."""
     values = [value for _, value in trend.points if value is not None]
     if len(values) < 2:
         return None
     inner_width, inner_height = _inner()
-    low, high = _axis_bounds(values, domain)
+    low, high = _axis_bounds(values, domain, min_span)
     steps = max(len(trend.points) - 1, 1)
 
     def y_of(value):
@@ -244,7 +253,7 @@ def _metric_views(metrics) -> list[dict]:
             "measured_days": trend.measured_days,
             "total_days": len(trend.points),
             "trend": _trend_tone(trend),
-            "chart": _line_chart(trend, meta.get("domain")),
+            "chart": _line_chart(trend, meta.get("domain"), meta.get("min_span", 0)),
             "points": trend.points,
         })
     return views

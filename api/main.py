@@ -104,6 +104,16 @@ def _static_version(relative: str) -> str:
     return hashlib.sha256(content).hexdigest()[:10]
 
 
+def _template_date(value) -> str:
+    """Data ISO po polsku w szablonach; wartość w innym formacie zostaje bez zmian zamiast błędu strony."""
+    from api.views.common import _format_date
+    try:
+        return _format_date(str(value)[:10])
+    except ValueError:
+        return str(value)
+
+
+_TEMPLATES.env.globals["format_date"] = _template_date
 _TEMPLATES.env.globals["css_version"] = _static_version("css/styles.css")
 _TEMPLATES.env.globals["js_version"] = _static_version("js/interface.js")
 

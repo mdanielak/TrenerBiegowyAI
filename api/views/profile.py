@@ -17,8 +17,8 @@ _PROFILE_RUNNER_FIELDS = (
 _PROFILE_HEART_FIELDS = (
     ("hr_max", "Tętno maksymalne", "bpm", "tile_heart_max"),
     ("hr_rest", "Tętno spoczynkowe", "bpm", "tile_heart_rest"),
-    ("lactate_threshold_hr", "Tętno progowe (LTHR)", "bpm", "tile_threshold"),
-    ("vo2max_running", "VO2max (bieg)", "", "tile_vo2max"),
+    ("lactate_threshold_hr", "Tętno progowe", "bpm", "tile_threshold"),
+    ("vo2max_running", "Pułap tlenowy (VO2max)", "", "tile_vo2max"),
 )
 _PROFILE_GOAL_FIELDS = (
     ("target_race", "Zawody docelowe", "", "tile_race"),

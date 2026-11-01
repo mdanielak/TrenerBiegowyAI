@@ -99,5 +99,5 @@ def test_goal_shows_profile_without_strategy(tmp_path):
     with TestClient(app) as browser:
         page = browser.get('/goal').text
     assert 'Bieg testowy 15 km' in page
-    assert '2027-05-09' in page
+    assert '9 maja 2027' in page
     assert 'Możesz korzystać z planowania bez strategii' in page

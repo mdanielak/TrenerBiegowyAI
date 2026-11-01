@@ -2,6 +2,8 @@
 """Widok celu: oś faz strategii i lista kryteriów gotowości."""
 from __future__ import annotations
 
+import re
+
 from api.views.common import _MONTHS_GENITIVE, _plural
 
 _TRACK_WIDTH = 1060
@@ -47,6 +49,23 @@ def _timeline(report) -> dict | None:
             "marker_label_y": _TRACK_Y + _TRACK_BAR + 24}
 
 
+# Żargon z plików strategii (pisanych dla trenera) w zwykłych słowach; kolejność ma znaczenie — najpierw całe frazy.
+_PLAIN_WORDS = (
+    (re.compile(r"\bSzczyt i taper\b", re.I), "Szczyt formy i odpoczynek przed startem"),
+    (re.compile(r"\bSpecyfika HM\b", re.I), "Przygotowanie startowe do półmaratonu"),
+    (re.compile(r"\btaper\w*", re.I), "odpoczynek przed startem"),
+    (re.compile(r"\bHM\b"), "półmaraton"),
+)
+
+
+def _plain_phase_name(name: str) -> str:
+    """Nazwa fazy zrozumiała bez znajomości żargonu; pierwsza litera wielka jak w oryginale."""
+    plain = name or ""
+    for pattern, words in _PLAIN_WORDS:
+        plain = pattern.sub(words, plain)
+    return plain[:1].upper() + plain[1:] if plain else plain
+
+
 def _goal_view(report) -> dict:
     target = report.target_date
     return {
@@ -61,12 +80,12 @@ def _goal_view(report) -> dict:
         "timeline": _timeline(report),
         "phases": [{
             "number": phase.number,
-            "name": phase.name,
+            "name": _plain_phase_name(phase.name),
             "dates": f"{_day_month(phase.start)}–{_day_month(phase.end)}.{phase.end.year}",
             "is_current": phase.is_current,
             "is_past": phase.is_past,
         } for phase in report.phases],
-        "current": report.current_phase.name if report.current_phase else None,
+        "current": _plain_phase_name(report.current_phase.name) if report.current_phase else None,
         "week_number": report.week_number,
         "total_weeks": report.total_weeks,
         "criteria": [{
