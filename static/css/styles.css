@@ -1130,3 +1130,43 @@ footer { font-size: 13px; }
 .rpe-legend { display: flex; justify-content: space-between; max-width: 560px; margin-top: 4px; }
 /* Analiza: słupki 7 dni w zwartym obszarze — przy równych wynikach nie rozlewają się na pół karty. */
 .readiness-week { flex: 0 1 340px; max-width: 340px; margin-left: auto; }
+
+/* ===================== Po krytyce Impeccable (1.11.2026) ===================== */
+/* Typografia: wyraźne kroki 28 / 19 / 15 / 13 i więcej powietrza między sekcjami niż w ich środku. */
+h1 { font-size: 28px; letter-spacing: -0.02em; }
+.card-head h2, .goal-strategy-head h2 { font-size: 19px; }
+.main > .stack, .main > div > .stack { gap: 26px; }
+p { text-wrap: pretty; }
+::placeholder { color: var(--fg-muted); opacity: 1; }
+
+/* Strona główna: jedna karta „Dziś” — decyzja po lewej, ocena gotowości jako uzasadnienie po prawej. */
+.today-readiness { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
+.today-hint { margin: 0; font-weight: 600; color: var(--fg); max-width: 26ch; }
+@media (min-width: 761px) {
+  .today-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 28px; align-items: stretch; }
+  .today-readiness { border-left: 1px solid var(--border); padding-left: 28px; }
+}
+/* Następny trening jako część karty (linia oddzielająca), bez szarego pudełka i bez paska bocznego. */
+.next-workout { background: none; border-left: 0; border-radius: 0; border-top: 1px solid var(--border); padding: 14px 0 0; }
+/* Puste stany w kartach: jedna linia z małą ilustracją zamiast dużego szarego pola. */
+.card .empty-art.compact { background: none; justify-content: flex-start; padding: 4px 0; }
+.card .empty-art.compact .asset { width: 40px; height: 40px; }
+
+/* Jeden poziom powierzchni: w karcie nie ma już kart. Kafelki liczb rozdziela linia, sygnały w normie nie mają tła. */
+.card .grid-4 .tile { border: 0; box-shadow: none; background: none; border-radius: 0; padding: 4px 0 4px 18px; border-left: 1px solid var(--border); }
+.card .grid-4 .tile:first-child { border-left: 0; padding-left: 0; }
+.signal.ok, .signal.none { background: none; border-color: transparent; }
+
+/* Plan: dni jako kolumny tygodnia, nie karty w karcie; dziś wyróżnia delikatne tło i niebieska liczba. */
+.plan-week .day { background: none; border: 0; border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; padding-inline: 12px; }
+.plan-week .day:first-child { border-left: 0; }
+.plan-week .day.today { background: var(--accent-soft); border-radius: var(--radius-sm); box-shadow: none; border-left-color: transparent; }
+.plan-week .day.today + .day { border-left-color: transparent; }
+.plan-week .day-block, .plan-week .day.past .day-block { background: none; padding: 6px 0 0; }
+.day-today-tag { font-size: 12px; text-transform: none; letter-spacing: 0; }
+.day-readiness { font-size: 12.5px; color: var(--fg-mid); }
+.day-readiness.warn { color: var(--warn-fg); font-weight: 600; }
+.day-readiness.bad { color: var(--danger-fg); font-weight: 600; }
+
+/* Cel: bieżąca faza w kolorze osi (akcent), nie zielonym. */
+.zone-chip.lead.is-current { background: var(--accent); color: var(--on-accent); }

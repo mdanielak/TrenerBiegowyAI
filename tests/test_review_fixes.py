@@ -103,7 +103,7 @@ def test_today_shows_the_workout_profile_and_greys_it_out_during_a_pause():
         planned=planned, execution=_execution(happened=False, activity_id=None)))).get("/").text
     assert '<div class="workout-profile">' in normal
     assert 'class="profile-seg phase-main z2"' in normal and 'style="flex-grow: 34.0"' in normal
-    assert "/assets/07_ui_icons/tile_sessions.png" in normal  # nagłówek nie powtarza ikony biegacza
+    assert "/assets/07_ui_icons/tile_sessions.png" not in normal  # nagłówki sekcji bez ozdobnych ikon
 
     paused = TestClient(create_app(report_provider=lambda: _report(
         planned=planned, active_pause=PAUSE, execution=_execution(happened=False, activity_id=None)))).get("/").text

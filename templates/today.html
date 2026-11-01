@@ -87,10 +87,12 @@
 
     {# Najpierw decyzja dnia (trening i gotowość), potem sygnały, które ją uzasadniają. #}
     {% set rest_today = plan_workout and plan_workout.is_rest and not workout %}
-    <div class="grid grid-main today-first">
-      <section class="card">
+    {# Jedna karta „Dziś”: decyzja i trening po lewej, ocena gotowości jako uzasadnienie po prawej — bez trzech powtórzeń tej samej odpowiedzi. #}
+    <section class="card today-card">
+      <div class="today-grid">
+      <div class="today-main">
         <div class="card-head">
-          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt=""><span>Trening na dziś</span></h2>
+          <h2><span>Trening na dziś</span></h2>
           <span class="row">
             {% if pause and ((workout and not workout.execution.happened) or (plan_workout and not plan_workout.is_rest)) %}
               <span class="pill warn">Nie wykonuj</span>
@@ -147,21 +149,21 @@
               <div class="grid grid-4">
                 <div class="tile">
                   <span class="tile-head">
-                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+                    
                     <span class="tile-label"><span>Czas</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.duration_min is not none %}{{ workout.execution.duration_min|num }}<span class="tile-unit">min</span>{% else %}—{% endif %}</span>
                 </div>
                 <div class="tile">
                   <span class="tile-head">
-                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
+                    
                     <span class="tile-label"><span>Dystans</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.distance_km is not none %}{{ workout.execution.distance_km|num }}<span class="tile-unit">km</span>{% else %}—{% endif %}</span>
                 </div>
                 <div class="tile">
                   <span class="tile-head">
-                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt="">
+                    
                     <span class="tile-label"><span>Średnie tętno</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.avg_hr is not none %}{{ workout.execution.avg_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
@@ -171,7 +173,7 @@
                 </div>
                 <div class="tile">
                   <span class="tile-head">
-                    <img class="asset tile-icon" src="/assets/07_ui_icons/tile_heart_max.png" width="28" height="28" alt="">
+                    
                     <span class="tile-label"><span>Maksymalne tętno</span></span>
                   </span>
                   <span class="tile-value">{% if workout.execution.max_hr is not none %}{{ workout.execution.max_hr }}<span class="tile-unit">bpm</span>{% else %}—{% endif %}</span>
@@ -192,7 +194,7 @@
                 {% for row in workout.score_rows %}
                   <div class="tile">
                     <span class="tile-head">
-                      <img class="asset tile-icon" src="/assets/07_ui_icons/tile_load.png" width="28" height="28" alt="">
+                      
                       <span class="tile-label"><span>{{ row.label }}</span></span>
                     </span>
                     <span class="tile-value">{{ row.value|num }}<span class="tile-unit">z 10</span></span>
@@ -207,7 +209,6 @@
 
             {% if workout.comment %}
               <div class="suggestion">
-                <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
                 <div>
                   <p class="suggestion-title">Komentarz trenera</p>
                   <p class="suggestion-text">{{ workout.comment }}</p>
@@ -263,9 +264,8 @@
             <p class="mid">To trening z planu AI. Wyślij go na zegarek na stronie <a href="/plan">Plan treningowy</a>.</p>
           {% endif %}
         {% endif %}
-      </section>
-      <section class="card readiness-card">
-        <div class="readiness">
+      </div>
+      <aside class="today-readiness readiness" aria-label="Ocena gotowości">
           <div class="ring-wrap">
             <svg class="ring" width="{{ ring.size }}" height="{{ ring.size }}"
                  viewBox="0 0 {{ ring.size }} {{ ring.size }}" aria-hidden="true" focusable="false">
@@ -290,15 +290,16 @@
             </span>
           </div>
 
-          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% elif rest_today %} Dziś odpoczynek z planu: wynik mówi, jak się regenerujesz.{% endif %} <a class="ring-link" href="/analysis">Zobacz uzasadnienie</a></p>
-        </div>
-      </section>
-    </div>
+          {% if not pause and not rest_today and not ai_recommendation %}<p class="today-hint">{{ suggestion|capitalize }}.</p>{% endif %}
+          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% endif %} <a class="ring-link" href="/analysis">Zobacz uzasadnienie</a></p>
+      </aside>
+      </div>
+    </section>
 
     <div class="signals-wide">
       <section class="card">
         <div class="card-head">
-          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
+          <h2><span>Sygnały z organizmu</span></h2>
         </div>
         <div class="signals">
           {% for card in signal_cards %}
@@ -315,7 +316,8 @@
                   {%- else %}—{% endif %}
                 </span>
 
-                <span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>
+                {# Status tylko przy odchyleniu od normy; „dobrze” na każdej karcie było szumem. #}
+                {% if card.state_class != 'ok' %}<span class="signal-state {{ card.state_class }}">{{ card.state_label }}</span>{% endif %}
                 {% if card.description %}<span class="signal-description">{{ card.description }}</span>{% endif %}
 
                 {% if card.trend %}
@@ -344,12 +346,11 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Co dziś zrobić</span></h2>
+        <h2><span>Co dziś zrobić</span></h2>
         {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
       {% if ai_recommendation %}
         <div class="suggestion">
-          <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
           <div>
             <p class="suggestion-title">{{ ai_recommendation.readiness_label }}</p>
             <p class="suggestion-text">{{ ai_recommendation.recommendation }}</p>
@@ -370,15 +371,7 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="spread suggestion-row">
-          <div class="suggestion plain">
-            <img class="asset" src="/assets/07_ui_icons/idea.png" width="22" height="22" alt="">
-            <div>
-              <p class="suggestion-title">Podpowiedź z oceny gotowości</p>
-              <p class="suggestion-text">{{ suggestion|capitalize }}.</p>
-            </div>
-          </div>
-        </div>
+        <p class="mid">Masz wątpliwości albo mniej czasu? Napisz, a trener dopasuje dzisiejszy trening.</p>
       {% endif %}
       <form method="post" action="/actions/recommendation" class="row ask-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -397,7 +390,7 @@
 
       <section class="card">
         <div class="card-head">
-          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Twoja dostępność</span></h2>
+          <h2><span>Twoja dostępność</span></h2>
         </div>
         {% if pause %}
           <div class="empty-art compact">
@@ -424,7 +417,7 @@
       {% if report.yesterday_activities %}
       <details class="card activity-disclosure">
         <summary class="card-head">
-          <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Wczorajsze aktywności</span></h2>
+          <h2><span>Wczorajsze aktywności</span></h2>
           <span class="tile-foot">{% if report.yesterday_activities %}{{ report.yesterday_activities|length }}{% else %}brak{% endif %}</span>
         </summary>
       {% if report.yesterday_activities %}

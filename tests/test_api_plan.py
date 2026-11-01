@@ -211,7 +211,7 @@ def test_plan_page_shows_readiness_pill_only_for_measured_days(tmp_path):
         response = client.get("/plan")
 
     assert response.status_code == 200
-    pills = re.findall(r'class="pill \w+">Gotowość ([\d.]+)/([\d.]+)</span>', response.text)
+    pills = re.findall(r'class="day-readiness \w+">Gotowość ([\d.]+)/([\d.]+)</span>', response.text)
     assert len(pills) == 1
     assert "Gotowość zmierzona w 1 z 7 dni." in response.text
 

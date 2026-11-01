@@ -158,9 +158,9 @@ Sportowy kobalt prowadzi do działań, a chłodne neutralne tła utrzymują czyt
 
 ## Typography
 
-**Body Font:** Segoe UI z systemowymi alternatywami. Lokalny krój Archivo jest używany w znaku słownym, a kod korzysta ze stosu monospace.
+**Body Font:** Segoe UI z systemowymi alternatywami. Lokalny krój Archivo jest używany w znaku słownym oraz — lekko zwężony (87,5%), pogrubiony, z cyframi równej szerokości — w dużych liczbach (ocena, kilometry, czasy, numery dni). Krój ma tylko podstawowy zestaw łaciński, więc polskie teksty zostają w Segoe UI. Kod korzysta ze stosu monospace.
 
-Hierarchię tworzą rozmiar i grubość: nagłówek strony ma 24px, nagłówek sekcji 17px, a tekst podstawowy 15px z interlinią 1.55. Etykiety i opisy wartości są mniejsze; liczby treningowe są wyróżnione. Na wąskim ekranie tekst podstawowy ma 14.5px, a nagłówek strony 21px — są to wartości obecnej implementacji, nie gwarancja dostępności.
+Hierarchię tworzą rozmiar i grubość w krokach 28 / 19 / 15 / 13: nagłówek strony 28px, nagłówek sekcji 19px, tekst podstawowy 15px z interlinią 1.55, podpisy nad liczbami 13px w średniej grubości. Między sekcjami jest więcej miejsca (26px) niż w ich środku. Etykiety i opisy wartości są mniejsze; liczby treningowe są wyróżnione. Na wąskim ekranie tekst podstawowy ma 14.5px, a nagłówek strony 21px — są to wartości obecnej implementacji, nie gwarancja dostępności.
 
 Poza głównymi rolami arkusz zawiera rozmiary 9.5, 10.5, 11, 11.5, 12.5, 13.5, 14, 18, 20, 22, 23 i 34px, używane m.in. w logo, metrykach i opisach. Są to obecne wartości szczegółowe, a nie dodatkowe obowiązkowe role typografii.
 
@@ -186,7 +186,11 @@ Proste i powściągliwe. Przycisk główny ma tło akcentu, tekst `on-accent`, p
 
 ### Cards / Containers
 
-Powierzchnia karty, obramowanie, cień i odstęp wewnętrzny tworzą powtarzalny kontener. Nagłówek sekcji może łączyć lokalną ilustrację, tytuł i drugorzędny odnośnik.
+Powierzchnia karty, obramowanie, cień i odstęp wewnętrzny tworzą powtarzalny kontener — tylko na najwyższym poziomie. W karcie nie ma kart: kafelki liczb rozdziela linia, dni planu są kolumnami tygodnia, sygnały w normie nie mają tła (tło dostają tylko odchylenia). Nagłówek sekcji to tytuł i ewentualnie drugorzędny odnośnik, bez ikony.
+
+### Icons and illustrations
+
+Decyzja z krytyki Impeccable (1.11.2026, gałąź `feature/critique-fixes`): ozdobne kolorowe ikony PNG przy nagłówkach sekcji, w kafelkach i przy podpowiedziach zostały usunięte — były najbardziej szablonowym elementem i mieszały się z liniowymi ikonami SVG w przyciskach. Zostają grafiki, które niosą znaczenie: ikony sygnałów (sen, HRV, tętno, stres), ilustracje rodzajów treningu na kartach dni, ikony wierszy profilu i ilustracje pustych stanów. Do sprawdzenia przez właściciela; powrót do poprzedniego wyglądu to cofnięcie tej zmiany w szablonach.
 
 ### Inputs / Fields
 
@@ -198,7 +202,7 @@ Pionowe menu łączy lokalne ikony i podpisy. Aktywna pozycja ma miękkie tło a
 
 ### Status and training profile
 
-Kapsuły i banery łączą tekst ze stanem kolorystycznym. Ocena gotowości jest przedstawiona jako liczba w pierścieniu z tekstowym opisem; przebieg treningu łączy proporcjonalne odcinki z opisem czasu i celu każdego kroku.
+Kapsuły i banery łączą tekst ze stanem kolorystycznym; kapsuła statusu sygnału pojawia się tylko przy odchyleniu od normy, a gotowość dnia na planie to cichy tekst. Ocena gotowości jest przedstawiona jako liczba w pierścieniu z tekstowym opisem; przebieg treningu łączy proporcjonalne odcinki z opisem czasu i celu każdego kroku.
 
 ## Do's and Don'ts
 

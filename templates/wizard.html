@@ -44,7 +44,7 @@
         <input type="hidden" name="step" value="{{ step }}">
 
         {% if step == 'goal' %}
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Do czego się przygotowujesz?</span></h2></div>
+          <div class="card-head"><h2><span>Do czego się przygotowujesz?</span></h2></div>
           <fieldset class="field-group">
             <legend>Cel</legend>
             {% for key, label in distances.items() %}
@@ -67,7 +67,7 @@
         {% endif %}
 
         {% if step == 'times' %}
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt=""><span>Jaki czas chcesz osiągnąć?</span></h2></div>
+          <div class="card-head"><h2><span>Jaki czas chcesz osiągnąć?</span></h2></div>
           <label class="field">Czas docelowy (opcjonalnie)
             <input class="text-input narrow-time" type="text" name="target_time"{{ error_attrs('target_time') }} inputmode="text" maxlength="8" value="{{ values.target_time }}" placeholder="np. 1:49:00 albo 49:30">{{ field_error('target_time') }}
           </label>
@@ -80,7 +80,7 @@
         {% endif %}
 
         {% if step == 'you' %}
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Ty i bieganie</span></h2></div>
+          <div class="card-head"><h2><span>Ty i bieganie</span></h2></div>
           <fieldset class="field-group">
             <legend>Od jak dawna biegasz regularnie?</legend>
             {% for key, label in running_since_choices.items() %}
@@ -103,7 +103,7 @@
         {% endif %}
 
         {% if step == 'week' %}
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_frequency.png" width="28" height="28" alt=""><span>Jak wygląda Twój tydzień?</span></h2></div>
+          <div class="card-head"><h2><span>Jak wygląda Twój tydzień?</span></h2></div>
           <label class="field">Ile treningów w tygodniu chcesz robić?
             <input class="text-input narrow" type="number" name="frequency"{{ error_attrs('frequency') }} min="1" max="7" value="{{ values.frequency }}" required>{{ field_error('frequency') }}
           </label>
@@ -124,7 +124,7 @@
         {% endif %}
 
         {% if step == 'summary' %}
-          <div class="card-head"><h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Sprawdź i zapisz</span></h2></div>
+          <div class="card-head"><h2><span>Sprawdź i zapisz</span></h2></div>
           <dl class="state-facts wizard-summary">
             <div><dt>Cel</dt><dd>{{ goal_label }}{% if values.event_name %} — {{ values.event_name }}{% endif %}</dd></div>
             <div><dt>Termin</dt><dd>{{ event_date_label or '—' }}</dd></div>

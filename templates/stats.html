@@ -48,7 +48,7 @@
     <div class="grid grid-4">
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Kilometry biegowe</span></span>
         </span>
         <span class="tile-value">{{ stats.total_km|num }}<span class="tile-unit">km</span></span>
@@ -56,7 +56,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_average.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Średnio na tydzień</span></span>
         </span>
         <span class="tile-value">
@@ -66,7 +66,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Biegi</span></span>
         </span>
         <span class="tile-value">{{ stats.total_sessions }}</span>
@@ -74,7 +74,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Czas biegu</span></span>
         </span>
         <span class="tile-value">{{ (stats.total_minutes / 60)|num }}<span class="tile-unit">h</span></span>
@@ -84,7 +84,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/01_navigation/statistics.png" width="28" height="28" alt=""><span>Kilometry tydzień po tygodniu</span></h2>
+        <h2><span>Kilometry tydzień po tygodniu</span></h2>
       </div>
       {% set chart = stats.weekly_chart %}
       {% if chart %}
@@ -120,7 +120,7 @@
     {% if stats.phase %}
       <section class="card">
         <div class="card-head">
-          <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Faza strategii: {{ stats.phase.name }}</span></h2>
+          <h2><span>Faza strategii: {{ stats.phase.name }}</span></h2>
           <a href="/goal">Cel i kryteria</a>
         </div>
         <p class="mid card-lead">{{ stats.phase.dates }} · tydzień {{ stats.phase.week_number }} z {{ stats.phase.total_weeks }}{% if stats.phase.km %} · zwykle {{ stats.phase.km }} tygodniowo{% endif %}{% if stats.phase.long_km %} · najdłuższy bieg {{ stats.phase.long_km }}{% endif %}</p>
@@ -143,7 +143,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Czas biegów a zaplanowany czas</span></h2>
+        <h2><span>Czas biegów a zaplanowany czas</span></h2>
       </div>
       {% if stats.plan_rows %}
         <div class="list">
@@ -168,7 +168,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_heart.png" width="28" height="28" alt=""><span>Sygnały z organizmu</span></h2>
+        <h2><span>Sygnały z organizmu</span></h2>
       </div>
       <p class="mid">Linia pokazuje pomiar dzień po dniu, a przerywana linia — średnią z całego zakresu. Przerwa w linii oznacza dzień bez pomiaru.</p>
       <div class="stack">

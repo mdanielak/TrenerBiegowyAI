@@ -91,7 +91,7 @@
   {% for variant in variants %}
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/01_navigation/plan.png" width="28" height="28" alt=""><span>Druga wersja planu</span></h2>
+        <h2><span>Druga wersja planu</span></h2>
       </div>
       {% if variant.focus %}<p class="mid card-lead">{{ variant.focus }}</p>{% endif %}
       <div class="list">
@@ -198,7 +198,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Cel tygodnia</span></h2>
+        <h2><span>Cel tygodnia</span></h2>
       </div>
       <div class="suggestion plain week-goal">
         <div>
@@ -210,7 +210,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_date.png" width="28" height="28" alt=""><span>Dzień po dniu</span></h2>
+        <h2><span>Dzień po dniu</span></h2>
       </div>
 
       {% set to_remove = plan.days|selectattr('date', 'equalto', request.query_params.get('remove'))|rejectattr('is_rest')|rejectattr('is_past')|first %}
@@ -249,7 +249,7 @@
             <div class="day-head">
               <span class="day-name">{{ plan_day.weekday_short }}</span>
               <span class="day-num">{{ plan_day.date[8:10]|int }}</span>
-              {% if plan_day.is_today %}<span class="day-today-tag">dzisiaj</span>{% endif %}
+              {% if plan_day.is_today %}<span class="day-today-tag">dziś</span>{% endif %}
               <span class="day-corner">
                 {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>
                 {% elif not plan_day.is_rest and not plan_day.is_past %}<span class="day-garmin is-pending" role="img" aria-label="Trening nie jest jeszcze na zegarku Garmin" title="Jeszcze nie wysłano na zegarek">{{ ico.watch(16) }}</span>{% endif %}
@@ -263,7 +263,8 @@
             <div class="day-pills">
               <span class="pill {{ plan_day.kind_pill }}">{{ plan_day.kind_label }}</span>
               {% if plan_day.readiness %}
-                <span class="pill {{ plan_day.readiness.variant }}">Gotowość {{ plan_day.readiness.score|num }}/{{ plan_day.readiness.max_score|num }}</span>
+                {# Gotowość dnia jako cichy tekst, nie kolejna pigułka; kolor tylko gdy odbiega od normy. #}
+                <span class="day-readiness {{ plan_day.readiness.variant }}">Gotowość {{ plan_day.readiness.score|num }}/{{ plan_day.readiness.max_score|num }}</span>
               {% endif %}
             </div>
 
@@ -331,12 +332,12 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_average.png" width="28" height="28" alt=""><span>Podsumowanie</span></h2>
+        <h2><span>Podsumowanie</span></h2>
       </div>
       <div class="grid grid-4">
         <div class="tile">
           <span class="tile-head">
-            <img class="asset tile-icon" src="/assets/07_ui_icons/tile_sessions.png" width="28" height="28" alt="">
+            
             <span class="tile-label"><span>Treningi</span></span>
           </span>
           <span class="tile-value">{{ plan.totals.sessions }}<span class="tile-unit">w tygodniu</span></span>
@@ -345,7 +346,7 @@
 
         <div class="tile">
           <span class="tile-head">
-            <img class="asset tile-icon" src="/assets/07_ui_icons/tile_distance.png" width="28" height="28" alt="">
+            
             <span class="tile-label"><span>Objętość</span></span>
           </span>
           <span class="tile-value">
@@ -357,7 +358,7 @@
 
         <div class="tile">
           <span class="tile-head">
-            <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+            
             <span class="tile-label"><span>Czas</span></span>
           </span>
           <span class="tile-value">
@@ -369,7 +370,7 @@
 
         <div class="tile">
           <span class="tile-head">
-            <img class="asset tile-icon" src="/assets/07_ui_icons/tile_quality.png" width="28" height="28" alt="">
+            
             <span class="tile-label"><span>Treningi jakościowe</span></span>
           </span>
           <span class="tile-value">{{ plan.totals.quality_sessions }}<span class="tile-unit">z 1</span></span>
@@ -431,7 +432,7 @@
   <details class="card" id="wiadomosc"{% if note_saved %} open{% endif %}>
     <summary>Dostosuj tydzień — wiadomość dla AI</summary>
     <div class="card-head">
-      <h2 id="week-note-label"><img class="asset head-icon" src="/assets/07_ui_icons/tile_message.png" width="28" height="28" alt=""><span>Wiadomość dla AI na ten tydzień</span></h2>
+      <h2 id="week-note-label"><span>Wiadomość dla AI na ten tydzień</span></h2>
     </div>
     {% if note_saved %}
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p></div></div>

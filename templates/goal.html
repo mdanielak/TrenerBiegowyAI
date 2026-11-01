@@ -19,7 +19,7 @@
 {% if has_goal %}
 <section class="card goal-saved" aria-label="Twój zapisany cel">
   <div class="card-head">
-    <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Twój zapisany cel</span></h2>
+    <h2><span>Twój zapisany cel</span></h2>
     <a class="btn btn-secondary" href="/wizard">Zmień cel i dostępność</a>
   </div>
   <dl class="goal-facts">
@@ -97,7 +97,7 @@
       {% if not (has_goal and saved_goal.target_time) %}
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_time.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Czas docelowy</span></span>
         </span>
         <span class="tile-value">{{ goal.target_time or '—' }}</span>
@@ -106,7 +106,7 @@
       {% endif %}
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_pace.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Wymagane tempo</span></span>
         </span>
         <span class="tile-value">{% if goal.target_pace %}{{ goal.target_pace }}<span class="tile-unit">/km</span>{% else %}—{% endif %}</span>
@@ -114,7 +114,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_trophy.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Obecny rekord</span></span>
         </span>
         <span class="tile-value">{{ goal.record or '—' }}</span>
@@ -122,7 +122,7 @@
       </div>
       <div class="tile">
         <span class="tile-head">
-          <img class="asset tile-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt="">
+          
           <span class="tile-label"><span>Bieżąca faza</span></span>
         </span>
         <span class="tile-value goal-phase">{{ goal.current or '—' }}</span>
@@ -132,7 +132,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Fazy przygotowań</span></h2>
+        <h2><span>Fazy przygotowań</span></h2>
       </div>
       {% set track = goal.timeline %}
       {% if track %}
@@ -151,7 +151,7 @@
       <div class="list">
         {% for phase in goal.phases %}
           <div class="list-item">
-            <span class="zone-chip lead {{ 'z2' if phase.is_current else '' }}">{{ phase.number }}</span>
+            <span class="zone-chip lead{% if phase.is_current %} is-current{% endif %}">{{ phase.number }}</span>
             <span class="item-body">
               <span class="item-title">{{ phase.name }}</span>
               <span class="item-meta"><span>{{ phase.dates }}</span></span>
@@ -167,7 +167,7 @@
 
     <section class="card">
       <div class="card-head">
-        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_finish.png" width="28" height="28" alt=""><span>Kryteria gotowości</span></h2>
+        <h2><span>Kryteria gotowości</span></h2>
       </div>
       <div class="list">
         {% for criterion in goal.criteria %}

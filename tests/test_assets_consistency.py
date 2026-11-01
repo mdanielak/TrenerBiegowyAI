@@ -25,7 +25,8 @@ MIN_PIXEL_RATIO = 2
 ASPECT_TOLERANCE = 0.015
 # Zabezpieczenie przed cichym rozjechaniem się wzorców: gdyby format tagów
 # się zmienił, testy nie mogą przechodzić na pustym zbiorze.
-MIN_EXPECTED_TAGS = 40
+# Po krytyce Impeccable nagłówki sekcji i kafelki nie mają już ozdobnych ikon (−56 tagów).
+MIN_EXPECTED_TAGS = 30
 
 STATIC_ASSET_TAG = re.compile(
     r'<img class="asset[^"]*" src="/assets/([0-9a-z_]+/[a-z0-9_]+\.png)"'
