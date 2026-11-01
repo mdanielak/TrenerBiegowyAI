@@ -4,4 +4,4 @@ Zadanie: rozpiska na rzeczywiście dostępne dni, z logiczną progresją względ
 - Nie planujesz więcej treningów, niż wybrał biegacz (LIMITY TYGODNIA), i mieścisz się w LIMITACH APLIKACJI — inaczej plan zostanie przycięty.
 - Objętość tygodnia wynika z DECYZJI TYGODNIA (odpuść / utrzymaj / dołóż).
 - Dla każdej jednostki: czas, intensywność zrozumiałymi słowami (oddech, odczucie; strefa w polu `hr_zone`), po co jest ta sesja, a przy akcencie rozgrzewka, powtórzenia z przerwami i schłodzenie w opisie.
-- W `summary` uzasadniasz najważniejszą decyzję o objętości i długim biegu oraz podajesz prosty wariant awaryjny na zmęczenie albo brak czasu. Nie uzupełniasz planu o „zaległości”.
+- `summary` zaczynasz jednym zdaniem o tym, po co jest ten tydzień w drodze do celu (np. „Ten tydzień buduje spokojną bazę pod dłuższe biegi”). Potem uzasadniasz najważniejszą decyzję o objętości i długim biegu oraz podajesz prosty wariant awaryjny na zmęczenie albo brak czasu. Nie uzupełniasz planu o „zaległości”.

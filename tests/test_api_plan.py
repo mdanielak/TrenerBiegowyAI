@@ -231,7 +231,7 @@ def test_plan_page_lists_notes_only_for_days_that_have_them(tmp_path):
         response = client.get("/plan")
 
     assert response.status_code == 200
-    assert response.text.count('class="day-details"') == 3
+    assert response.text.count('class="secondary day-details"') == 3
     assert "Spokojne tempo, czuj rozmiar." in response.text
     assert "Zostaw siły na weekend." in response.text
     assert "Przerwa z powodu bólu kolana." in response.text
@@ -407,3 +407,40 @@ def test_day_cards_show_the_run_from_the_watch_and_a_missed_past_workout(tmp_pat
     assert page.count("Brak biegu z zegarka") == 1  # wtorkowe tempo; dni odpoczynku się nie liczą
     assert 'zone-band z2"' in page and 'zone-band z3"' in page
     assert 'zone-band z2 long"' not in page  # w tym planie nie ma długiego biegu
+
+
+def test_plan_cannot_be_started_while_sync_runs(tmp_path):
+    """Plan ma powstać na świeżych danych: w trakcie synchronizacji przycisk i akcja są zablokowane."""
+    store = JobStore(tmp_path / "jobs")
+    calls = []
+
+    with TestClient(_app(tmp_path, plan_operation=lambda **kwargs: calls.append(kwargs))) as client:
+        # Po starcie aplikacji: start oznacza osierocone zadania jako „nieznane”.
+        store.mark_running(store.submit("sync", {"fresh": False}).id)
+        page = client.get("/plan").text
+        token = _csrf(client)
+        response = client.post("/actions/plan", data={"csrf_token": token, "week_start": "2026-09-28"},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+
+    plan_form = page.split('action="/actions/plan"', 1)[1].split("</form>", 1)[0]
+    assert '<button type="submit" disabled>' in plan_form
+    assert "plan ułożysz zaraz po niej" in page
+    assert response.status_code == 303
+    assert [job.operation for job in store.list_jobs().jobs] == ["sync"] and calls == []
+
+
+def test_workout_details_open_in_a_dialog(tmp_path):
+    with TestClient(_app(tmp_path, plan=_plan())) as client:
+        page = client.get("/plan").text
+
+    assert 'data-dialog="szczegoly-' in page and '<dialog class="workout-dialog"' in page
+    assert "Jak to zrobić" in page and 'aria-label="Zamknij"' in page
+
+
+def test_running_plan_job_shows_a_progress_bar(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    with TestClient(_app(tmp_path)) as client:
+        store.mark_running(store.submit("plan", {"week_start": "2026-09-28"}).id)
+        page = client.get("/plan").text
+
+    assert 'aria-label="Postęp układania planu"' in page and "zwykle około 40 s" in page

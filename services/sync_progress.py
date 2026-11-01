@@ -126,3 +126,26 @@ def progress_view(jobs_directory, job_id: str, now: datetime | None = None) -> d
         "elapsed": _format_elapsed(elapsed),
         "elapsed_seconds": int(elapsed),
     }
+
+
+_PLAN_DEFAULT_SECONDS = 40
+_PLAN_HISTORY = 5
+_PLAN_CAP = 0.95
+
+
+def plan_progress_view(jobs, job, now: datetime | None = None) -> dict:
+    """Pasek układania planu. AI nie podaje postępu, więc szacunek ze średniej ostatnich udanych planów."""
+    durations = [
+        (datetime.fromisoformat(other.finished_at) - datetime.fromisoformat(other.started_at)).total_seconds()
+        for other in jobs
+        if other.operation == "plan" and other.status == "succeeded" and other.started_at and other.finished_at
+    ][:_PLAN_HISTORY]
+    expected = max(sum(durations) / len(durations), 1.0) if durations else _PLAN_DEFAULT_SECONDS
+    current = now or datetime.now(timezone.utc)
+    elapsed = max((current - datetime.fromisoformat(job.started_at)).total_seconds(), 0.0) if job.started_at else 0.0
+    return {
+        "percent": int(min(elapsed / expected, _PLAN_CAP) * 100),
+        "elapsed": _format_elapsed(elapsed),
+        "elapsed_seconds": int(elapsed),
+        "expected": _format_elapsed(expected),
+    }

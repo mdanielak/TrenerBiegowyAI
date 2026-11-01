@@ -16,6 +16,8 @@ from ai.context import journal_lines
 from services.strategy import STRATEGY_PATH
 
 logger = logging.getLogger(__name__)
+# Plan z opisami siedmiu dni potrafi przekroczyć domyślny limit odpowiedzi; ucięty JSON jest nieczytelny.
+PLAN_MAX_TOKENS = 8000
 
 
 class PlanWorkout(BaseModel):
@@ -349,7 +351,8 @@ def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
     system, message = build_system_prompt(runner=(context or {}).get("runner")), build_plan_message(context)
     for seed in (7, 8):
         try:
-            return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed)
+            return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed,
+                                 max_tokens=PLAN_MAX_TOKENS)
         except AIResponseError:
             if seed == 8:
                 raise

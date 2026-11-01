@@ -79,7 +79,7 @@ class OpenAICompatibleProvider(AIProvider):
 
     def chat(self, system_prompt: str, user_message: str, response_model=None, *,
              temperature: float | None = None, seed: int | None = None,
-             top_p: float | None = None) -> Union[str, dict]:
+             top_p: float | None = None, max_tokens: int | None = None) -> Union[str, dict]:
         """Send a chat completion request.
 
         If response_model is a Pydantic BaseModel class, requests JSON output
@@ -96,7 +96,8 @@ class OpenAICompatibleProvider(AIProvider):
         # Request JSON output for structured responses
         if response_model is not None:
             kwargs["response_format"] = {"type": "json_object"}
-        for name, value in (("temperature", temperature), ("seed", seed), ("top_p", top_p)):
+        for name, value in (("temperature", temperature), ("seed", seed), ("top_p", top_p),
+                            ("max_tokens", max_tokens)):
             if value is not None:
                 kwargs[name] = value
 
@@ -105,7 +106,7 @@ class OpenAICompatibleProvider(AIProvider):
         except Exception as e:
             # Nie każdy dostawca zgodny z OpenAI (np. Gemini) przyjmuje tryb JSON i `seed`.
             # Prompt i tak wymaga samego JSON-a, więc jedna ponowna próba bez nich jest bezpieczna.
-            optional = [name for name in ("response_format", "seed") if name in kwargs]
+            optional = [name for name in ("response_format", "seed", "max_tokens") if name in kwargs]
             if not optional or getattr(e, "status_code", None) != 400:
                 raise AIProviderError(f"AI API error: {e}", getattr(e, "status_code", None)) from e
             logger.info("AI provider rejected %s; retrying without them", ", ".join(optional))
@@ -118,6 +119,13 @@ class OpenAICompatibleProvider(AIProvider):
                                       getattr(retry_error, "status_code", None)) from retry_error
 
         content = response.choices[0].message.content
+        if response_model is not None and getattr(response.choices[0], "finish_reason", None) == "length":
+            # Długi JSON ucięty limitem długości odpowiedzi nie da się odczytać; plan zapyta ponownie.
+            logger.warning("AI answer was cut off by the length limit (%d characters)", len(content or ""))
+            raise AIResponseError(f"AI answer was cut off ({len(content or '')} characters)")
+        if not content and response_model is not None:
+            # DeepSeek w trybie JSON bywa, że zwraca pustą treść — to też odpowiedź do ponowienia.
+            raise AIResponseError("AI returned an empty structured answer")
         if content is None:
             raise AIProviderError("AI returned empty response")
 
@@ -133,7 +141,9 @@ class OpenAICompatibleProvider(AIProvider):
 
             try:
                 return response_model.model_validate(data)
-            except Exception:
+            except Exception as error:
+                fields = sorted({".".join(map(str, item.get("loc", ()))) for item in getattr(error, "errors", list)()})
+                logger.warning("AI answer is missing or has wrong fields: %s", ", ".join(fields) or "unknown")
                 logger.debug("AI response validation failed for data: %s", data)
                 raise AIResponseError(
                     f"AI response validation failed for response of {len(content)} characters"

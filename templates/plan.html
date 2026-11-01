@@ -32,9 +32,11 @@
     <form method="post" action="/actions/plan">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="week_start" value="{{ week_start }}">
-      <button type="submit"{% if not ai_ready %} disabled{% endif %}>
+      {% set syncing = sync_in_progress(request) %}
+      <button type="submit"{% if not ai_ready or plan_banner.disabled or syncing %} disabled{% endif %}>
         {{ ico.calendar(18) }}<span>Ułóż plan</span>
       </button>
+      {% if syncing %}<p class="mid" data-reload-when-done>Trwa synchronizacja z Garminem — plan ułożysz zaraz po niej, na najświeższych danych.</p>{% endif %}
     </form>
     {% if plan %}
       <form method="post" action="/actions/plan/push">
@@ -131,6 +133,12 @@
       {{ ico.info() }}
       <div class="banner-body">
         <p class="banner-title">{{ plan_banner.message }}</p>
+        {% if plan_banner.progress %}{% set progress = plan_banner.progress %}
+          <div class="sync-progress">
+            <progress max="100" value="{{ progress.percent }}" aria-label="Postęp układania planu">{{ progress.percent }}%</progress>
+            <p class="mid">Trwa <span data-elapsed="{{ progress.elapsed_seconds }}">{{ progress.elapsed }}</span> · zwykle około {{ progress.expected }}</p>
+          </div>
+        {% endif %}
         {% if plan_banner.done and unsent and request.query_params.get('push') != 'later' %}
           {# 2. Jasne pytanie o wysyłkę zaraz po ułożeniu planu. #}
           <p>Wysłać treningi na zegarek? {{ unsent|length }} {{ unsent|length|plural('trening jeszcze nie jest', 'treningi jeszcze nie są', 'treningów jeszcze nie jest') }} w Garmin Connect.</p>
@@ -288,7 +296,33 @@
               {% if plan_day.available and plan_day.max_minutes %}
                 <span class="day-block-meta">Masz {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>
               {% endif %}
-              {% if plan_day.description or plan_day.notes %}<details class="day-details"><summary>{{ 'Szczegóły' if plan_day.is_rest else 'Szczegóły treningu' }}</summary>{% if plan_day.hr_target %}<p>Tętno: {{ plan_day.hr_target }}</p>{% endif %}{% if plan_day.description %}<p>{{ plan_day.description }}</p>{% endif %}{% if plan_day.notes %}<p>{{ plan_day.notes }}</p>{% endif %}</details>{% endif %}
+              {% if plan_day.description or plan_day.notes %}
+                {# Opis w wąskiej kolumnie dnia był nieczytelny: pełne szczegóły w okienku. #}
+                {% set dialog_id = 'szczegoly-' ~ plan_day.date %}
+                <button type="button" class="secondary day-details" data-dialog="{{ dialog_id }}" aria-haspopup="dialog">{{ 'Szczegóły' if plan_day.is_rest else 'Szczegóły treningu' }}</button>
+                <dialog class="workout-dialog" id="{{ dialog_id }}" aria-labelledby="{{ dialog_id }}-tytul">
+                  <div class="workout-dialog-body">
+                    <div class="workout-dialog-head">
+                      <div>
+                        <p class="mid">{{ plan_day.weekday|capitalize }}, {{ format_date(plan_day.date) }}</p>
+                        <h3 id="{{ dialog_id }}-tytul">{{ plan_day.name or plan_day.kind_label }}</h3>
+                      </div>
+                      <form method="dialog"><button class="secondary btn-icon" aria-label="Zamknij">{{ ico.x(18) }}</button></form>
+                    </div>
+                    {% if plan_day.duration_min is not none or plan_day.distance_km is not none or plan_day.hr_zone or plan_day.hr_target or plan_day.pace_target %}
+                      <dl class="workout-facts">
+                        {% if plan_day.duration_min is not none %}<div><dt>Czas</dt><dd>{{ plan_day.duration_min|num }} min</dd></div>{% endif %}
+                        {% if plan_day.distance_km is not none %}<div><dt>Dystans</dt><dd>{{ plan_day.distance_km|num }} km</dd></div>{% endif %}
+                        {% if plan_day.hr_zone %}<div><dt>Strefa</dt><dd><span class="zone-chip {{ plan_day.hr_zone|lower }}">{{ plan_day.hr_zone }}</span></dd></div>{% endif %}
+                        {% if plan_day.hr_target %}<div><dt>Tętno</dt><dd>{{ plan_day.hr_target }}</dd></div>{% endif %}
+                        {% if plan_day.pace_target %}<div><dt>Tempo</dt><dd>{{ plan_day.pace_target }}</dd></div>{% endif %}
+                      </dl>
+                    {% endif %}
+                    {% if plan_day.description %}<h4>Jak to zrobić</h4><p>{{ plan_day.description }}</p>{% endif %}
+                    {% if plan_day.notes %}<h4>Uwagi</h4><p>{{ plan_day.notes }}</p>{% endif %}
+                  </div>
+                </dialog>
+              {% endif %}
             </div>
           </div>
         {% endfor %}

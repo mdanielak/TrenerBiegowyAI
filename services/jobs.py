@@ -28,7 +28,7 @@ PLAN_AI_DISABLED_MESSAGE = "Generowanie planu wymaga włączenia wysyłania dany
 PLAN_NO_PLAN_MESSAGE = "Najpierw ułóż plan na ten tydzień."
 GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego logowania."
 AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → API AI."
-AI_FORMAT_MESSAGE = "Trener AI dwa razy odpowiedział w nieczytelnej formie. Spróbuj ponownie za chwilę."
+AI_FORMAT_MESSAGE = "Trener AI nie zdążył poprawnie dokończyć planu. Spróbuj ponownie za chwilę."
 AI_REJECTED_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź klucz w Ustawienia → API AI → Sprawdź połączenie."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
     _GENERIC_FAILURE,

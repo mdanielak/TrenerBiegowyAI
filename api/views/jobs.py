@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from services.jobs import JobStore
-from services.sync_progress import progress_view
+from services.sync_progress import plan_progress_view, progress_view
 
 SYNC_COOLDOWN = timedelta(seconds=60)
 REVIEW_COOLDOWN = timedelta(seconds=30)
@@ -54,13 +54,16 @@ def _sync_banner(store: JobStore, now: datetime) -> dict[str, str | bool | None]
 
 def _plan_banner(store: JobStore, now: datetime, operation: str, messages: dict) -> dict:
     """Wylicz stan paska planu wyłącznie z najnowszego zadania danej operacji."""
-    jobs = [job for job in store.list_jobs().jobs if job.operation == operation]
+    all_jobs = store.list_jobs().jobs
+    jobs = [job for job in all_jobs if job.operation == operation]
     if not jobs:
         return {"message": None, "details_url": None, "refresh": False, "disabled": False}
     job = jobs[0]
     if job.status in {"accepted", "running"}:
+        progress = (plan_progress_view(all_jobs, job, now.astimezone(timezone.utc))
+                    if operation == "plan" and job.status == "running" else None)
         return {"message": messages.get(job.status) or messages.get("running"), "details_url": None,
-                "refresh": True, "disabled": True}
+                "refresh": True, "disabled": True, "progress": progress}
     completed_at = _job_timestamp(job.finished_at or job.created_at)
     current = now.astimezone(timezone.utc)
     recent = completed_at is not None and current - completed_at <= timedelta(minutes=10)

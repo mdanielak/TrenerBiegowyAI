@@ -1104,7 +1104,7 @@ def test_dashboard_hides_the_steps_after_the_training():
     assert 'class="workout-steps"' not in page
 
 
-def test_signals_explain_themselves_on_analysis_and_home():
+def test_signals_explain_themselves_on_analysis_only():
     """„?” przy każdym sygnale: zwykły tekst dla osoby, która nie wie, co to HRV."""
     readiness = _analysis_readiness(available_metrics=["sleep", "rhr", "hrv", "stress"], missing_metrics=[],
                                     confidence="high", raw_score=8.0, available_max_score=10.0)
@@ -1115,7 +1115,8 @@ def test_signals_explain_themselves_on_analysis_and_home():
     assert "Ocena 0–10 sumuje cztery sygnały" in analysis
     with TestClient(create_app(report_provider=lambda: _report())) as client:
         home = client.get("/").text
-    assert 'aria-label="Co to znaczy: Tętno spoczynkowe"' in home and "średnią z Twoich ostatnich czterech tygodni" in home
+    # Strona główna to szybki przegląd: „?” rozjeżdżał karty sygnałów, objaśnienia są na Analizie.
+    assert "Co to znaczy:" not in home and 'href="/analysis">Zobacz uzasadnienie</a>' in home
 
 
 def test_job_page_names_the_operation(tmp_path):

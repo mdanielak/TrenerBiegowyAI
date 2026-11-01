@@ -276,6 +276,9 @@ def get_actions_router(
                 status_code=400,
                 headers={"Cache-Control": "no-store"},
             )
+        if any(job.operation == "sync" and job.status in {"accepted", "running"} for job in store.list_jobs().jobs):
+            # Plan ma powstać na świeżych danych; przycisk jest wtedy wyłączony, to bezpiecznik dla starej karty.
+            return RedirectResponse(url=plan_url(week_start), status_code=303)
         decision, redirect = decide("plan", week_start, on_conflict)
         if redirect is not None:
             return redirect

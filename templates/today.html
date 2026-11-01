@@ -6,7 +6,6 @@
 {% block content %}
 {% import "_icons.html" as ico %}
 {% import "_workout_steps.html" as steps %}
-{% from "_explain.html" import explain %}
 {% if error_message %}
 
   {% set sync = sync_in_progress(request) if sync_in_progress is defined and request is defined else None %}
@@ -291,7 +290,7 @@
             </span>
           </div>
 
-          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% elif rest_today %} Dziś odpoczynek z planu: wynik mówi, jak się regenerujesz.{% endif %} <a href="/analysis">Zobacz uzasadnienie</a></p>
+          <p class="ring-caption">Ocena pomiarów z zegarka.{% if pause %} Trwa przerwa: wynik nie zmienia decyzji o odpoczynku.{% elif rest_today %} Dziś odpoczynek z planu: wynik mówi, jak się regenerujesz.{% endif %} <a class="ring-link" href="/analysis">Zobacz uzasadnienie</a></p>
         </div>
       </section>
     </div>
@@ -309,7 +308,7 @@
               </span>
 
               <span class="signal-main">
-                <span class="signal-top"><span>{{ card.label }}</span>{{ explain(card.label, card.explain) }}</span>
+                <span class="signal-top"><span>{{ card.label }}</span></span>
 
                 <span class="signal-value">
                   {% if card.value is not none %}{{ card.value|num }}{% if card.unit %}<span class="signal-unit">{{ card.unit }}</span>{% endif %}

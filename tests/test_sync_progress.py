@@ -120,3 +120,36 @@ def test_bar_is_indeterminate_before_the_first_stage(tmp_path):
         page = client.get("/").text
     assert '<progress aria-label="Postęp synchronizacji"></progress>' in page
     assert "Przygotowanie synchronizacji…" in page
+
+
+def test_plan_progress_estimates_from_previous_plans(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from services.jobs import JobStore
+    from services.sync_progress import plan_progress_view
+
+    store = JobStore(tmp_path / "jobs")
+    start = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
+    for seconds in (20, 40):
+        job = store.submit("plan", {"n": seconds}, now=start)
+        store.mark_running(job.id, now=start)
+        store.mark_succeeded(job.id, now=start + timedelta(seconds=seconds))
+    running = store.submit("plan", {"n": "now"}, now=start)
+    running = store.mark_running(running.id, now=start)
+
+    view = plan_progress_view(store.list_jobs().jobs, running, start + timedelta(seconds=15))
+    assert view["percent"] == 50 and view["expected"] == "30 s" and view["elapsed"] == "15 s"
+    # Dłużej niż zwykle: pasek staje przed końcem, nie udaje gotowości.
+    assert plan_progress_view(store.list_jobs().jobs, running, start + timedelta(minutes=5))["percent"] == 95
+
+
+def test_plan_progress_without_history_uses_a_default(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from services.jobs import JobStore
+    from services.sync_progress import plan_progress_view
+
+    store = JobStore(tmp_path / "jobs")
+    start = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
+    running = store.mark_running(store.submit("plan", {}, now=start).id, now=start)
+    assert plan_progress_view(store.list_jobs().jobs, running, start + timedelta(seconds=20))["percent"] == 50

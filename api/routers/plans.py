@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 PLAN_MESSAGES = {
     "accepted": "Plan czeka w kolejce, np. na koniec synchronizacji z Garminem. Strona odświeży się sama.",
-    "running": "Trener układa plan — zwykle trwa to do minuty. Strona odświeży się sama.",
+    "running": "Trener układa plan. Strona odświeży się sama, gdy będzie gotowy.",
     "failed": "Nie udało się ułożyć planu. Spróbuj ponownie.",
     "succeeded": "Plan tygodnia jest ułożony.",
 }

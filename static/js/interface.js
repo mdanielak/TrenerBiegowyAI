@@ -63,11 +63,12 @@ async function reloadWhenDone() {
       (banner.querySelector('.banner-body') || banner).append(link);
       return;
     }
-    // Wciąż trwa: podmień sam postęp (etap, procent, czas), reszta strony zostaje nietknięta.
-    const fresh = page.querySelector('.sync-status .sync-progress');
-    const shown = document.querySelector('.sync-status .sync-progress');
+    // Wciąż trwa: podmień same paski postępu (synchronizacja, plan), reszta strony zostaje nietknięta.
+    const fresh = page.querySelectorAll('.sync-progress');
     // Bez response.ok: przy pierwszym pobieraniu strona bez danych odpowiada 404, a pasek ma iść dalej.
-    if (fresh && shown) shown.replaceWith(document.importNode(fresh, true));
+    document.querySelectorAll('.sync-progress').forEach((shown, index) => {
+      if (fresh[index]) shown.replaceWith(document.importNode(fresh[index], true));
+    });
   } catch {
     // Brak połączenia: spróbujemy ponownie za chwilę.
   }
@@ -113,3 +114,11 @@ if (painNote) {
   note.addEventListener('input', updatePainNote);
   updatePainNote();
 }
+
+// Szczegóły treningu: natywne okienko (Esc zamyka samo); kliknięcie w tło też zamyka.
+document.querySelectorAll('[data-dialog]').forEach(button => {
+  button.addEventListener('click', () => document.getElementById(button.dataset.dialog)?.showModal());
+});
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
+  if (event.target === dialog) dialog.close();
+}));

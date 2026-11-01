@@ -178,3 +178,38 @@ class TestOpenAICompatibleProvider:
         OpenAICompatibleProvider("url", "key", "model").chat("system", "user", temperature=0.0, seed=7, top_p=0.5)
         kwargs = client.chat.completions.create.call_args.kwargs
         assert kwargs["temperature"] == 0.0 and kwargs["seed"] == 7 and kwargs["top_p"] == 0.5
+
+
+class TestStructuredAnswerProblems:
+    """Ucięty albo pusty JSON to „nieczytelna odpowiedź”, którą plan może ponowić."""
+
+    class Model(BaseModel):
+        readiness: str
+
+    def _provider(self, mock_openai_cls, content, finish_reason="stop"):
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        response = MagicMock()
+        response.choices = [MagicMock()]
+        response.choices[0].message.content = content
+        response.choices[0].finish_reason = finish_reason
+        mock_client.chat.completions.create.return_value = response
+        return OpenAICompatibleProvider("http://localhost/v1", "key", "model"), mock_client
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_max_tokens_is_sent_when_given(self, mock_openai_cls):
+        provider, client = self._provider(mock_openai_cls, '{"readiness": "ok"}')
+        provider.chat("S", "U", response_model=self.Model, max_tokens=8000)
+        assert client.chat.completions.create.call_args[1]["max_tokens"] == 8000
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_cut_off_answer_is_a_response_error(self, mock_openai_cls):
+        provider, _ = self._provider(mock_openai_cls, '{"readiness": "o', finish_reason="length")
+        with pytest.raises(AIResponseError, match="cut off"):
+            provider.chat("S", "U", response_model=self.Model)
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_empty_structured_answer_is_a_response_error(self, mock_openai_cls):
+        provider, _ = self._provider(mock_openai_cls, "")
+        with pytest.raises(AIResponseError):
+            provider.chat("S", "U", response_model=self.Model)

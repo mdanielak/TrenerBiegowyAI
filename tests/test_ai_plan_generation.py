@@ -202,3 +202,8 @@ def test_second_unreadable_answer_gives_up():
     with pytest.raises(AIResponseError):
         generate_week_plan(Broken(), _context())
     assert Broken.calls == 2
+
+
+def test_coach_is_asked_to_encourage_concretely():
+    prompt = build_system_prompt()
+    assert "dodajesz otuchy" in prompt and "po co jest ten tydzień w drodze do celu" in prompt
