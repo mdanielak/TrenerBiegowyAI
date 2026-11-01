@@ -140,7 +140,7 @@ def test_the_model_is_told_the_same_limits_the_app_enforces():
                                   profile=_profile(running_since="under6", training_frequency="3 treningi w tygodniu"))
     lines = "\n".join(profile_lines(runner))
     assert f"długi bieg najwyżej {runner['longest_min'] + 10} min" in lines
-    assert "najwyżej 3 treningów w tygodniu" in lines and f"najwyżej {runner['week_cap_min']} min" in lines
+    assert "najwyżej 3 treningi w tygodniu" in lines and f"najwyżej {runner['week_cap_min']} min" in lines
     assert "bez interwałów, biegu progowego i tempowego" in lines
     easing = build_runner_profile(activities=_tester(), today=TODAY, pain=True, profile=_profile(running_since="6to24"))
     assert easing["week_cap_min"] == round(easing["max_week_minutes"] * 0.75)

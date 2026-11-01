@@ -6,6 +6,7 @@ title Trener Biegowy - testowanie
 rem Testowa kopia aplikacji na zmyslonym tygodniu: dzis sroda, Garmin i AI udawane.
 rem Inny dzien tygodnia: testowanie.bat --dzien czwartek
 rem Inny biegacz: testowanie.bat --biegacz poczatkujacy   (albo regularny, zaawansowany; domyslnie regularny)
+rem Wiecej w oknie: testowanie.bat --verbose   (zapytania HTTP, Garmin, synchronizacja, pelne zapytania do AI)
 rem Kod kopiowany jest do katalogu tymczasowego, wiec prawdziwe dane (local, plany, .env) zostaja nietkniete.
 rem Nie trafia do paczki wydania (export-ignore w .gitattributes).
 set "REPO=%~dp0"

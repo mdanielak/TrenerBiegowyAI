@@ -60,6 +60,8 @@ def _options(argv):
             options["dzien"] = next(words, "")
         elif word == "--biegacz":
             options["biegacz"] = next(words, "")
+        elif word in ("--verbose", "-v"):
+            options["verbose"] = True
         else:
             rest.append(word)
     if rest and "dzien" not in options:
@@ -117,6 +119,7 @@ RUNNERS = {
 }
 
 OPTIONS = _options(sys.argv[1:])
+VERBOSE = bool(OPTIONS.get("verbose"))
 WEEKDAY = _chosen_weekday(OPTIONS.get("dzien"))
 RUNNER_KEY = (OPTIONS.get("biegacz") or "regularny").lower().translate(_ASCII)
 if RUNNER_KEY not in RUNNERS:
@@ -226,16 +229,24 @@ def _spec(kind, kwargs):
             "pace_slower": kwargs.get("pace_to"), "warmup_min": 10, "cooldown_min": 10}
 
 
+def log(text):
+    """Komunikat w oknie testowania tylko przy --verbose."""
+    if VERBOSE:
+        print(f"  [{datetime.now():%H:%M:%S}] {text}", flush=True)
+
+
 def fake_garmin_session():
     def create(kind, name, **kwargs):
         time.sleep(1.5)
         workout_id = next(_next_id)
+        log(f"[udawany Garmin] wysłano trening {workout_id}: {name} ({kind}, {kwargs.get('date')})")
         workout_registry.record_added(name, kwargs.get("date"), workout_id, schedule_id=workout_id + 1,
                                       spec=_spec(kind, kwargs), schedule_status="confirmed")
         return workout_id
 
     def delete(workout_id, schedule_id=None, reason=None):
         time.sleep(1.5)
+        log(f"[udawany Garmin] usunięto trening {workout_id} (powód: {reason})")
         workout_registry.record_deleted(workout_id, schedule_id=schedule_id, reason=reason)
 
     return create, delete
@@ -245,8 +256,10 @@ def fake_sync(*, fresh=False, progress=None):
     for stage, seconds in (("garmin", 2), ("today", 4), ("history", 12 if fresh else 8), ("extract", 3)):
         if progress:
             progress(stage)
+        log(f"[udawana synchronizacja] etap {stage} ({seconds} s){' — pełne pobranie' if fresh else ''}")
         time.sleep(seconds)
     _write_snapshot()
+    log("[udawana synchronizacja] zapisano nowy snapshot danych")
 
 
 def fake_start_login(email, password, **kwargs):
@@ -257,6 +270,9 @@ def fake_start_login(email, password, **kwargs):
 
 
 # --- Udawane AI ------------------------------------------------------------------------------
+_calls = []
+
+
 class FakeProvider:
     def __init__(self, *args, **kwargs):
         pass
@@ -266,7 +282,22 @@ class FakeProvider:
         modules = [line[2:] for line in system_prompt.splitlines()
                    if line.startswith("# ") and not line.startswith(("# 0", "# TrenerBiegowyAI"))]
         print(f"  [udawane AI] moduły promptu: {', '.join(modules) or 'brak'}", flush=True)
+        if VERBOSE:
+            # Całość do pliku w piaskownicy: w oknie konsoli tysiące znaków trudno czytać.
+            _calls.append(1)
+            path = SANDBOX / "logs" / f"ai-{len(_calls):02d}-{getattr(response_model, '__name__', 'tekst')}.md"
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(f"# PROMPT SYSTEMOWY\n\n{system_prompt}\n\n# WIADOMOŚĆ Z DANYMI\n\n{user_message}\n",
+                            encoding="utf-8")
+            log(f"[udawane AI] zapytanie {len(_calls)} ({len(system_prompt) + len(user_message)} znaków) → {path}")
+            print("\n".join(f"      | {line}" for line in user_message.splitlines()), flush=True)
         time.sleep(4)
+        answer = self._answer(user_message, response_model)
+        log(f"[udawane AI] odpowiedź: {answer.model_dump_json()[:600] if hasattr(answer, 'model_dump_json') else answer}")
+        return answer
+
+    @staticmethod
+    def _answer(user_message, response_model):
         if response_model is WeekPlanResponse:
             return _fake_plan(user_message)
         if response_model is DailyRecommendation:
@@ -417,4 +448,7 @@ if __name__ == "__main__":
     app = create_app(sync_operation=fake_sync)
     print(f"\n  Testowa aplikacja: http://127.0.0.1:{PORT}  (dziś = {DAY_NAMES[WEEKDAY]} {TODAY:%d.%m.%Y}, biegacz: {RUNNER_KEY})")
     print(f"  Piaskownica: {SANDBOX}\n  Garmin i AI są udawane. Zamknij okno albo Ctrl+C, żeby zakończyć.\n")
-    uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
+    if VERBOSE:
+        print("  Tryb --verbose: zapytania HTTP, Garmin, synchronizacja i pełne zapytania do AI "
+              f"(całe prompty w {SANDBOX / 'logs'}).\n")
+    uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="info" if VERBOSE else "warning")

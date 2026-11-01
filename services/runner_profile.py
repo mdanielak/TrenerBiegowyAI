@@ -230,7 +230,9 @@ def profile_lines(runner: dict) -> list[str]:
         limits.append(f"długi bieg najwyżej {runner['longest_min'] + LONG_RUN_STEP_MIN} min, "
                       f"bieg łatwy najwyżej {runner['longest_min']} min")
     if runner.get("frequency"):
-        limits.append(f"najwyżej {runner['frequency']} treningów w tygodniu")
+        count = runner["frequency"]
+        limits.append(f"najwyżej {count} " + ("trening" if count == 1 else "treningi" if count <= 4 else "treningów")
+                      + " w tygodniu")
     if runner.get("week_cap_min"):
         limits.append(f"cały tydzień najwyżej {runner['week_cap_min']} min biegania")
     if runner["level"] == "poczatkujacy":
