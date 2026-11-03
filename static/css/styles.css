@@ -1238,3 +1238,16 @@ p { text-wrap: pretty; }
 .coach-keys { flex-basis: 100%; margin: 0; }
 .coach-older { margin: 0 0 12px; }
 .coach-failed { margin: 0 0 12px; }
+
+/* Plan: wiadomość do trenera nad planem, zwinięta; podgląd zapisanej wiadomości w nagłówku. */
+.week-note > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+/* Układ flex chowa domyślny trójkąt rozwijania — bez niego zwinięta sekcja nie wyglądała na klikalną. */
+.week-note > summary { list-style: none; cursor: pointer; }
+.week-note > summary::-webkit-details-marker { display: none; }
+.week-note > summary::before { content: "▸"; color: var(--fg-mid); transition: transform var(--motion); }
+.week-note[open] > summary::before { transform: rotate(90deg); }
+.week-note-title { font-weight: 650; }
+.week-note-preview { font-weight: 400; color: var(--fg-mid); font-size: 14px; }
+.week-note-preview.is-empty { color: var(--fg-muted); }
+.week-note-replan { margin-top: 8px; }
+.note-actions { flex-wrap: wrap; gap: 10px; align-items: center; }

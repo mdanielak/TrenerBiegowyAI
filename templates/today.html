@@ -404,12 +404,12 @@
       <form method="post" action="/actions/recommendation" class="ask-form coach-form" data-draft-key="coach-draft">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label class="field ask-field">{% if conversation_today %}Dopytaj trenera{% else %}Wiadomość do trenera (opcjonalnie){% endif %}
-          <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="np. mam tylko 30 minut, nogi ciężkie"{% if not ai_ready %} disabled{% endif %}></textarea>
+          <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="{% if conversation_today %}np. a jeśli mam tylko 20 minut?{% else %}np. mam tylko 30 minut, nogi ciężkie{% endif %}"{% if not ai_ready %} disabled{% endif %}></textarea>
         </label>
         <button type="submit" class="btn-secondary"{% if not ai_ready or coach_pending %} disabled{% endif %}>
-          {{ ico.bulb(18) }}<span>{% if conversation_today %}Wyślij{% else %}Zapytaj AI, co dziś zrobić{% endif %}</span>
+          {{ ico.bulb(18) }}<span>{% if conversation_today %}Wyślij{% else %}Zapytaj trenera, co dziś zrobić{% endif %}</span>
         </button>
-        <p class="tile-foot coach-keys">Ctrl+Enter — wyślij</p>
+        <p class="tile-foot coach-keys">Ctrl+Enter — wyślij{% if week_note %} · Trener pamięta też Twoją wiadomość na ten tydzień: „{{ week_note|truncate(80) }}” — <a href="/plan#wiadomosc">zmień</a>{% endif %}</p>
       </form>
       {% if conversation_days %}
         <details class="coach-history">

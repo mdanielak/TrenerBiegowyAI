@@ -158,6 +158,7 @@ def get_dashboard_router(
                     "conversation_today": conversation_today,
                     "conversation_days": conversation_days,
                     "coach_pending": coach_pending,
+                    "week_note": _week_note(report.date),
                     "coach_failed": coach_failed,
                     "coach_busy": request.query_params.get("rec") == "busy",
                     "journal_missing": report.date not in journal_by_day,
@@ -235,3 +236,12 @@ def get_dashboard_router(
         )
 
     return router
+
+
+def _week_note(day: str) -> str:
+    """Wiadomość do trenera na tydzień tego dnia — widoczna przy rozmowie, bo trener też ją bierze pod uwagę."""
+    from services.ai_notes import note_for_day
+    try:
+        return note_for_day(datetime.strptime(day, "%Y-%m-%d").date())
+    except (OSError, ValueError):
+        return ""

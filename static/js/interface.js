@@ -128,7 +128,7 @@ document.querySelectorAll('form[data-draft-key]').forEach(form => {
   const field = form.querySelector('textarea, input[type="text"]');
   const key = form.dataset.draftKey;
   if (!field) return;
-  try { if (!field.value) field.value = sessionStorage.getItem(key) || ''; } catch {}
+  try { const draft = sessionStorage.getItem(key); if (draft !== null && draft !== field.value) field.value = draft; } catch {}
   field.addEventListener('input', () => { try { sessionStorage.setItem(key, field.value); } catch {} });
   form.addEventListener('submit', () => {
     try { sessionStorage.removeItem(key); sessionStorage.setItem(key + '-sent', field.value.trim()); } catch {}

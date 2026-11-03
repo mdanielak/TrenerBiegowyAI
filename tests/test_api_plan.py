@@ -298,7 +298,7 @@ def test_dashboard_shows_the_ai_plan_workout_for_today(tmp_path):
     assert response.status_code == 200
     assert "Bieg łatwy 45 min" in response.text
     assert "To trening z planu AI." in response.text
-    assert "Zapytaj AI, co dziś zrobić" in response.text
+    assert "Zapytaj trenera, co dziś zrobić" in response.text
 
 
 def test_dashboard_shows_the_plan_workout_beside_the_registry_workout(tmp_path):

@@ -107,6 +107,12 @@ def _isolate_recommendations(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.fixture(autouse=True)
+def _isolate_week_notes(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Wiadomości tygodnia z testów nie czytają ani nie zapisują prawdziwego local/ai-notes.jsonl."""
+    monkeypatch.setattr("services.ai_notes.NOTES_PATH", tmp_path_factory.mktemp("notes") / "ai-notes.jsonl")
+
+
+@pytest.fixture(autouse=True)
 def _isolate_reviews(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Oceny treningów z testów nie trafiają do prawdziwego local/workout-reviews.jsonl."""
     monkeypatch.setattr("services.workout_reviews.REVIEWS_PATH", tmp_path_factory.mktemp("reviews") / "reviews.jsonl")

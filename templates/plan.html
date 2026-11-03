@@ -185,6 +185,40 @@
     </div>
   {% endif %}
 
+  {# Wiadomość działa przy „Ułóż plan”, więc stoi przy nim, nad planem — nie na samym dole strony. #}
+  <details class="card week-note" id="wiadomosc"{% if note_saved %} open{% endif %}>
+    <summary>
+      <span class="week-note-title">Wiadomość do trenera na tydzień {{ format_date(week_start) }} – {{ format_date(week_end) }}</span>
+      {% if week_note %}<span class="week-note-preview">„{{ week_note|truncate(90) }}”</span>
+      {% else %}<span class="week-note-preview is-empty">np. wesele w sobotę, w środę mniej czasu</span>{% endif %}
+    </summary>
+    {% if note_saved %}
+      <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body">
+        <p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p>
+        {% if plan and ai_ready %}
+          <p class="mid">Trener uwzględni ją przy następnym układaniu planu.</p>
+          <form method="post" action="/actions/plan" class="week-note-replan">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="week_start" value="{{ week_start }}">
+            <button type="submit" class="btn-secondary">{{ ico.calendar(18) }}<span>Ułóż plan ponownie</span></button>
+          </form>
+        {% endif %}
+      </div></div>
+    {% endif %}
+    <form method="post" action="/actions/plan/note" class="stack" data-draft-key="week-note-{{ week_start }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="week_start" value="{{ week_start }}">
+      <label class="field">Co trener ma wiedzieć o tym tygodniu?
+        <textarea class="text-input" name="note" rows="3" maxlength="{{ week_note_limit }}" placeholder="np. w sobotę wesele, długi bieg w niedzielę; w środę mogę dopiero wieczorem">{{ week_note or '' }}</textarea>
+      </label>
+      <div class="row note-actions">
+        <button type="submit" class="btn-secondary">{{ ico.check(18) }}<span>Zapisz wiadomość</span></button>
+        {% if week_note %}<button type="submit" name="clear" value="1" class="btn-secondary">{{ ico.x(18) }}<span>Usuń wiadomość</span></button>{% endif %}
+        <span class="tile-foot">Trener weźmie ją pod uwagę przy układaniu planu i w radach na każdy dzień tego tygodnia.</span>
+      </div>
+    </form>
+  </details>
+
   {% if not plan %}
 
     <section class="card">
@@ -435,24 +469,6 @@
 
   {% endif %}
 
-  <details class="card" id="wiadomosc"{% if note_saved %} open{% endif %}>
-    <summary>Dostosuj tydzień — wiadomość dla AI</summary>
-    <div class="card-head">
-      <h2 id="week-note-label"><img class="asset head-icon" src="/assets/07_ui_icons/tile_message.png" width="28" height="28" alt=""><span>Wiadomość dla AI na ten tydzień</span></h2>
-    </div>
-    {% if note_saved %}
-      <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{% if week_note %}Zapisano wiadomość.{% else %}Usunięto wiadomość.{% endif %}</p></div></div>
-    {% endif %}
-    <form method="post" action="/actions/plan/note" class="stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="week_start" value="{{ week_start }}">
-      <textarea class="text-input" name="note" aria-labelledby="week-note-label" rows="2" maxlength="{{ week_note_limit }}" placeholder="np. w sobotę wesele, długi bieg w niedzielę; w środę mogę dopiero wieczorem">{{ week_note or '' }}</textarea>
-      <div class="row note-actions">
-        <button type="submit" class="btn-secondary">{{ ico.check(18) }}<span>Zapisz wiadomość</span></button>
-        <span class="tile-foot">Trafi do „Ułóż plan” i do rekomendacji dziennych w tym tygodniu. AI uwzględni ją, o ile nie przeczy zasadom bezpieczeństwa, dostępności i przerwom. Pusty tekst usuwa wiadomość.</span>
-      </div>
-    </form>
-  </details>
   <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>
 
 </div>

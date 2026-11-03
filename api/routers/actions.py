@@ -454,8 +454,9 @@ def get_actions_router(
         csrf_token: str = Form(default=""),
         week_start: str = Form(default=""),
         note: str = Form(default=""),
+        clear: str = Form(default=""),
     ):
-        """Wiadomość dla AI na tydzień; pusty tekst ją czyści."""
+        """Wiadomość do trenera na tydzień; pusty tekst albo „Usuń wiadomość” ją czyści."""
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
                 request=request,
@@ -464,7 +465,7 @@ def get_actions_router(
                 status_code=403,
                 headers={"Cache-Control": "no-store"},
             )
-        set_week_note(week_monday(week_start), note)
+        set_week_note(week_monday(week_start), "" if clear else note)
         return RedirectResponse(url=plan_url(week_start) + "&note=saved#wiadomosc", status_code=303)
 
     @router.post("/actions/recommendation")

@@ -95,3 +95,27 @@ def test_one_off_message_reaches_the_recommendation(tmp_path):
                     headers={"Origin": "http://testserver"}, follow_redirects=False)
 
     assert calls == [{"message": "nogi ciężkie"}]
+
+
+def test_week_note_sits_above_the_plan_with_dates_preview_and_delete(tmp_path):
+    set_week_note(MONDAY, "w sobotę wesele, długi bieg w niedzielę")
+    client = TestClient(_app(tmp_path, []))
+    page = client.get("/plan?week=2026-10-26").text
+
+    # Przy „Ułóż plan”, nad treścią planu — a nie na samym dole strony.
+    assert page.index('id="wiadomosc"') < page.index("</footer>")
+    assert "Wiadomość do trenera na tydzień 26 października 2026 – 1 listopada 2026" in page
+    assert "„w sobotę wesele, długi bieg w niedzielę”" in page and 'name="clear" value="1"' in page
+    assert "Wiadomość dla AI na ten tydzień" not in page
+
+    client.post("/actions/plan/note", data={"csrf_token": _token(client, "/plan?week=2026-10-26"),
+                                            "week_start": "2026-10-26", "note": "w sobotę wesele", "clear": "1"},
+                headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert note_for_week(MONDAY) == ""
+
+
+def test_home_reminds_that_the_coach_also_uses_the_week_note(tmp_path):
+    set_week_note(date.fromisoformat(_report().date), "w środę dopiero wieczorem")
+    page = TestClient(_app(tmp_path, [])).get("/").text
+    assert "Trener pamięta też Twoją wiadomość na ten tydzień: „w środę dopiero wieczorem”" in page
+    assert 'href="/plan#wiadomosc"' in page and "Zapytaj trenera, co dziś zrobić" in page
