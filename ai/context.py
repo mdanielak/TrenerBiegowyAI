@@ -267,6 +267,8 @@ def format_context_for_user(context):
         if context.get("week_note"):
             lines.append(f"- na ten tydzień: {context['week_note']}")
         if context.get("message"):
-            lines.append(f"- dziś: {context['message']}")
+            label = ("właśnie dopisane do tygodnia (odpowiedz na to)" if context.get("message_scope") == "week"
+                     else "dziś")
+            lines.append(f"- {label}: {context['message']}")
 
     return "\n".join(lines)

@@ -33,7 +33,7 @@ class DailyRecommendation(BaseModel):
     )
     warnings: list[str] = Field(
         default_factory=list,
-        description="Any warnings (HRV, fatigue, overtraining risk, etc.)"
+        description="At most 2 short warnings not already said in recommendation or reasoning_summary"
     )
 
 
@@ -46,7 +46,7 @@ Odpowiedz WYŁĄCZNIE w formacie JSON z polami:
 - planned_workout: jeśli zalecasz zmianę planu, opisz jaki trening wykonać (lub null)
 - adjustment_needed: true jeśli dzisiejszy plan wymaga zmiany
 - reasoning_summary: krótkie uzasadnienie (1-2 zdania)
-- warnings: lista ostrzeżeń (pusta jeśli brak)
+- warnings: najwyżej 2 krótkie ostrzeżenia, których nie ma w rekomendacji ani uzasadnieniu (pusta lista, jeśli brak)
 
 Uwzględnij:
 - aktualny stan HRV i ewentualne alerty

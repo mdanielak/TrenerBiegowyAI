@@ -355,11 +355,11 @@
         {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
       {# Rozmowa: Twoje pytanie, pod nim odpowiedź trenera — w kolejności, w jakiej padły. Historia z pliku rekomendacji. #}
-      {% macro coach_turn(turn) %}
+      {% macro coach_turn(turn, replan=False) %}
         <li class="coach-turn">
           {% if turn.message %}
             <div class="coach-msg is-you"><span class="coach-who">Ty{% if turn.scope == 'week' %} · na cały tydzień{% endif %}{% if turn.time %} · {{ turn.time }}{% endif %}</span><p>{{ turn.message }}</p>
-              {% if turn.scope == 'week' %}<p class="coach-saved-note">Zapisane w wiadomości tygodnia — <a href="/plan#wiadomosc">zobacz albo ułóż plan ponownie</a></p>{% endif %}</div>
+              {% if turn.scope == 'week' %}<p class="coach-saved-note">Zapisane w wiadomości tygodnia — <a href="/plan#wiadomosc">zobacz</a></p>{% endif %}</div>
           {% endif %}
           <div class="coach-msg is-coach">
             <span class="coach-who">Trener{% if turn.time and not turn.message %} · {{ turn.time }}{% endif %}</span>
@@ -369,6 +369,13 @@
             {% if turn.warnings %}
               <p class="coach-warn-title">Na co uważać</p>
               <ul class="coach-warnings">{% for warning in turn.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+            {% endif %}
+            {# Wiadomość na tydzień zmienia plan dopiero po ponownym ułożeniu — dlatego przycisk od razu przy odpowiedzi. #}
+            {% if replan and turn.scope == 'week' and ai_ready %}
+              <form method="post" action="/actions/plan" class="coach-replan">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn-secondary">{{ ico.calendar(18) }}<span>Ułóż plan tygodnia ponownie</span></button>
+              </form>
             {% endif %}
           </div>
         </li>
@@ -384,7 +391,7 @@
           </details>
         {% endif %}
         <ol class="coach-thread" aria-label="Dzisiejsza rozmowa z trenerem">
-          {% for turn in conversation_today[-2:] %}{{ coach_turn(turn) }}{% endfor %}
+          {% for turn in conversation_today[-2:] %}{{ coach_turn(turn, replan=loop.last) }}{% endfor %}
         </ol>
       {% elif not coach_pending %}
         <p class="mid">Masz wątpliwości albo mniej czasu? Napisz, a trener dopasuje dzisiejszy trening.</p>
@@ -405,18 +412,20 @@
       <form method="post" action="/actions/recommendation" class="ask-form coach-form" data-draft-key="coach-draft">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         {# Dziś: rada na ten dzień. Cały tydzień: dopisanie do wiadomości tygodnia (plan i rady na kolejne dni) i od razu odpowiedź. #}
+        {# Kolejność jak w myśleniu: piszesz, wybierasz, czego dotyczy, wysyłasz. Teksty pola zmieniają się z wyborem (interface.js). #}
+        <label class="field ask-field"><span class="coach-label" data-week="Co trener ma wiedzieć o tym tygodniu?">{% if conversation_today %}Dopytaj trenera{% else %}Wiadomość do trenera (opcjonalnie){% endif %}</span>
+          <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="{% if conversation_today %}np. a jeśli mam tylko 20 minut?{% else %}np. mam tylko 30 minut, nogi ciężkie{% endif %}" data-week-placeholder="np. w sobotę wesele, w środę mogę dopiero wieczorem"{% if not ai_ready %} disabled{% endif %}></textarea>
+        </label>
         <fieldset class="coach-scope">
           <legend>Dotyczy</legend>
           <label class="coach-scope-option"><input type="radio" name="scope" value="today" checked{% if not ai_ready %} disabled{% endif %}><span>dziś</span></label>
           <label class="coach-scope-option"><input type="radio" name="scope" value="week"{% if not ai_ready %} disabled{% endif %}><span>całego tygodnia</span></label>
         </fieldset>
-        <label class="field ask-field">{% if conversation_today %}Dopytaj trenera{% else %}Wiadomość do trenera (opcjonalnie){% endif %}
-          <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="{% if conversation_today %}np. a jeśli mam tylko 20 minut?{% else %}np. mam tylko 30 minut, nogi ciężkie{% endif %}"{% if not ai_ready %} disabled{% endif %}></textarea>
-        </label>
         <button type="submit" class="btn-secondary"{% if not ai_ready or coach_pending %} disabled{% endif %}>
-          {{ ico.bulb(18) }}<span>{% if conversation_today %}Wyślij{% else %}Zapytaj trenera, co dziś zrobić{% endif %}</span>
+          {{ ico.bulb(18) }}<span class="coach-submit-text" data-week="Zapisz na tydzień i zapytaj">{% if conversation_today %}Wyślij{% else %}Zapytaj trenera, co dziś zrobić{% endif %}</span>
         </button>
-        <p class="tile-foot coach-keys">Ctrl+Enter — wyślij{% if week_note %} · Trener pamięta też Twoją wiadomość na ten tydzień: „{{ week_note|truncate(80) }}” — <a href="/plan#wiadomosc">zmień</a>{% endif %}</p>
+        <p class="tile-foot coach-scope-hint" hidden>Trafi do wiadomości tygodnia — plan i rady na kolejne dni ją uwzględnią. Plan zmieni się po ponownym ułożeniu.</p>
+        <p class="tile-foot coach-keys"><span class="coach-kbd">Ctrl+Enter — wyślij{% if week_note %} · {% endif %}</span>{% if week_note %}Trener pamięta też Twoją wiadomość na ten tydzień: „{{ week_note|truncate(80) }}” — <a href="/plan#wiadomosc">zmień</a>{% endif %}</p>
       </form>
       {% if conversation_days %}
         <details class="coach-history">

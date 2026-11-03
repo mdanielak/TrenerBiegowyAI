@@ -1222,7 +1222,7 @@ p { text-wrap: pretty; }
 .coach-msg.is-coach { background: var(--surface-alt); }
 .coach-msg.is-pending { color: var(--fg-mid); margin-bottom: 14px; }
 .coach-who { display: block; font-size: 12px; font-weight: 600; color: var(--fg-mid); margin-bottom: 4px; }
-.coach-verdict { font-weight: 700; font-size: 15px; margin-bottom: 4px !important; }
+.coach-verdict { font-weight: 700; font-size: 19px; line-height: 1.3; margin-bottom: 6px !important; }
 .coach-answer { font-size: 15px; line-height: 1.55; }
 .coach-why { margin-top: 8px !important; font-size: 14px; line-height: 1.55; color: var(--fg-mid); }
 .coach-warn-title { margin-top: 10px !important; font-size: 13px; font-weight: 600; color: var(--warn-fg); }
@@ -1253,7 +1253,7 @@ p { text-wrap: pretty; }
 .note-actions { flex-wrap: wrap; gap: 10px; align-items: center; }
 
 /* Przełącznik zakresu wiadomości: dziś / cały tydzień (segment). */
-.coach-scope { display: flex; align-items: center; gap: 8px; flex-basis: 100%; border: 0; padding: 0; margin: 0; }
+.coach-scope { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; border: 0; padding: 0; margin: 0; }
 .coach-scope legend { float: left; margin-right: 4px; font-size: 13px; font-weight: 500; color: var(--fg-mid); }
 .coach-scope-option { position: relative; display: inline-flex; }
 .coach-scope-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
@@ -1262,3 +1262,13 @@ p { text-wrap: pretty; }
 .coach-scope-option input:checked + span { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); font-weight: 600; }
 .coach-scope-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .coach-saved-note { margin-top: 6px !important; font-size: 13px; color: var(--fg-mid); }
+
+/* Pole na całą szerokość, pod nim „Dotyczy” i przycisk w jednym rzędzie. */
+.coach-form .ask-field { flex-basis: 100%; }
+.coach-scope-hint { flex-basis: 100%; margin: 0; }
+.coach-replan { margin-top: 12px; }
+/* Na ekranach dotykowych: większe pola wyboru, bez podpowiedzi o klawiaturze. */
+@media (pointer: coarse) { .coach-scope-option span { min-height: 44px; padding: 0 16px; } }
+@media (hover: none) { .coach-kbd { display: none; } }
+/* Wąski ekran: link w nagłówku karty pod tytułem, zamiast łamać oba na dwa wiersze. */
+@media (max-width: 560px) { .card-head { flex-wrap: wrap; row-gap: 4px; } }

@@ -427,6 +427,7 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
     from services.ai_notes import MESSAGE_LIMIT, clean, note_for_day
     context["week_note"] = note_for_day(current.date())
     context["message"] = clean(message, MESSAGE_LIMIT)
+    context["message_scope"] = scope
     # Dopytanie („a jeśli mam tylko 20 minut?”) ma sens tylko z wcześniejszymi pytaniami z tego dnia.
     if history is None:
         from services.recommendations import load_history as history

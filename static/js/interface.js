@@ -158,3 +158,20 @@ document.querySelectorAll('form[data-draft-key]').forEach(form => {
     pending.before(bubble);
   }
 });
+
+// Przełącznik „Dotyczy”: podpis, przykład i przycisk mówią, co się stanie z wiadomością (dziś albo cały tydzień).
+document.querySelectorAll('form.coach-form').forEach(form => {
+  const parts = [form.querySelector('.coach-label'), form.querySelector('.coach-submit-text')].filter(Boolean);
+  parts.forEach(el => { el.dataset.today = el.textContent; });
+  const field = form.querySelector('textarea');
+  if (field) field.dataset.todayPlaceholder = field.placeholder;
+  const hint = form.querySelector('.coach-scope-hint');
+  const apply = () => {
+    const week = form.querySelector('input[name="scope"]:checked')?.value === 'week';
+    parts.forEach(el => { el.textContent = week ? el.dataset.week : el.dataset.today; });
+    if (field) field.placeholder = week ? field.dataset.weekPlaceholder : field.dataset.todayPlaceholder;
+    if (hint) hint.hidden = !week;
+  };
+  form.querySelectorAll('input[name="scope"]').forEach(input => input.addEventListener('change', apply));
+  apply();
+});

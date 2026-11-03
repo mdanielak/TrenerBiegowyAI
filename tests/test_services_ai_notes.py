@@ -57,6 +57,16 @@ def test_recommendation_context_shows_week_note_and_message():
     assert "## Wiadomość od biegacza" in text
     assert "- na ten tydzień: wyjazd w piątek" in text and "- dziś: mam tylko 30 minut" in text
 
+    context["message_scope"] = "week"
+    assert "- właśnie dopisane do tygodnia (odpowiedz na to): mam tylko 30 minut" in format_context_for_user(context)
+
+
+def test_prompt_keeps_fields_from_repeating_and_answers_week_messages():
+    from ai.prompts import coach_prompt
+
+    rules = coach_prompt(mode="dzien")
+    assert "Pola się nie powtarzają" in rules and "dopisana do tygodnia" in rules and "nie „sesja”" in rules
+
 
 def _app(tmp_path, calls):
     return create_app(
@@ -168,3 +178,14 @@ def test_full_week_note_saves_nothing_and_says_so(tmp_path):
         page = client.get("/").text
     assert note_for_week(MONDAY) == "y" * 490 and calls == []
     assert "Trener nie odpowiedział: " + WEEK_NOTE_FULL_MESSAGE in page
+
+
+def test_week_answer_offers_replanning_and_the_form_names_both_scopes(tmp_path):
+    from services.recommendations import save_recommendation
+
+    save_recommendation(date=_report().date, recommendation={
+        "readiness": "ready", "recommendation": "Sobotę zostawiam wolną.", "reasoning_summary": "",
+        "warnings": [], "message": "w sobotę wesele", "scope": "week"})
+    page = TestClient(_app(tmp_path, [])).get("/").text
+    assert "Ułóż plan tygodnia ponownie" in page and 'action="/actions/plan"' in page
+    assert 'data-week="Zapisz na tydzień i zapytaj"' in page and 'class="tile-foot coach-scope-hint" hidden' in page
