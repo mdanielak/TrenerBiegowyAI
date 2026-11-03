@@ -482,3 +482,30 @@ def test_asking_while_the_coach_answers_stays_on_home(tmp_path):
 
     assert response.status_code == 303 and response.headers["location"] == "/?rec=busy#rozmowa"
     assert "Odpowiada na Twoją wiadomość" in page and "data-reload-when-done" in page
+
+
+def test_failed_answer_is_reported_and_the_question_is_not_lost(tmp_path):
+    from services.jobs import AI_PAYMENT_MESSAGE
+
+    with TestClient(_app(tmp_path)) as client:
+        store = JobStore(tmp_path / "jobs")
+        job = store.submit("recommendation", {"date": "2026-10-02", "message": "x"})
+        store.mark_running(job.id)
+        store.mark_failed(job.id, message=AI_PAYMENT_MESSAGE)
+        page = client.get("/").text
+
+    assert "Trener nie odpowiedział: " + AI_PAYMENT_MESSAGE in page and "coach-failed" in page
+    assert "wróciło do pola" in page and "Odpowiada na Twoją wiadomość" not in page
+
+
+def test_follow_ups_hide_repeated_verdict_and_older_turns_fold(tmp_path):
+    today = _report().date
+    history = [_turn(today, f"2026-10-02T0{i}:00:00+00:00", f"pytanie {i}", f"odpowiedź {i}") for i in range(1, 5)]
+    with TestClient(_app(tmp_path, recommendation_history=lambda **kwargs: history)) as client:
+        page = client.get("/").text
+
+    assert "Pokaż wcześniejsze z dziś (2)" in page
+    visible = page.split("Pokaż wcześniejsze z dziś (2)")[1]
+    # Ten sam werdykt i uzasadnienie co w poprzedniej odpowiedzi nie są powtarzane.
+    assert page.count('class="coach-verdict"') == 1 and page.count('class="coach-why"') == 1
+    assert visible.index("pytanie 3") < visible.index("pytanie 4") and "Ctrl+Enter" in page

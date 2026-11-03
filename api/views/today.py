@@ -328,10 +328,25 @@ def _conversation_view(entries, today_iso: str, fallback=None) -> tuple[list[dic
     today = [turn(entry) for entry in entries if entry.get("date") == today_iso]
     if not today and fallback:
         today = [{**_recommendation_view(fallback), "time": None}]
+    _hide_repeats(today)
     earlier: dict[str, list] = {}
     for entry in entries:
         day = str(entry.get("date") or "")
         if day and day != today_iso:
             earlier.setdefault(day, []).append(turn(entry))
+    for turns in earlier.values():
+        _hide_repeats(turns)
     days = [{"date": day, "label": _format_date(day), "turns": earlier[day]} for day in sorted(earlier, reverse=True)]
     return today, days
+
+
+def _hide_repeats(turns) -> None:
+    """Przy dopytaniach ten sam werdykt i uzasadnienie co poprzednio to szum — pokazujemy je tylko, gdy się zmieniły."""
+    previous = {}
+    for view in turns:
+        for key in ("readiness_label", "reasoning_summary"):
+            value = view.get(key)
+            if value and value == previous.get(key):
+                view[key] = None
+            elif value:
+                previous[key] = value

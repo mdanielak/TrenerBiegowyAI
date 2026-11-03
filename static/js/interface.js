@@ -137,6 +137,18 @@ document.querySelectorAll('form[data-draft-key]').forEach(form => {
   const pending = document.querySelector('.coach-msg.is-pending');
   let sent = '';
   try { sent = sessionStorage.getItem(key + '-sent') || ''; if (!pending) sessionStorage.removeItem(key + '-sent'); } catch {}
+  // Nieudana odpowiedź: pytanie wraca do pola, żeby wystarczyło wysłać je jeszcze raz.
+  if (document.querySelector('.coach-failed') && sent && !field.value) {
+    field.value = sent;
+    try { sessionStorage.setItem(key, sent); sessionStorage.removeItem(key + '-sent'); } catch {}
+  }
+  // Ctrl+Enter (Cmd+Enter) wysyła; zwykły Enter zostaje nową linią.
+  field.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !form.querySelector('button[type="submit"]').disabled) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
   if (pending && sent) {
     const bubble = document.createElement('div');
     bubble.className = 'coach-msg is-you coach-sent';

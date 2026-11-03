@@ -207,3 +207,10 @@ def test_second_unreadable_answer_gives_up():
 def test_coach_is_asked_to_encourage_concretely():
     prompt = build_system_prompt()
     assert "dodajesz otuchy" in prompt and "po co jest ten tydzień w drodze do celu" in prompt
+
+
+def test_daily_coach_answers_a_follow_up_directly():
+    from ai.prompts import coach_prompt
+
+    prompt = coach_prompt(None, mode="dzien")
+    assert "„Wcześniej dziś”" in prompt and "odpowiadasz wprost na najnowsze pytanie" in prompt

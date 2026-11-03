@@ -116,9 +116,17 @@ def get_dashboard_router(
         except (OSError, ValueError):
             recommendation, history = None, []
         conversation_today, conversation_days = _conversation_view(history, report.date, fallback=recommendation)
-        # Trwająca odpowiedź trenera: bez tego po wysłaniu pytania nic nie mówiło, że odpowiedź jest w drodze.
-        coach_pending = any(job.operation == "recommendation" and job.status in ("accepted", "running")
-                            for job in store.list_jobs().jobs)
+        # Trwająca albo nieudana odpowiedź trenera: bez tego po wysłaniu pytania strona milczała.
+        coach_jobs = [job for job in store.list_jobs().jobs if job.operation == "recommendation"]
+        latest_coach_job = max(coach_jobs, key=lambda job: job.created_at, default=None)
+        coach_pending = latest_coach_job is not None and latest_coach_job.status in ("accepted", "running")
+        last_answer_at = max((str(entry.get("created_at") or "") for entry in history if entry.get("date") == report.date),
+                             default="")
+        coach_failed = None
+        if (latest_coach_job is not None and latest_coach_job.status in ("failed", "unknown")
+                and latest_coach_job.created_at[:10] >= report.date and latest_coach_job.created_at > last_answer_at):
+            coach_failed = (latest_coach_job.error_message if latest_coach_job.status == "failed"
+                            else "Odpowiedź przerwało zamknięcie aplikacji.")
         return attach_csrf(
             templates.TemplateResponse(
                 request=request,
@@ -150,6 +158,7 @@ def get_dashboard_router(
                     "conversation_today": conversation_today,
                     "conversation_days": conversation_days,
                     "coach_pending": coach_pending,
+                    "coach_failed": coach_failed,
                     "coach_busy": request.query_params.get("rec") == "busy",
                     "journal_missing": report.date not in journal_by_day,
                     "health_alert": _health_alert(report, [journal_by_day[day] for day in (report.date, report.yesterday_date)

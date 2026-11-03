@@ -1235,3 +1235,6 @@ p { text-wrap: pretty; }
 .coach-history { margin-top: 16px; }
 .coach-day { font-size: 14px; color: var(--fg-mid); margin: 14px 0 8px; }
 .coach-msg.coach-sent { display: block; margin: 0 0 8px auto; width: fit-content; }
+.coach-keys { flex-basis: 100%; margin: 0; }
+.coach-older { margin: 0 0 12px; }
+.coach-failed { margin: 0 0 12px; }

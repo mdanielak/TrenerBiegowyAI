@@ -374,8 +374,16 @@
       {% endmacro %}
       <div id="rozmowa">
       {% if conversation_today %}
+        {# Po kilku dopytaniach rozmowa spychała resztę strony: widoczne ostatnie 2 wymiany, wcześniejsze z dziś zwinięte. #}
+        {% set older_today = conversation_today[:-2] %}
+        {% if older_today %}
+          <details class="coach-history coach-older">
+            <summary>Pokaż wcześniejsze z dziś ({{ older_today|length }})</summary>
+            <ol class="coach-thread">{% for turn in older_today %}{{ coach_turn(turn) }}{% endfor %}</ol>
+          </details>
+        {% endif %}
         <ol class="coach-thread" aria-label="Dzisiejsza rozmowa z trenerem">
-          {% for turn in conversation_today %}{{ coach_turn(turn) }}{% endfor %}
+          {% for turn in conversation_today[-2:] %}{{ coach_turn(turn) }}{% endfor %}
         </ol>
       {% elif not coach_pending %}
         <p class="mid">Masz wątpliwości albo mniej czasu? Napisz, a trener dopasuje dzisiejszy trening.</p>
@@ -383,6 +391,12 @@
       {% if coach_pending %}
         <div class="coach-msg is-coach is-pending" data-reload-when-done aria-live="polite">
           <span class="coach-who">Trener</span><p>Odpowiada na Twoją wiadomość — zwykle trwa to do minuty. Strona odświeży się sama.</p>
+        </div>
+      {% elif coach_failed %}
+        <div class="banner bad coach-failed" role="alert">
+          {{ ico.info() }}
+          <div class="banner-body"><p class="banner-title">Trener nie odpowiedział: {{ coach_failed }}</p>
+            <p class="mid">Twoje pytanie wróciło do pola poniżej — wyślij je ponownie.</p></div>
         </div>
       {% elif coach_busy %}
         <p class="banner info coach-busy">Trener jeszcze odpowiadał na poprzednie pytanie. Twoja wiadomość czeka w polu poniżej — wyślij ją za chwilę.</p>
@@ -395,6 +409,7 @@
         <button type="submit" class="btn-secondary"{% if not ai_ready or coach_pending %} disabled{% endif %}>
           {{ ico.bulb(18) }}<span>{% if conversation_today %}Wyślij{% else %}Zapytaj AI, co dziś zrobić{% endif %}</span>
         </button>
+        <p class="tile-foot coach-keys">Ctrl+Enter — wyślij</p>
       </form>
       {% if conversation_days %}
         <details class="coach-history">
