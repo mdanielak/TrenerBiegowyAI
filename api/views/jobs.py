@@ -11,7 +11,6 @@ SYNC_COOLDOWN = timedelta(seconds=60)
 REVIEW_COOLDOWN = timedelta(seconds=30)
 PLAN_COOLDOWN = timedelta(minutes=5)
 PLAN_PUSH_COOLDOWN = timedelta(minutes=1)
-RECOMMENDATION_COOLDOWN = timedelta(minutes=10)
 
 
 def _job_timestamp(value: str | None) -> datetime | None:

@@ -444,3 +444,41 @@ def test_running_plan_job_shows_a_progress_bar(tmp_path):
         page = client.get("/plan").text
 
     assert 'aria-label="Postęp układania planu"' in page and "zwykle około 40 s" in page
+
+
+def _turn(date, created, message, answer, warnings=()):
+    return {"date": date, "created_at": created, "recommendation": {
+        "readiness": "not_ready", "recommendation": answer, "reasoning_summary": "Bo tak.",
+        "warnings": list(warnings), "message": message}}
+
+
+def test_home_shows_todays_conversation_in_order_and_earlier_days(tmp_path):
+    today = _report().date
+    history = [
+        _turn("2026-09-25", "2026-09-25T08:00:00+00:00", "stare pytanie", "Stara odpowiedź."),
+        _turn(today, "2026-10-02T07:00:00+00:00", "nogi ciężkie", "Zrób spokojne 30 minut.", ["Nie przyspieszaj."]),
+        _turn(today, "2026-10-02T09:30:00+00:00", "a jeśli mam tylko 20 minut?", "Wystarczy 20 minut truchtu."),
+    ]
+    with TestClient(_app(tmp_path, recommendation_history=lambda **kwargs: history)) as client:
+        page = client.get("/").text
+
+    # Najpierw Twoje pytanie, pod nim odpowiedź; obie wymiany z dziś, w kolejności czasu.
+    first_q, first_a = page.index("nogi ciężkie"), page.index("Zrób spokojne 30 minut.")
+    second_q, second_a = page.index("a jeśli mam tylko 20 minut?"), page.index("Wystarczy 20 minut truchtu.")
+    assert first_q < first_a < second_q < second_a
+    assert "Na co uważać" in page and "<li>Nie przyspieszaj.</li>" in page and "banner warn" not in page.split('id="rozmowa"')[1].split("</section>")[0]
+    assert "Wcześniejsze dni (1)" in page and "Stara odpowiedź." in page
+    assert "Dopytaj trenera" in page and 'data-draft-key="coach-draft"' in page
+
+
+def test_asking_while_the_coach_answers_stays_on_home(tmp_path):
+    with TestClient(_app(tmp_path, plan_operation=lambda **kwargs: None)) as client:
+        store = JobStore(tmp_path / "jobs")
+        store.mark_running(store.submit("recommendation", {"date": "2026-10-02", "message": "pierwsze"}).id)
+        token = _csrf(client, "/")
+        response = client.post("/actions/recommendation", data={"csrf_token": token, "message": "drugie"},
+                               headers={"Origin": "http://testserver"}, follow_redirects=False)
+        page = client.get("/").text
+
+    assert response.status_code == 303 and response.headers["location"] == "/?rec=busy#rozmowa"
+    assert "Odpowiada na Twoją wiadomość" in page and "data-reload-when-done" in page

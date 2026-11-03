@@ -230,3 +230,29 @@ def test_app_in_tests_never_touches_the_real_job_folder():
     from trainer.config import SETTINGS
 
     assert api.main.JOBS_DIR != SETTINGS.local_dir / "jobs"
+
+
+def test_follow_up_question_carries_todays_conversation(monkeypatch):
+    from datetime import datetime
+
+    from services import actions
+    from services.data_extract import SnapshotReadResult, SnapshotStatus
+
+    monkeypatch.setattr("services.data_extract.read_snapshot_status",
+                        lambda: SnapshotReadResult(status=SnapshotStatus.FRESH, data={}))
+    monkeypatch.setattr(actions, "_require_ai_consent", lambda: None)
+    seen = {}
+
+    class Provider:
+        def chat(self, *args, **kwargs):
+            seen["message"] = kwargs.get("user_message") or args[1]
+            raise RuntimeError("stop")
+
+    history = [{"date": "2026-11-03", "recommendation": {"message": "nogi ciężkie", "recommendation": "Zrób 30 minut."}}]
+    try:
+        actions.generate_daily_recommendation(provider_factory=Provider, today=datetime(2026, 11, 3, 9),
+                                              message="a jeśli 20 minut?", history=lambda **kwargs: history,
+                                              save=lambda **kwargs: None)
+    except RuntimeError:
+        pass
+    assert "Wcześniej dziś" in seen["message"] and "nogi ciężkie" in seen["message"] and "Zrób 30 minut." in seen["message"]

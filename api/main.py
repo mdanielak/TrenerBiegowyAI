@@ -26,7 +26,7 @@ from services.actions import synchronize_data
 from services.assets import build_manifest
 from services.data_extract import read_snapshot_status
 from services.jobs import JobStore
-from services.recommendations import load_recommendation
+from services.recommendations import load_history, load_recommendation
 from services.goal import GoalReport, get_goal_report
 from services.ai_status import AI_STATUS_PATH, ai_status_view, load_status
 from services.journal import JOURNAL_PATH
@@ -176,6 +176,7 @@ def create_app(
     plan_push_operation: Callable[..., dict] | None = None,
     recommendation_operation: Callable[..., dict] | None = None,
     recommendation_loader: Callable[..., Optional[dict]] = load_recommendation,
+    recommendation_history: Callable[..., list] = load_history,
     plan_provider: Callable[[str], Optional[dict]] = load_plan_for_week,
     availability_provider: Callable[[], dict] = get_weekly_availability,
     ai_settings_provider: Callable[[], dict] | None = None,
@@ -288,6 +289,7 @@ def create_app(
             profile_provider=profile_provider,
             review_loader=review_loader,
             recommendation_loader=recommendation_loader,
+            recommendation_history=recommendation_history,
             store=store,
             now_provider=now_provider,
             templates=_TEMPLATES,

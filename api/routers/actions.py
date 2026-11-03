@@ -30,7 +30,6 @@ from services.sync_progress import progress_view
 from api.views.jobs import (
     PLAN_COOLDOWN,
     PLAN_PUSH_COOLDOWN,
-    RECOMMENDATION_COOLDOWN,
     REVIEW_COOLDOWN,
     SYNC_COOLDOWN,
 )
@@ -491,15 +490,14 @@ def get_actions_router(
             return RedirectResponse(url="/?ai=off", status_code=303)
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit(
-                    "recommendation", {"date": today().date().isoformat()},
-                    cooldown=RECOMMENDATION_COOLDOWN,
-                )
+                # Rozmowa: każde pytanie to nowe zadanie (bez blokady czasowej); równolegle trwa najwyżej jedno.
+                job = store.submit("recommendation", {"date": today().date().isoformat(), "message": message})
                 should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
                 if should_schedule:
                     scheduled_job_ids.add(job.id)
         except (LockBusyError, JobConflictError, JobCooldownError):
-            return RedirectResponse(url="/plan", status_code=303)
+            # Trener odpowiada jeszcze na poprzednie pytanie — zostajemy na stronie głównej z jasną informacją.
+            return RedirectResponse(url="/?rec=busy#rozmowa", status_code=303)
         if should_schedule:
             def execute():
                 try:
@@ -514,7 +512,7 @@ def get_actions_router(
                     scheduled_job_ids.discard(job.id)
 
             request.app.state.job_executor.submit(execute)
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/#rozmowa", status_code=303)
 
     @router.get("/jobs/{job_id}", response_class=HTMLResponse)
     def job_status(request: Request, job_id: str):

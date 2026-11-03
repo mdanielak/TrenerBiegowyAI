@@ -122,3 +122,27 @@ document.querySelectorAll('[data-dialog]').forEach(button => {
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
   if (event.target === dialog) dialog.close();
 }));
+
+// Wiadomość do trenera nie ginie po przejściu na inną stronę: szkic w pamięci karty do czasu wysłania.
+document.querySelectorAll('form[data-draft-key]').forEach(form => {
+  const field = form.querySelector('textarea, input[type="text"]');
+  const key = form.dataset.draftKey;
+  if (!field) return;
+  try { if (!field.value) field.value = sessionStorage.getItem(key) || ''; } catch {}
+  field.addEventListener('input', () => { try { sessionStorage.setItem(key, field.value); } catch {} });
+  form.addEventListener('submit', () => {
+    try { sessionStorage.removeItem(key); sessionStorage.setItem(key + '-sent', field.value.trim()); } catch {}
+  });
+  // Pytanie zapisuje się razem z odpowiedzią; do tego czasu pokaż je nad „Trener odpowiada…”.
+  const pending = document.querySelector('.coach-msg.is-pending');
+  let sent = '';
+  try { sent = sessionStorage.getItem(key + '-sent') || ''; if (!pending) sessionStorage.removeItem(key + '-sent'); } catch {}
+  if (pending && sent) {
+    const bubble = document.createElement('div');
+    bubble.className = 'coach-msg is-you coach-sent';
+    const who = document.createElement('span'); who.className = 'coach-who'; who.textContent = 'Ty';
+    const text = document.createElement('p'); text.textContent = sent;
+    bubble.append(who, text);
+    pending.before(bubble);
+  }
+});

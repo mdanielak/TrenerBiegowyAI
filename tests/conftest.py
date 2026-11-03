@@ -100,6 +100,13 @@ def _isolate_jobs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_recommendations(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rozmowa z trenerem w testach nie czyta ani nie zapisuje prawdziwego local/recommendations.jsonl."""
+    monkeypatch.setattr("services.recommendations.RECOMMENDATIONS_PATH",
+                        tmp_path_factory.mktemp("recommendations") / "recommendations.jsonl")
+
+
+@pytest.fixture(autouse=True)
 def _isolate_reviews(tmp_path_factory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Oceny treningów z testów nie trafiają do prawdziwego local/workout-reviews.jsonl."""
     monkeypatch.setattr("services.workout_reviews.REVIEWS_PATH", tmp_path_factory.mktemp("reviews") / "reviews.jsonl")

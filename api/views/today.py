@@ -302,3 +302,36 @@ def _recommendation_view(recommendation) -> Optional[dict]:
         "warnings": list(recommendation.get("warnings") or []),
         "message": recommendation.get("message"),
     }
+
+
+CONVERSATION_DAYS = 30
+
+
+def _local_time(value) -> str | None:
+    """Godzina zapisu odpowiedzi w czasie tego komputera („14:05”)."""
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(value)).astimezone().strftime("%H:%M")
+    except (TypeError, ValueError):
+        return None
+
+
+def _conversation_view(entries, today_iso: str, fallback=None) -> tuple[list[dict], list[dict]]:
+    """Rozmowa z trenerem: (dzisiejsze wymiany, wcześniejsze dni od najnowszego). Kolejność wymian jak w czasie."""
+    from api.views.common import _format_date
+
+    def turn(entry):
+        view = _recommendation_view(entry.get("recommendation")) or {}
+        view["time"] = _local_time(entry.get("created_at"))
+        return view
+
+    today = [turn(entry) for entry in entries if entry.get("date") == today_iso]
+    if not today and fallback:
+        today = [{**_recommendation_view(fallback), "time": None}]
+    earlier: dict[str, list] = {}
+    for entry in entries:
+        day = str(entry.get("date") or "")
+        if day and day != today_iso:
+            earlier.setdefault(day, []).append(turn(entry))
+    days = [{"date": day, "label": _format_date(day), "turns": earlier[day]} for day in sorted(earlier, reverse=True)]
+    return today, days

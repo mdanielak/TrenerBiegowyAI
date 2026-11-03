@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Optional, cast
 
 from fastapi import APIRouter, Request
@@ -30,9 +30,10 @@ from api.views.common import (
 from api.views.jobs import _sync_banner
 from api.views.plan import _plan_workout_view
 from api.views.today import (
+    CONVERSATION_DAYS,
     _SUGGESTIONS,
+    _conversation_view,
     _raise_report_error,
-    _recommendation_view,
     _report_error,
     _ring_geometry,
     _health_alert,
@@ -52,6 +53,7 @@ def get_dashboard_router(
     review_loader: Callable[..., Optional[dict]],
     recommendation_loader: Callable[..., Optional[dict]],
     store: JobStore,
+    recommendation_history: Callable[..., list] | None = None,
     now_provider: Callable[[], datetime],
     templates: Jinja2Templates,
     attach_csrf: Callable,
@@ -109,8 +111,14 @@ def get_dashboard_router(
         journal_by_day = entries_by_day(path=journal_path)
         try:
             recommendation = recommendation_loader(date=report.date)
-        except OSError:
-            recommendation = None
+            since = (date.fromisoformat(report.date) - timedelta(days=CONVERSATION_DAYS)).isoformat()
+            history = recommendation_history(since=since) if recommendation_history is not None else []
+        except (OSError, ValueError):
+            recommendation, history = None, []
+        conversation_today, conversation_days = _conversation_view(history, report.date, fallback=recommendation)
+        # Trwająca odpowiedź trenera: bez tego po wysłaniu pytania nic nie mówiło, że odpowiedź jest w drodze.
+        coach_pending = any(job.operation == "recommendation" and job.status in ("accepted", "running")
+                            for job in store.list_jobs().jobs)
         return attach_csrf(
             templates.TemplateResponse(
                 request=request,
@@ -138,7 +146,11 @@ def get_dashboard_router(
                     "pause": _pause_view(report),
                     "plan_workout": _plan_workout_view(getattr(report, "plan_workout", None), floors=zone_floors),
                     "next_workout": _next_workout_view(getattr(report, "next_workout", None), report.date),
-                    "ai_recommendation": _recommendation_view(recommendation),
+                    "ai_recommendation": conversation_today[-1] if conversation_today else None,
+                    "conversation_today": conversation_today,
+                    "conversation_days": conversation_days,
+                    "coach_pending": coach_pending,
+                    "coach_busy": request.query_params.get("rec") == "busy",
                     "journal_missing": report.date not in journal_by_day,
                     "health_alert": _health_alert(report, [journal_by_day[day] for day in (report.date, report.yesterday_date)
                                                            if day in journal_by_day]),

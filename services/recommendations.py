@@ -54,3 +54,24 @@ def load_recommendation(*, date: str, path: Path | None = None) -> dict | None:
         return None
     recommendation = result.get("recommendation")
     return recommendation if isinstance(recommendation, dict) else None
+
+
+def load_history(*, since: str, path: Path | None = None) -> list[dict]:
+    """Wszystkie zapisane pytania i odpowiedzi od dnia ``since`` (włącznie), w kolejności zapisu."""
+    target = Path(path) if path is not None else RECOMMENDATIONS_PATH
+    if not target.is_file():
+        return []
+    entries = []
+    with open(target, encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (isinstance(entry, dict) and isinstance(entry.get("recommendation"), dict)
+                    and str(entry.get("date", "")) >= since):
+                entries.append(entry)
+    return entries

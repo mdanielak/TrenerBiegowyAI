@@ -354,39 +354,58 @@
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Co dziś zrobić</span></h2>
         {% if journal_missing %}<a href="/journal">Dodaj wpis do dziennika</a>{% endif %}
       </div>
-      {% if ai_recommendation %}
-        <div class="suggestion">
-          <div>
-            <p class="suggestion-title">{{ ai_recommendation.readiness_label }}</p>
-            <p class="suggestion-text">{{ ai_recommendation.recommendation }}</p>
-            {% if ai_recommendation.reasoning_summary %}
-              <p class="mid">{{ ai_recommendation.reasoning_summary }}</p>
-            {% endif %}
-            {% if ai_recommendation.message %}
-              <p class="tile-foot">Twoja wiadomość: {{ ai_recommendation.message }}</p>
+      {# Rozmowa: Twoje pytanie, pod nim odpowiedź trenera — w kolejności, w jakiej padły. Historia z pliku rekomendacji. #}
+      {% macro coach_turn(turn) %}
+        <li class="coach-turn">
+          {% if turn.message %}
+            <div class="coach-msg is-you"><span class="coach-who">Ty{% if turn.time %} · {{ turn.time }}{% endif %}</span><p>{{ turn.message }}</p></div>
+          {% endif %}
+          <div class="coach-msg is-coach">
+            <span class="coach-who">Trener{% if turn.time and not turn.message %} · {{ turn.time }}{% endif %}</span>
+            {% if turn.readiness_label %}<p class="coach-verdict">{{ turn.readiness_label|capitalize }}</p>{% endif %}
+            <p class="coach-answer">{{ turn.recommendation }}</p>
+            {% if turn.reasoning_summary %}<p class="coach-why">{{ turn.reasoning_summary }}</p>{% endif %}
+            {% if turn.warnings %}
+              <p class="coach-warn-title">Na co uważać</p>
+              <ul class="coach-warnings">{% for warning in turn.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
             {% endif %}
           </div>
-        </div>
-        {% for warning in ai_recommendation.warnings %}
-          <div class="banner warn">
-            {{ ico.info() }}
-            <div class="banner-body">
-              <p class="banner-title">{{ warning }}</p>
-            </div>
-          </div>
-        {% endfor %}
-      {% else %}
+        </li>
+      {% endmacro %}
+      <div id="rozmowa">
+      {% if conversation_today %}
+        <ol class="coach-thread" aria-label="Dzisiejsza rozmowa z trenerem">
+          {% for turn in conversation_today %}{{ coach_turn(turn) }}{% endfor %}
+        </ol>
+      {% elif not coach_pending %}
         <p class="mid">Masz wątpliwości albo mniej czasu? Napisz, a trener dopasuje dzisiejszy trening.</p>
       {% endif %}
-      <form method="post" action="/actions/recommendation" class="row ask-form">
+      {% if coach_pending %}
+        <div class="coach-msg is-coach is-pending" data-reload-when-done aria-live="polite">
+          <span class="coach-who">Trener</span><p>Odpowiada na Twoją wiadomość — zwykle trwa to do minuty. Strona odświeży się sama.</p>
+        </div>
+      {% elif coach_busy %}
+        <p class="banner info coach-busy">Trener jeszcze odpowiadał na poprzednie pytanie. Twoja wiadomość czeka w polu poniżej — wyślij ją za chwilę.</p>
+      {% endif %}
+      <form method="post" action="/actions/recommendation" class="ask-form coach-form" data-draft-key="coach-draft">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label class="field ask-field">Wiadomość dla AI (opcjonalnie)
-          <input class="text-input" type="text" name="message" maxlength="300" placeholder="np. mam tylko 30 minut, nogi ciężkie"{% if not ai_ready %} disabled{% endif %}>
+        <label class="field ask-field">{% if conversation_today %}Dopytaj trenera{% else %}Wiadomość do trenera (opcjonalnie){% endif %}
+          <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="np. mam tylko 30 minut, nogi ciężkie"{% if not ai_ready %} disabled{% endif %}></textarea>
         </label>
-        <button type="submit" class="btn-secondary"{% if not ai_ready %} disabled{% endif %}>
-          {{ ico.bulb(18) }}<span>{% if ai_recommendation %}Zapytaj ponownie{% else %}Zapytaj AI, co dziś zrobić{% endif %}</span>
+        <button type="submit" class="btn-secondary"{% if not ai_ready or coach_pending %} disabled{% endif %}>
+          {{ ico.bulb(18) }}<span>{% if conversation_today %}Wyślij{% else %}Zapytaj AI, co dziś zrobić{% endif %}</span>
         </button>
       </form>
+      {% if conversation_days %}
+        <details class="coach-history">
+          <summary>Wcześniejsze dni ({{ conversation_days|length }})</summary>
+          {% for day in conversation_days %}
+            <h3 class="coach-day">{{ day.label }}</h3>
+            <ol class="coach-thread">{% for turn in day.turns %}{{ coach_turn(turn) }}{% endfor %}</ol>
+          {% endfor %}
+        </details>
+      {% endif %}
+      </div>
       {% if not ai_ready %}<p class="tile-foot">Rekomendacja AI wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
     </section>
 

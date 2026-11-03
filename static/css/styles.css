@@ -1212,3 +1212,26 @@ p { text-wrap: pretty; }
 .explain-panel p + p { margin-top: 8px; }
 .explain-scoring strong { color: var(--fg); }
 @media (min-width: 761px) { .explain-panel { margin-left: 52px; } }
+
+/* Rozmowa z trenerem: pytanie, pod nim odpowiedź; ostrzeżenia jako krótka lista w odpowiedzi, nie paski alarmów. */
+.coach-thread { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.coach-turn { display: flex; flex-direction: column; gap: 8px; }
+.coach-msg { border-radius: var(--radius-sm); padding: 10px 14px; max-width: 78ch; }
+.coach-msg p { margin: 0; }
+.coach-msg.is-you { align-self: flex-end; background: var(--accent-soft); color: var(--fg); max-width: 60ch; }
+.coach-msg.is-coach { background: var(--surface-alt); }
+.coach-msg.is-pending { color: var(--fg-mid); margin-bottom: 14px; }
+.coach-who { display: block; font-size: 12px; font-weight: 600; color: var(--fg-mid); margin-bottom: 4px; }
+.coach-verdict { font-weight: 700; font-size: 15px; margin-bottom: 4px !important; }
+.coach-answer { font-size: 15px; line-height: 1.55; }
+.coach-why { margin-top: 8px !important; font-size: 14px; line-height: 1.55; color: var(--fg-mid); }
+.coach-warn-title { margin-top: 10px !important; font-size: 13px; font-weight: 600; color: var(--warn-fg); }
+.coach-warnings { margin: 4px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; color: var(--fg); }
+.coach-warnings li + li { margin-top: 3px; }
+.coach-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.coach-form .ask-field { flex: 1 1 320px; }
+.coach-form textarea { resize: vertical; min-height: 44px; }
+.coach-busy { margin: 0 0 12px; }
+.coach-history { margin-top: 16px; }
+.coach-day { font-size: 14px; color: var(--fg-mid); margin: 14px 0 8px; }
+.coach-msg.coach-sent { display: block; margin: 0 0 8px auto; width: fit-content; }

@@ -402,7 +402,13 @@ def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_star
     return store.mark_succeeded(job_id)
 
 
-def generate_daily_recommendation(*, provider_factory=None, save=None, today=None, message=None) -> dict:
+# Ile wcześniejszych pytań z dzisiaj trafia do AI i jak długie mogą być odpowiedzi w tym skrócie.
+CONVERSATION_TURNS = 5
+CONVERSATION_ANSWER_LIMIT = 400
+
+
+def generate_daily_recommendation(*, provider_factory=None, save=None, today=None, message=None,
+                                  history=None) -> dict:
     """Policz rekomendację AI na dziś i zapisz ją lokalnie."""
     from ai.context import build_training_context
     from services import plan as plan_service
@@ -421,6 +427,15 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
     from services.ai_notes import MESSAGE_LIMIT, clean, note_for_day
     context["week_note"] = note_for_day(current.date())
     context["message"] = clean(message, MESSAGE_LIMIT)
+    # Dopytanie („a jeśli mam tylko 20 minut?”) ma sens tylko z wcześniejszymi pytaniami z tego dnia.
+    if history is None:
+        from services.recommendations import load_history as history
+    day = current.date().isoformat()
+    earlier = [entry["recommendation"] for entry in history(since=day) if entry.get("date") == day]
+    context["conversation"] = [
+        {"message": item.get("message"), "answer": clean(item.get("recommendation"), CONVERSATION_ANSWER_LIMIT)}
+        for item in earlier[-CONVERSATION_TURNS:]
+    ]
 
     if provider_factory is None:
         from ai.openai_compatible import OpenAICompatibleProvider

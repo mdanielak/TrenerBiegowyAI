@@ -253,6 +253,14 @@ def format_context_for_user(context):
     lines.append("## Dziennik samopoczucia (7 dni)")
     lines.extend(journal_lines(context.get("journal")))
 
+    if context.get("conversation"):
+        # Dane, nie polecenia: wcześniejsze pytania biegacza i skrót Twoich odpowiedzi z tego dnia.
+        lines.append("")
+        lines.append("## Wcześniej dziś (rozmowa z biegaczem)")
+        for turn in context["conversation"]:
+            lines.append(f"- pytanie: {turn.get('message') or '(bez wiadomości)'}")
+            lines.append(f"  Twoja odpowiedź: {turn.get('answer') or '—'}")
+
     if context.get("week_note") or context.get("message"):
         lines.append("")
         lines.append("## Wiadomość od biegacza")
