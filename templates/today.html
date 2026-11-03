@@ -358,7 +358,8 @@
       {% macro coach_turn(turn) %}
         <li class="coach-turn">
           {% if turn.message %}
-            <div class="coach-msg is-you"><span class="coach-who">Ty{% if turn.time %} · {{ turn.time }}{% endif %}</span><p>{{ turn.message }}</p></div>
+            <div class="coach-msg is-you"><span class="coach-who">Ty{% if turn.scope == 'week' %} · na cały tydzień{% endif %}{% if turn.time %} · {{ turn.time }}{% endif %}</span><p>{{ turn.message }}</p>
+              {% if turn.scope == 'week' %}<p class="coach-saved-note">Zapisane w wiadomości tygodnia — <a href="/plan#wiadomosc">zobacz albo ułóż plan ponownie</a></p>{% endif %}</div>
           {% endif %}
           <div class="coach-msg is-coach">
             <span class="coach-who">Trener{% if turn.time and not turn.message %} · {{ turn.time }}{% endif %}</span>
@@ -403,6 +404,12 @@
       {% endif %}
       <form method="post" action="/actions/recommendation" class="ask-form coach-form" data-draft-key="coach-draft">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {# Dziś: rada na ten dzień. Cały tydzień: dopisanie do wiadomości tygodnia (plan i rady na kolejne dni) i od razu odpowiedź. #}
+        <fieldset class="coach-scope">
+          <legend>Dotyczy</legend>
+          <label class="coach-scope-option"><input type="radio" name="scope" value="today" checked{% if not ai_ready %} disabled{% endif %}><span>dziś</span></label>
+          <label class="coach-scope-option"><input type="radio" name="scope" value="week"{% if not ai_ready %} disabled{% endif %}><span>całego tygodnia</span></label>
+        </fieldset>
         <label class="field ask-field">{% if conversation_today %}Dopytaj trenera{% else %}Wiadomość do trenera (opcjonalnie){% endif %}
           <textarea class="text-input" name="message" rows="2" maxlength="300" placeholder="{% if conversation_today %}np. a jeśli mam tylko 20 minut?{% else %}np. mam tylko 30 minut, nogi ciężkie{% endif %}"{% if not ai_ready %} disabled{% endif %}></textarea>
         </label>

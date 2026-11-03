@@ -24,7 +24,7 @@ from services.actions import (
     run_review_job,
     run_sync_job,
 )
-from services.jobs import JobConflictError, JobCooldownError, JobNotFoundError, JobStore
+from services.jobs import WEEK_NOTE_FULL_MESSAGE, JobConflictError, JobCooldownError, JobNotFoundError, JobStore
 from services.locking import LockBusyError, acquire_lock
 from services.sync_progress import progress_view
 from api.views.jobs import (
@@ -35,7 +35,7 @@ from api.views.jobs import (
 )
 from api.routers.plans import plan_page_context
 from services import plan_conflicts
-from services.ai_notes import MESSAGE_LIMIT, clean, set_week_note
+from services.ai_notes import MESSAGE_LIMIT, append_week_note, clean, set_week_note
 from services.plan_files import week_bounds
 
 logger = logging.getLogger(__name__)
@@ -124,9 +124,11 @@ def get_actions_router(
             return None, RedirectResponse(url=plan_url(week_start, confirm=kind), status_code=303)
         return decision or None, None
 
-    def run_recommendation(message=None):
+    def run_recommendation(message=None, scope=None):
         """Policz rekomendację AI na dziś; jednorazowa wiadomość biegacza jest opcjonalna."""
         extra = {"message": message} if message else {}
+        if scope:
+            extra["scope"] = scope
         if recommendation_operation is not None:
             return recommendation_operation(**extra)
         return generate_daily_recommendation(**extra)
@@ -473,6 +475,7 @@ def get_actions_router(
         request: Request,
         csrf_token: str = Form(default=""),
         message: str = Form(default=""),
+        scope: str = Form(default="today"),
     ):
         if not csrf_valid(request, csrf_token):
             return templates.TemplateResponse(
@@ -492,13 +495,24 @@ def get_actions_router(
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
                 # Rozmowa: każde pytanie to nowe zadanie (bez blokady czasowej); równolegle trwa najwyżej jedno.
-                job = store.submit("recommendation", {"date": today().date().isoformat(), "message": message})
+                job = store.submit("recommendation", {"date": today().date().isoformat(), "message": message,
+                                                      "scope": scope})
                 should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
                 if should_schedule:
                     scheduled_job_ids.add(job.id)
         except (LockBusyError, JobConflictError, JobCooldownError):
             # Trener odpowiada jeszcze na poprzednie pytanie — zostajemy na stronie głównej z jasną informacją.
             return RedirectResponse(url="/?rec=busy#rozmowa", status_code=303)
+        week_scope = scope == "week" and bool(clean(message, MESSAGE_LIMIT))
+        if week_scope and should_schedule:
+            # „Dotyczy całego tygodnia”: najpierw dopisanie do wiadomości tygodnia, potem odpowiedź trenera, który już ją widzi.
+            try:
+                append_week_note(today().date(), message)
+            except ValueError:
+                scheduled_job_ids.discard(job.id)
+                store.mark_running(job.id)
+                store.mark_failed(job.id, message=WEEK_NOTE_FULL_MESSAGE)
+                return RedirectResponse(url="/#rozmowa", status_code=303)
         if should_schedule:
             def execute():
                 try:
@@ -508,6 +522,7 @@ def get_actions_router(
                         operation=run_recommendation,
                         lock_directory=lock_directory,
                         message=clean(message, MESSAGE_LIMIT) or None,
+                        scope="week" if week_scope else None,
                     )
                 finally:
                     scheduled_job_ids.discard(job.id)

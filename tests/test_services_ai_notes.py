@@ -119,3 +119,52 @@ def test_home_reminds_that_the_coach_also_uses_the_week_note(tmp_path):
     page = TestClient(_app(tmp_path, [])).get("/").text
     assert "Trener pamięta też Twoją wiadomość na ten tydzień: „w środę dopiero wieczorem”" in page
     assert 'href="/plan#wiadomosc"' in page and "Zapytaj trenera, co dziś zrobić" in page
+
+
+def test_append_week_note_adds_without_overwriting_and_respects_the_limit(tmp_path):
+    from services.ai_notes import append_week_note
+    from services.jobs import WEEK_NOTE_FULL_MESSAGE
+
+    path = tmp_path / "notes.jsonl"
+    set_week_note(MONDAY, "w sobotę wesele", path=path)
+    assert append_week_note(date(2026, 10, 29), "w środę dopiero wieczorem", path=path) == \
+        "w sobotę wesele. w środę dopiero wieczorem"
+    with pytest.raises(ValueError, match="pełna"):
+        append_week_note(MONDAY, "x" * 480, path=path)
+    assert note_for_week(MONDAY, path=path) == "w sobotę wesele. w środę dopiero wieczorem"
+    assert "skróć" in WEEK_NOTE_FULL_MESSAGE
+
+
+def _send(client, message, scope):
+    return client.post("/actions/recommendation",
+                       data={"csrf_token": _token(client, "/"), "message": message, "scope": scope},
+                       headers={"Origin": "http://testserver"}, follow_redirects=False)
+
+
+def test_week_scope_message_is_remembered_for_the_week_and_answered(tmp_path):
+    calls = []
+    with TestClient(_app(tmp_path, calls)) as client:
+        _send(client, "boli mnie łydka od wtorku", "week")
+        page = client.get("/").text
+    assert note_for_week(MONDAY) == "boli mnie łydka od wtorku"
+    assert calls == [{"message": "boli mnie łydka od wtorku", "scope": "week"}]
+    assert 'name="scope" value="week"' in page and "Dotyczy" in page
+
+
+def test_today_scope_message_leaves_the_week_note_alone(tmp_path):
+    calls = []
+    with TestClient(_app(tmp_path, calls)) as client:
+        _send(client, "nogi ciężkie", "today")
+    assert note_for_week(MONDAY) == "" and calls == [{"message": "nogi ciężkie"}]
+
+
+def test_full_week_note_saves_nothing_and_says_so(tmp_path):
+    from services.jobs import WEEK_NOTE_FULL_MESSAGE
+
+    set_week_note(MONDAY, "y" * 490)
+    calls = []
+    with TestClient(_app(tmp_path, calls)) as client:
+        _send(client, "w sobotę wesele i jeszcze dużo więcej tekstu", "week")
+        page = client.get("/").text
+    assert note_for_week(MONDAY) == "y" * 490 and calls == []
+    assert "Trener nie odpowiedział: " + WEEK_NOTE_FULL_MESSAGE in page

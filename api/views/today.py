@@ -301,6 +301,7 @@ def _recommendation_view(recommendation) -> Optional[dict]:
         "reasoning_summary": recommendation.get("reasoning_summary"),
         "warnings": list(recommendation.get("warnings") or []),
         "message": recommendation.get("message"),
+        "scope": recommendation.get("scope"),
     }
 
 

@@ -66,3 +66,18 @@ def note_for_week(monday, *, path=None) -> str:
 def note_for_day(day, *, path=None) -> str:
     """Wiadomość tygodnia, do którego należy dany dzień."""
     return note_for_week(day, path=path)
+
+
+
+def append_week_note(day, text, *, path=None) -> str:
+    """Dopisz tekst do wiadomości tygodnia dnia ``day``; nic nie zapisuje, gdy przekroczyłby limit."""
+    addition = clean(text, WEEK_NOTE_LIMIT)
+    current = note_for_week(day, path=path)
+    if current and addition and not current.endswith((".", "!", "?")):
+        current += "."
+    combined = f"{current} {addition}".strip()
+    if len(combined) > WEEK_NOTE_LIMIT:
+        from services.jobs import WEEK_NOTE_FULL_MESSAGE
+        raise ValueError(WEEK_NOTE_FULL_MESSAGE)
+    set_week_note(day, combined, path=path)
+    return combined

@@ -408,7 +408,7 @@ CONVERSATION_ANSWER_LIMIT = 400
 
 
 def generate_daily_recommendation(*, provider_factory=None, save=None, today=None, message=None,
-                                  history=None) -> dict:
+                                  history=None, scope=None) -> dict:
     """Policz rekomendację AI na dziś i zapisz ją lokalnie."""
     from ai.context import build_training_context
     from services import plan as plan_service
@@ -457,6 +457,7 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
         "reasoning_summary": recommendation.reasoning_summary,
         "warnings": list(recommendation.warnings or []),
         "message": context["message"] or None,
+        "scope": scope or None,
     }
     if save is None:
         save = save_recommendation
@@ -465,15 +466,16 @@ def generate_daily_recommendation(*, provider_factory=None, save=None, today=Non
 
 
 def run_recommendation_job(*, store, job_id, operation=generate_daily_recommendation,
-                           lock_directory=None, message=None):
+                           lock_directory=None, message=None, scope=None):
     """Wykonaj rekomendację dzienną pod blokadą i zapisz stan zadania."""
     store.mark_running(job_id)
     try:
         with acquire_lock(name="recommendation", directory=lock_directory):
+            extra = {"scope": scope} if scope else {}
             if message:
-                operation(message=message)
+                operation(message=message, **extra)
             else:
-                operation()
+                operation(**extra)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
     except ValueError as exc:

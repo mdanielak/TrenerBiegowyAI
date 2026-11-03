@@ -41,6 +41,7 @@ REVIEW_BUSY_MESSAGE = "Ocena już trwa. Spróbuj ponownie za chwilę."
 REVIEW_DISABLED_MESSAGE = "Ocena treningu wymaga włączenia wysyłania danych do AI."
 REVIEW_NO_WORKOUT_MESSAGE = "Brak zaplanowanego treningu na dziś."
 REVIEW_STALE_MESSAGE = "Ocena dotyczy innego treningu. Odśwież stronę."
+WEEK_NOTE_FULL_MESSAGE = "Wiadomość tygodnia jest pełna — skróć ją na stronie Plan i wyślij ponownie."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
     SNAPSHOT_MISSING_MESSAGE,
     PLAN_CONFLICT_MESSAGE,
@@ -49,6 +50,7 @@ _ALLOWED_FAILURE_MESSAGES = frozenset({
     REVIEW_DISABLED_MESSAGE,
     REVIEW_NO_WORKOUT_MESSAGE,
     REVIEW_STALE_MESSAGE,
+    WEEK_NOTE_FULL_MESSAGE,
     _GENERIC_FAILURE,
     "Operacja już trwa. Spróbuj ponownie za chwilę.",
     PLAN_AI_DISABLED_MESSAGE,
