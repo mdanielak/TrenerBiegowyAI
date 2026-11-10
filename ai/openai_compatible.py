@@ -39,16 +39,31 @@ def _strip_code_fence(text: str) -> str:
 
 
 class AIProviderError(Exception):
-    """Raised on AI API errors; ``status_code`` is the provider's HTTP status when known."""
+    """Raised on AI API errors.
 
-    def __init__(self, message, status_code=None):
+    ``status_code`` is the provider's HTTP status when known, ``kind`` a safe label
+    of the cause ("timeout", "connection"). Neither carries the provider's own text.
+    """
+
+    def __init__(self, message, status_code=None, kind=None):
         super().__init__(message)
         self.status_code = status_code
+        self.kind = kind
 
 
 class AIResponseError(Exception):
     """Raised when structured output cannot be parsed/validated."""
     pass
+
+
+# Bezpieczna etykieta przyczyny: po nazwie klasy wyjątku, żeby nie zależeć od wersji SDK.
+_ERROR_KINDS = {
+    "APITimeoutError": "timeout",
+    "APIConnectionTimeoutError": "timeout",
+    "TimeoutError": "timeout",
+    "APIConnectionError": "connection",
+    "ConnectionError": "connection",
+}
 
 
 def _provider_error(exc: BaseException) -> AIProviderError:
@@ -59,9 +74,10 @@ def _provider_error(exc: BaseException) -> AIProviderError:
     komputerze, a w aplikacji widać wyłącznie własny, zmapowany komunikat.
     """
     status = getattr(exc, "status_code", None)
+    kind = _ERROR_KINDS.get(type(exc).__name__)
     logger.error("AI provider request failed (%s, status %s)", type(exc).__name__, status, exc_info=exc)
     message = f"AI API error (HTTP {status})" if status else "AI API error"
-    return AIProviderError(message, status)
+    return AIProviderError(message, status, kind)
 
 
 class OpenAICompatibleProvider(AIProvider):

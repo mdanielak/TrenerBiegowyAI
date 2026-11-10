@@ -90,10 +90,16 @@ def test_a_key_pasted_with_spaces_is_trimmed():
 
 def test_ai_job_failures_explain_missing_funds_and_rejected_keys(tmp_path):
     from ai.openai_compatible import AIProviderError
-    from services.jobs import AI_PAYMENT_MESSAGE, AI_REJECTED_MESSAGE
+    from services.jobs import (
+        AI_CONNECTION_MESSAGE, AI_MODEL_MESSAGE, AI_PAYMENT_MESSAGE, AI_RATE_MESSAGE,
+        AI_REJECTED_MESSAGE, AI_REQUEST_MESSAGE, AI_TIMEOUT_MESSAGE, AI_UNAVAILABLE_MESSAGE,
+    )
 
     store = JobStore(tmp_path / "jobs")
-    for status, expected in ((402, AI_PAYMENT_MESSAGE), (400, AI_REJECTED_MESSAGE), (500, "Operacja nie powiodła się.")):
+    for status, expected in ((402, AI_PAYMENT_MESSAGE), (400, AI_REQUEST_MESSAGE),
+                             (401, AI_REJECTED_MESSAGE), (403, AI_REJECTED_MESSAGE),
+                             (404, AI_MODEL_MESSAGE), (429, AI_RATE_MESSAGE),
+                             (500, AI_UNAVAILABLE_MESSAGE), (503, AI_UNAVAILABLE_MESSAGE)):
         job = store.submit("recommendation", {"status": status})
 
         def fail(status=status, **kwargs):
@@ -101,4 +107,37 @@ def test_ai_job_failures_explain_missing_funds_and_rejected_keys(tmp_path):
 
         assert actions.run_recommendation_job(store=store, job_id=job.id, operation=fail,
                                               lock_directory=tmp_path).error_message == expected
+
+
+def test_ai_job_failures_explain_a_timeout_and_a_lost_connection(tmp_path):
+    from ai.openai_compatible import AIProviderError
+    from services.jobs import AI_CONNECTION_MESSAGE, AI_TIMEOUT_MESSAGE
+
+    store = JobStore(tmp_path / "jobs")
+    for kind, expected in (("timeout", AI_TIMEOUT_MESSAGE), ("connection", AI_CONNECTION_MESSAGE)):
+        job = store.submit("recommendation", {"kind": kind})
+
+        def fail(kind=kind, **kwargs):
+            raise AIProviderError("AI API error", None, kind)
+
+        assert actions.run_recommendation_job(store=store, job_id=job.id, operation=fail,
+                                              lock_directory=tmp_path).error_message == expected
+
+
+def test_a_failed_answer_names_the_operation_the_runner_started(tmp_path):
+    from ai.openai_compatible import AIResponseError
+    from services.jobs import AI_FORMAT_DAILY_MESSAGE, AI_FORMAT_REVIEW_MESSAGE
+
+    store = JobStore(tmp_path / "jobs")
+
+    def fail(**kwargs):
+        raise AIResponseError("AI answer was cut off")
+
+    daily = store.submit("recommendation", {})
+    assert actions.run_recommendation_job(store=store, job_id=daily.id, operation=fail,
+                                          lock_directory=tmp_path).error_message == AI_FORMAT_DAILY_MESSAGE
+
+    review = store.submit("review", {})
+    assert actions.run_review_job(store=store, job_id=review.id, review_key="k", operation=fail,
+                                   lock_directory=tmp_path).error_message == AI_FORMAT_REVIEW_MESSAGE
 

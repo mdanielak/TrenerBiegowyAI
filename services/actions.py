@@ -5,7 +5,15 @@ import logging
 from datetime import datetime
 
 from services.jobs import (
+    AI_CONNECTION_MESSAGE,
+    AI_FORMAT_DAILY_MESSAGE,
     AI_FORMAT_MESSAGE,
+    AI_FORMAT_REVIEW_MESSAGE,
+    AI_MODEL_MESSAGE,
+    AI_RATE_MESSAGE,
+    AI_REQUEST_MESSAGE,
+    AI_TIMEOUT_MESSAGE,
+    AI_UNAVAILABLE_MESSAGE,
     GARMIN_CONFLICT_MESSAGE,
     PLAN_CONFLICT_MESSAGE,
     REVIEW_BUSY_MESSAGE,
@@ -19,6 +27,7 @@ from services.jobs import (
     JobStore,
     PLAN_AI_DISABLED_MESSAGE,
     PLAN_NO_PLAN_MESSAGE,
+    UserMessageError,
 )
 from services.locking import LockBusyError, acquire_lock
 from services.plan import as_datetime
@@ -64,8 +73,12 @@ def run_sync_job(*, store: JobStore, job_id: str, operation=synchronize_data,
     return store.mark_succeeded(job_id)
 
 
-def _ai_failure_message(exc) -> str | None:
+def _ai_failure_message(exc, *, operation: str = "plan") -> str | None:
     """Powód dla błędów dostawcy AI; inne błędy zostają z ogólnym komunikatem.
+
+    ``operation`` mówi, o czym mowa: plan tygodnia, komentarz do treningu czy
+    rekomendacja na dziś. Bez tego biegacz dostawał informację o planie, którego
+    wcale nie układał.
 
     Przyczyna trafia do logu (tylko lokalnie), bo w aplikacji widać jedynie zmapowany komunikat.
     """
@@ -73,12 +86,26 @@ def _ai_failure_message(exc) -> str | None:
 
     logger.error("Background job failed: %s", type(exc).__name__, exc_info=exc)
     if isinstance(exc, AIResponseError):
-        return AI_FORMAT_MESSAGE
+        return {"review": AI_FORMAT_REVIEW_MESSAGE,
+                "recommendation": AI_FORMAT_DAILY_MESSAGE}.get(operation, AI_FORMAT_MESSAGE)
+    kind = getattr(exc, "kind", None)
+    if kind == "timeout":
+        return AI_TIMEOUT_MESSAGE
+    if kind == "connection":
+        return AI_CONNECTION_MESSAGE
     status = getattr(exc, "status_code", None)
     if status == 402:
         return AI_PAYMENT_MESSAGE
-    if status in (400, 401, 403):
+    if status in (401, 403):
         return AI_REJECTED_MESSAGE
+    if status == 400:
+        return AI_REQUEST_MESSAGE
+    if status == 404:
+        return AI_MODEL_MESSAGE
+    if status == 429:
+        return AI_RATE_MESSAGE
+    if isinstance(status, int) and status >= 500:
+        return AI_UNAVAILABLE_MESSAGE
     return None
 
 
@@ -146,10 +173,12 @@ def run_review_job(*, store, job_id, review_key, operation, lock_directory=None)
             operation(review_key=review_key)
     except LockBusyError:
         return store.mark_failed(job_id, message=REVIEW_BUSY_MESSAGE)
+    except UserMessageError as exc:
+        return store.mark_failed(job_id, message=str(exc), safe=True)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
     except Exception as exc:
-        message = _ai_failure_message(exc)
+        message = _ai_failure_message(exc, operation="review")
         return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)
 
@@ -261,10 +290,12 @@ def run_plan_job(*, store, job_id, operation=generate_week_plan, week_start=None
                 operation(week_start=week_start, on_conflict=on_conflict)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
+    except UserMessageError as exc:
+        return store.mark_failed(job_id, message=str(exc), safe=True)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
     except Exception as exc:
-        message = _ai_failure_message(exc)
+        message = _ai_failure_message(exc, operation="plan")
         return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)
 
@@ -361,9 +392,9 @@ def remove_plan_workout(*, week_start, day, from_garmin=False, workout_deleter=N
     workouts = plan.get("workouts", [])
     index = next((i for i, w in enumerate(workouts) if w.get("date") == day), None)
     if index is None or workouts[index].get("type") == "rest":
-        raise ValueError("Tego dnia nie ma treningu do usunięcia.")
+        raise UserMessageError("Tego dnia nie ma treningu do usunięcia.")
     if day < current:
-        raise ValueError("Treningów z minionych dni nie usuwamy: to historia porównywana w Statystykach.")
+        raise UserMessageError("Treningów z minionych dni nie usuwamy: to historia porównywana w Statystykach.")
     workout = workouts[index]
     if from_garmin and workout.get("garmin_workout_id"):
         if workout_deleter is None:
@@ -412,7 +443,7 @@ def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=N
     from trainer.preferences import get_active_pause, get_weekly_availability
 
     if action not in EDIT_ACTIONS:
-        raise ValueError("Nieznana zmiana treningu.")
+        raise UserMessageError("Nieznana zmiana treningu.")
     plan = plan_service.load_week_plan(as_datetime(week_start) or datetime.now())
     if plan is None:
         raise ValueError(PLAN_NO_PLAN_MESSAGE)
@@ -420,9 +451,9 @@ def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=N
     workouts = plan.get("workouts", [])
     index = next((i for i, w in enumerate(workouts) if w.get("date") == day), None)
     if index is None or workouts[index].get("type") == "rest":
-        raise ValueError("Tego dnia nie ma treningu do zmiany.")
+        raise UserMessageError("Tego dnia nie ma treningu do zmiany.")
     if day < current:
-        raise ValueError("Treningów z minionych dni nie zmieniamy: to historia porównywana w Statystykach.")
+        raise UserMessageError("Treningów z minionych dni nie zmieniamy: to historia porównywana w Statystykach.")
     workout = workouts[index]
     kind, minutes = workout.get("type"), workout.get("duration_min")
     affected = [workout]
@@ -431,20 +462,20 @@ def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=N
     if action == "move":
         other_index = next((i for i, w in enumerate(workouts) if w.get("date") == target), None)
         if other_index is None or other_index == index:
-            raise ValueError("Wybierz inny dzień z tego tygodnia.")
+            raise UserMessageError("Wybierz inny dzień z tego tygodnia.")
         if target < current:
-            raise ValueError("Nie można przenieść treningu na dzień, który już minął.")
+            raise UserMessageError("Nie można przenieść treningu na dzień, który już minął.")
         if get_active_pause(target):
-            raise ValueError("W tym dniu trwa przerwa treningowa.")
+            raise UserMessageError("W tym dniu trwa przerwa treningowa.")
         affected.append(workouts[other_index])
     elif action == "shorten":
         if kind not in plan_service.AEROBIC_KINDS or not minutes:
-            raise ValueError("Skrócić można tylko bieg spokojny albo długi. Mocny trening zamień na spokojny bieg.")
+            raise UserMessageError("Skrócić można tylko bieg spokojny albo długi. Mocny trening zamień na spokojny bieg.")
         shorter = max(_SHORTEST_RUN_MIN, int(round(minutes * _SHORTEN_FACTOR / 5) * 5))
         if shorter >= minutes:
-            raise ValueError(f"Ten trening jest już krótki ({minutes} min).")
+            raise UserMessageError(f"Ten trening jest już krótki ({minutes} min).")
     elif kind in ("easy", "recovery"):
-        raise ValueError("To już jest spokojny bieg.")
+        raise UserMessageError("To już jest spokojny bieg.")
 
     # Najpierw zegarek: dopiero gdy stare treningi z niego znikną, plan się zmienia.
     for item in affected:
@@ -504,6 +535,8 @@ def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_star
                 operation(week_start=week_start, on_conflict=on_conflict)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
+    except UserMessageError as exc:
+        return store.mark_failed(job_id, message=str(exc), safe=True)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
     except Exception as exc:
@@ -590,9 +623,11 @@ def run_recommendation_job(*, store, job_id, operation=generate_daily_recommenda
                 operation(**extra)
     except LockBusyError:
         return store.mark_failed(job_id, message=PLAN_BUSY_MESSAGE)
+    except UserMessageError as exc:
+        return store.mark_failed(job_id, message=str(exc), safe=True)
     except ValueError as exc:
         return store.mark_failed(job_id, message=str(exc))
     except Exception as exc:
-        message = _ai_failure_message(exc)
+        message = _ai_failure_message(exc, operation="recommendation")
         return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)

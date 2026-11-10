@@ -25,7 +25,9 @@ from services.actions import (
     run_review_job,
     run_sync_job,
 )
-from services.jobs import WEEK_NOTE_FULL_MESSAGE, JobConflictError, JobCooldownError, JobNotFoundError, JobStore
+from services.jobs import (
+    WEEK_NOTE_FULL_MESSAGE, JobConflictError, JobCooldownError, JobError, JobNotFoundError, JobStore,
+)
 from services.locking import LockBusyError, acquire_lock
 from services.sync_progress import progress_view
 from api.views.jobs import (
@@ -177,13 +179,36 @@ def get_actions_router(
             scheduled_job_ids.discard(job.id)
             return job
         if fresh:
+            def fail_job():
+                """Oznacz zadanie jako nieudane także wtedy, gdy nie zdążyło się zacząć."""
+                try:
+                    store.mark_running(job.id)
+                except JobError:
+                    pass  # zadanie już jest wykonywane albo zakończone
+                try:
+                    store.mark_failed(job.id)
+                except Exception:
+                    logger.exception("Could not mark job %s as failed", job.id)
+
             def execute():
                 try:
                     return runner(job.id)
+                except Exception:
+                    # Wyjątek zgłoszony poza zadaniem zostawiałby je w stanie „przyjęte”
+                    # na zawsze: pasek postępu kręciłby się w nieskończoność, a kolejne
+                    # zadania tego samego typu były odrzucane jako konflikt.
+                    logger.exception("Background job %s ended with an error", job.id)
+                    fail_job()
                 finally:
                     scheduled_job_ids.discard(job.id)
 
-            request.app.state.job_executor.submit(execute)
+            try:
+                request.app.state.job_executor.submit(execute)
+            except RuntimeError:
+                # Wykonawca jest zamknięty (aplikacja się zamyka) — zadanie musi wrócić do puli.
+                scheduled_job_ids.discard(job.id)
+                fail_job()
+                raise
         return job
 
     def today_error(request: Request):

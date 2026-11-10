@@ -300,6 +300,26 @@ def test_sync_failure_does_not_render_exception_text(tmp_path):
     assert "ROZPOZNAWALNY_SEKRET" not in page.text
 
 
+def test_a_job_that_breaks_outside_its_runner_is_not_left_accepted(tmp_path, monkeypatch):
+    # Wyjątek w samym wykonawcy (poza run_*_job) zostawiał zadanie w stanie „przyjęte”
+    # na zawsze: pasek postępu kręciłby się w nieskończoność, a kolejne zadania tego
+    # samego typu byłyby odrzucane jako konflikt.
+    def broken(**kwargs):
+        raise RuntimeError("ROZPOZNAWALNY_SEKRET")
+
+    monkeypatch.setattr("api.routers.actions.run_sync_job", broken)
+    app = _action_app(tmp_path)
+    with TestClient(app) as client:
+        token = _csrf(client)
+        client.post("/actions/sync", data={"csrf_token": token},
+                    headers={"Origin": "http://testserver"}, follow_redirects=False)
+        app.state.job_executor.shutdown(wait=True)
+        job = JobStore(tmp_path / "jobs").list_jobs().jobs[0]
+    assert job.status == "failed"
+    assert job.error_message == "Operacja nie powiodła się."
+    assert "ROZPOZNAWALNY_SEKRET" not in (job.error_message or "")
+
+
 def _sync_job(store, status, now):
     """Zapisz zadanie synchronizacji w zadanym stanie i czasie testowym."""
     job = store.submit("sync", {"fresh": False}, now=now)

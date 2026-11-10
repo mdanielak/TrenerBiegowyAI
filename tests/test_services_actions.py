@@ -1,6 +1,6 @@
 """Testy wykonawcy synchronizacji bez uruchamiania prawdziwej integracji."""
-from services.actions import SYNC_BUSY_MESSAGE, run_sync_job, synchronize_data
-from services.jobs import JobStore
+from services.actions import SYNC_BUSY_MESSAGE, run_plan_push_job, run_sync_job, synchronize_data
+from services.jobs import JobStore, UserMessageError
 
 
 def test_run_sync_job_marks_success_after_injected_operation(tmp_path):
@@ -38,6 +38,31 @@ def test_run_sync_job_records_busy_message(tmp_path, monkeypatch):
     monkeypatch.setattr("services.actions.acquire_lock", busy)
     result = run_sync_job(store=store, job_id=job.id, operation=lambda: None, lock_directory=tmp_path)
     assert result.error_message == SYNC_BUSY_MESSAGE
+
+
+def test_our_own_message_reaches_the_job(tmp_path):
+    # Komunikat napisany przez aplikację (np. „w tym dniu trwa przerwa”) ma być widoczny.
+    store = JobStore(tmp_path)
+    job = store.submit("plan_remove", {})
+
+    def fail(**kwargs):
+        raise UserMessageError("W tym dniu trwa przerwa treningowa.")
+
+    result = run_plan_push_job(store=store, job_id=job.id, operation=fail, lock_directory=tmp_path)
+    assert result.error_message == "W tym dniu trwa przerwa treningowa."
+
+
+def test_a_library_message_never_reaches_the_job(tmp_path):
+    # Wyjątek z biblioteki nie jest naszym tekstem — w zadaniu ma być komunikat ogólny.
+    store = JobStore(tmp_path)
+    job = store.submit("plan_remove", {})
+
+    def fail(**kwargs):
+        raise ValueError("wewnętrzny szczegół biblioteki")
+
+    result = run_plan_push_job(store=store, job_id=job.id, operation=fail, lock_directory=tmp_path)
+    assert result.error_message == "Operacja nie powiodła się."
+    assert "wewnętrzny" not in (result.error_message or "")
 
 
 def test_synchronize_data_delegates_to_shared_operation(monkeypatch):

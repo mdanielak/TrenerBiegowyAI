@@ -28,9 +28,17 @@ JOB_RETENTION = timedelta(days=30)
 PLAN_AI_DISABLED_MESSAGE = "Generowanie planu wymaga włączenia wysyłania danych do AI."
 PLAN_NO_PLAN_MESSAGE = "Najpierw ułóż plan na ten tydzień."
 GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego logowania."
-AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → API AI."
+AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → AI."
 AI_FORMAT_MESSAGE = "Trener AI nie zdążył poprawnie dokończyć planu. Spróbuj ponownie za chwilę."
-AI_REJECTED_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź klucz w Ustawienia → API AI → Sprawdź połączenie."
+AI_FORMAT_REVIEW_MESSAGE = "Trener AI nie zdążył poprawnie skomentować treningu. Spróbuj ponownie za chwilą."
+AI_FORMAT_DAILY_MESSAGE = "Trener AI nie zdążył poprawnie odpowiedzieć. Spróbuj ponownie za chwilą."
+AI_REJECTED_MESSAGE = "Dostawca AI odrzucił klucz albo nie ma do niego dostępu. Sprawdź klucz w Ustawienia → AI."
+AI_REQUEST_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź nazwę modelu i klucz w Ustawienia → AI."
+AI_MODEL_MESSAGE = "Dostawca AI nie zna tego modelu ani adresu API. Sprawdź Ustawienia → AI."
+AI_RATE_MESSAGE = "Limit zapytań u dostawcy AI. Spróbuj ponownie za chwilę albo sprawdź rozliczenia."
+AI_UNAVAILABLE_MESSAGE = "Dostawca AI chwilowo nie działa. Spróbuj ponownie za chwilę."
+AI_TIMEOUT_MESSAGE = "Dostawca AI nie odpowiedział w czasie. Spróbuj ponownie za chwilę."
+AI_CONNECTION_MESSAGE = "Nie można połączyć się z dostawcą AI. Sprawdź adres API i sieć."
 # Własne komunikaty akcji: napisane dla użytkownika, więc mogą trafić do interfejsu (tekst wyjątków z bibliotek — nie).
 SNAPSHOT_MISSING_MESSAGE = "Brakuje danych z zegarka. Najpierw zsynchronizuj dane."
 PLAN_CONFLICT_MESSAGE = ("Na ten tydzień jest już plan. Wybierz, czy go nadpisać, "
@@ -59,11 +67,27 @@ _ALLOWED_FAILURE_MESSAGES = frozenset({
     AI_PAYMENT_MESSAGE,
     AI_REJECTED_MESSAGE,
     AI_FORMAT_MESSAGE,
+    AI_FORMAT_REVIEW_MESSAGE,
+    AI_FORMAT_DAILY_MESSAGE,
+    AI_REQUEST_MESSAGE,
+    AI_MODEL_MESSAGE,
+    AI_RATE_MESSAGE,
+    AI_UNAVAILABLE_MESSAGE,
+    AI_TIMEOUT_MESSAGE,
+    AI_CONNECTION_MESSAGE,
 })
 
 
 class JobError(RuntimeError):
     """Bazowy błąd publicznego API magazynu zadań."""
+
+
+class UserMessageError(ValueError):
+    """Wyjątek z komunikatem napisanym przez aplikację — wolno pokazać go biegaczowi.
+
+    Inne wyjątki (w tym te z bibliotek) trafiają do zadania jako komunikat ogólny,
+    żeby surowy tekst dostawcy nigdy nie znalazł się na ekranie.
+    """
 
 
 class JobNotFoundError(JobError):
@@ -197,9 +221,16 @@ class JobStore:
         return self._change_status(job_id, "succeeded", now=now)
 
     def mark_failed(self, job_id: str, *, message: str | None = None,
-                    now: datetime | None = None) -> JobRecord:
-        """Zakończ zadanie błędem bez ujawniania tekstu wyjątku z integracji."""
-        safe_message = message if message in _ALLOWED_FAILURE_MESSAGES else _GENERIC_FAILURE
+                    now: datetime | None = None, safe: bool = False) -> JobRecord:
+        """Zakończ zadanie błędem bez ujawniania tekstu wyjątku z integracji.
+
+        ``safe=True`` oznacza komunikat napisany przez aplikację (``UserMessageError``);
+        tekst wyjątku z biblioteki nigdy nie jest pokazywany, nawet przy tej fladze.
+        """
+        if safe and message:
+            safe_message = message
+        else:
+            safe_message = message if message in _ALLOWED_FAILURE_MESSAGES else _GENERIC_FAILURE
         return self._change_status(job_id, "failed", error_message=safe_message, now=now)
 
     def mark_abandoned_running_as_unknown(self, *, now: datetime | None = None) -> list[JobRecord]:
