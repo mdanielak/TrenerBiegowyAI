@@ -180,7 +180,7 @@ def get_dashboard_router(
             _raise_report_error(report)
         readiness_data = cast(dict, report.readiness)
         warning = (
-            "Dane snapshotu są nieaktualne. Uruchom: python -m trainer sync"
+            "Dane z zegarka są nieaktualne. Uruchom: python -m trainer sync"
             if report.snapshot_status is SnapshotStatus.STALE else None
         )
         return ReadinessResponse(**readiness_data, warning=warning)

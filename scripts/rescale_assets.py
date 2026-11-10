@@ -223,7 +223,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     try:
-        from PIL import Image  # noqa: F401
+        __import__("PIL.Image")  # sam test, czy Pillow jest zainstalowany
     except ImportError:
         print(
             "ERROR: Pillow is required. Install it with: pip install -r requirements-dev.txt",

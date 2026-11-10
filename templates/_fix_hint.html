@@ -1,11 +1,12 @@
 {# Co zrobić z poziomu aplikacji; polecenie terminala zostaje jako druga droga dla osób, które go używają. #}
+{# `command` to kod naprawy z routera: 'setup' (brak profilu) albo 'sync' (brak danych). #}
 {% macro fix_hint(command) -%}
-  {% if command == 'python -m trainer setup' %}
+  {% if command == 'setup' %}
     <p class="mid">Połącz zegarek w <a href="/setup/garmin">Ustawienia → Zegarek Garmin</a> — aplikacja utworzy profil z danych konta.</p>
-    <p class="tile-foot">Albo w terminalu: <code>{{ command }}</code></p>
-  {% elif command == 'python -m trainer sync' %}
+    <p class="tile-foot">Albo w terminalu: <code>python -m trainer setup</code></p>
+  {% elif command == 'sync' %}
     <p class="mid">Pobierz dane z zegarka w <a href="/setup/garmin">Ustawienia → Zegarek Garmin</a>.</p>
-    <p class="tile-foot">Albo w terminalu: <code>{{ command }}</code></p>
+    <p class="tile-foot">Albo w terminalu: <code>python -m trainer sync</code></p>
   {% elif command %}
     <p class="mid">Uruchom w terminalu: <code>{{ command }}</code></p>
   {% endif %}

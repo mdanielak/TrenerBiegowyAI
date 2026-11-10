@@ -14,8 +14,8 @@ from services.data_extract import SnapshotStatus
 from services.stats import WEEK_OPTIONS, StatsReport, normalize_weeks
 
 _ERRORS = {
-    "snapshot_missing": (404, "Brakuje lokalnego snapshotu danych.", "python -m trainer sync"),
-    "snapshot_invalid": (503, "Lokalny snapshot danych jest niepoprawny.", "python -m trainer sync"),
+    "snapshot_missing": (404, "Nie ma jeszcze danych z zegarka.", "sync"),
+    "snapshot_invalid": (503, "Zapisane dane z zegarka są uszkodzone i trzeba je pobrać ponownie.", "sync"),
 }
 
 

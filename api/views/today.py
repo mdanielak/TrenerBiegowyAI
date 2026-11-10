@@ -137,18 +137,18 @@ def _signal_cards(report) -> list:
 def _report_error(report: TodayReport) -> tuple[int, str, str]:
     """Zwróć publiczną, jednolitą odpowiedź dla niedostępnych danych."""
     if report.status == "profile_missing":
-        return 404, "Brakuje lokalnego profilu.", "python -m trainer setup"
+        return 404, "Brakuje lokalnego profilu.", "setup"
     if report.status == "snapshot_missing":
-        return 404, "Brakuje lokalnego snapshotu danych.", "python -m trainer sync"
+        return 404, "Nie ma jeszcze danych z zegarka.", "sync"
     if report.status == "snapshot_invalid":
         logger.error("Local data snapshot is invalid")
-        return 503, "Lokalny snapshot danych jest niepoprawny.", "python -m trainer sync"
+        return 503, "Zapisane dane z zegarka są uszkodzone i trzeba je pobrać ponownie.", "sync"
     raise ValueError(f"Nieznany stan raportu: {report.status}")
 
 
 def _raise_report_error(report: TodayReport) -> NoReturn:
     status_code, message, command = _report_error(report)
-    raise HTTPException(status_code=status_code, detail=f"{message} Uruchom: {command}")
+    raise HTTPException(status_code=status_code, detail=f"{message} Uruchom: python -m trainer {command}")
 
 
 def _coach_notes(report, name) -> Optional[dict]:

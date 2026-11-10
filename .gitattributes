@@ -4,3 +4,8 @@
 *.ps1 text eol=crlf
 testowanie.bat export-ignore
 scripts/testowanie.py export-ignore
+# Źródła grafik (ok. 85 MB): potrzebne do pracy nad ikonami, nie do działania aplikacji.
+trener_biegowy_ai_assets/_originals export-ignore
+trener_biegowy_ai_assets/00_mockups export-ignore
+trener_biegowy_ai_assets/source_sheets export-ignore
+trener_biegowy_ai_assets/_sheet_*.png export-ignore

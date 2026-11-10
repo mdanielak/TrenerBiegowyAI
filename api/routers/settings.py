@@ -122,7 +122,7 @@ def get_settings_router(
         except FileNotFoundError:
             context.update(
                 error_message="Nie znaleziono lokalnego profilu biegacza.",
-                error_command="python -m trainer setup",
+                error_command="setup",
             )
             if status_code == 200:
                 status_code = 404
@@ -130,7 +130,7 @@ def get_settings_router(
             logger.error("Could not read runner profile")
             context.update(
                 error_message="Nie można odczytać lokalnego profilu biegacza.",
-                error_command="python -m trainer setup",
+                error_command="setup",
             )
             if status_code == 200:
                 status_code = 503
