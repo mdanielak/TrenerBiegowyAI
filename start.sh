@@ -10,4 +10,5 @@ fi
 
 echo "Dashboard: http://127.0.0.1:8001"
 echo "Zatrzymanie: Ctrl+C"
+export TRENER_STARTUP_TASKS=1
 exec .venv/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8001

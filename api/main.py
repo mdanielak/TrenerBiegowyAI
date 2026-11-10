@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import secrets
 import tomllib
 from collections.abc import Callable
@@ -24,7 +25,7 @@ from fastapi.templating import Jinja2Templates
 from ai.connection_test import check_connection  # Re-exported for tests/api
 from services.actions import synchronize_data
 from services.assets import build_manifest
-from services.data_extract import read_snapshot_status
+from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.jobs import JobStore
 from services.recommendations import load_history, load_recommendation
 from services.goal import GoalReport, get_goal_report
@@ -98,6 +99,9 @@ _TEMPLATES.env.globals["sidebar_ai_badge"] = lambda request: (
 # strona bez danych znów proponuje „Pobierz dane z zegarka”, jakby nic się nie działo.
 _TEMPLATES.env.globals["sync_in_progress"] = lambda request: (
     getattr(request.state, "sync_status_provider", None) or (lambda: None))()
+# Numer nowszego wydania z GitHuba albo None; ustawiany w tle przy starcie prawdziwej aplikacji.
+_TEMPLATES.env.globals["update_available"] = lambda request: getattr(
+    getattr(getattr(request, "app", None), "state", None), "update_available", None)
 
 
 def _static_version(relative: str) -> str:
@@ -181,6 +185,7 @@ def create_app(
     availability_provider: Callable[[], dict] = get_weekly_availability,
     ai_settings_provider: Callable[[], dict] | None = None,
     snapshot_provider: Callable[[], object] = read_snapshot_status,
+    startup_tasks: bool = False,
 ) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(JOBS_DIR)
@@ -202,6 +207,42 @@ def create_app(
     scheduled_job_ids = set()
     asset_manifest = build_manifest()
 
+    def sync_stale_data(app_instance: FastAPI) -> None:
+        """Dane z zegarka są nieaktualne: pobierz je od razu przy starcie, bez klikania.
+
+        Pierwszego (długiego) pobrania nie zaczynamy sami — to świadoma decyzja na stronie głównej.
+        """
+        from api.views.jobs import SYNC_COOLDOWN
+        from services.actions import run_sync_job
+        from services.jobs import JobConflictError, JobCooldownError
+        from trainer import garmin_auth
+
+        try:
+            if not (garmin_token_check or garmin_auth.has_token)():
+                return
+            if snapshot_provider().status is not SnapshotStatus.STALE:
+                return
+            job = store.submit("sync", {"fresh": False}, cooldown=SYNC_COOLDOWN)
+        except (OSError, ValueError, JobConflictError, JobCooldownError):
+            return
+        if job.status != "accepted" or job.id in scheduled_job_ids:
+            return
+        scheduled_job_ids.add(job.id)
+
+        def execute():
+            try:
+                return run_sync_job(store=store, job_id=job.id, operation=sync_operation,
+                                    fresh=False, lock_directory=lock_directory)
+            finally:
+                scheduled_job_ids.discard(job.id)
+
+        app_instance.state.job_executor.submit(execute)
+
+    def check_for_update(app_instance: FastAPI) -> None:
+        from services.update_check import available_update
+
+        app_instance.state.update_available = available_update(app_instance.version)
+
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI):
         from concurrent.futures import ThreadPoolExecutor
@@ -211,6 +252,12 @@ def create_app(
         store.mark_abandoned_running_as_unknown()
         store.prune_finished(now=now_provider())
         app_instance.state.job_executor = ThreadPoolExecutor(max_workers=1)
+        if startup_tasks:
+            import threading
+
+            sync_stale_data(app_instance)
+            # Osobny wątek: wolna sieć nie opóźnia startu ani kolejki zadań.
+            threading.Thread(target=check_for_update, args=(app_instance,), daemon=True).start()
         try:
             yield
         finally:
@@ -301,7 +348,9 @@ def create_app(
         )
     )
     app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
-    app.include_router(get_goal_router(goal_report_provider=goal_report_provider, templates=_TEMPLATES, profile_provider=profile_provider))
+    app.include_router(get_goal_router(
+        goal_report_provider=goal_report_provider, templates=_TEMPLATES, profile_provider=profile_provider,
+        snapshot_provider=snapshot_provider, attach_csrf=attach_csrf, csrf_token=csrf_token, csrf_valid=csrf_valid))
     from trainer import preferences as _preferences, profile_store as _profile_store
 
     from trainer import garmin_auth as _garmin_auth
@@ -376,4 +425,5 @@ def create_app(
     return app
 
 
-app = create_app()
+# start.bat i start.sh ustawiają TRENER_STARTUP_TASKS=1; testy i kopia testowa startują bez sieci i bez synchronizacji.
+app = create_app(startup_tasks=os.environ.get("TRENER_STARTUP_TASKS") == "1")

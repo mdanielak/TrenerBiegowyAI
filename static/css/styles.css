@@ -196,6 +196,9 @@
   }
 
   /* Przełącznik motywu na dole menu: trzy pozycje, aktywna oznaczona tłem i aria-current. */
+  .update-note { margin: auto 8px 12px; padding: 9px 11px; border: 1px solid var(--accent); border-radius: 8px;
+    background: var(--accent-soft); color: var(--fg); font-size: 13px; line-height: 1.4; }
+  .update-note + .theme-switch { margin-top: 0; }
   .theme-switch { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 8px; }
   .theme-options { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-sm);
                    background: var(--surface-alt); }
@@ -1050,6 +1053,8 @@ details[open] > summary { margin-bottom: 12px; }
 .workout-dialog-body { padding: 20px 22px 22px; }
 .workout-dialog-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .workout-dialog-head p { margin: 0; }
+.workout-edit { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.workout-edit h4, .workout-edit p { margin: 0; }
 .workout-dialog h3 { margin: 2px 0 0; font-size: 1.25rem; }
 .workout-dialog h4 { margin: 18px 0 6px; font-size: 0.875rem; color: var(--fg-mid); text-transform: uppercase; letter-spacing: 0.04em; }
 .workout-dialog p { font-size: 16px; line-height: 1.6; max-width: 62ch; white-space: pre-line; margin: 0; }

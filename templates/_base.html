@@ -59,6 +59,11 @@
       </a>
     </nav>
 
+    {% set new_version = update_available(request) if update_available is defined and request is defined else None %}
+    {% if new_version %}
+      <p class="update-note" role="status"><strong>Jest nowa wersja {{ new_version }}.</strong> Zamknij aplikację i uruchom plik <code>update.bat</code> — Twoje dane zostaną.</p>
+    {% endif %}
+
     {% if request is defined and request.url is defined %}
       {% set here = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
       <nav class="theme-switch" aria-label="Motyw">

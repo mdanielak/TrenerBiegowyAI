@@ -57,6 +57,8 @@ echo  Przeglądarka otworzy się za chwilę sama.
 echo  Żeby zakończyć, zamknij to okno albo wciśnij Ctrl+C.
 echo.
 if not "%TRENER_NO_BROWSER%"=="1" start "" /min cmd /c "timeout /t 3 /nobreak >nul & start %URL%"
+rem Przy starcie: pobranie nieaktualnych danych z zegarka i sprawdzenie, czy jest nowsza wersja.
+set "TRENER_STARTUP_TASKS=1"
 %PY_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port 8001
 set "EXIT_CODE=%ERRORLEVEL%"
 popd
