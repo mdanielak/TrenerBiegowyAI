@@ -193,6 +193,22 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     }
 
 
+def quality_sessions_limit(runner: dict, configured=None) -> int:
+    """Limit treningów jakościowych w tygodniu — ta sama liczba w prompcie i w kodzie.
+
+    Początkujący (także po powrocie od przerwy) nie dostaje mocnych akcentów w ogóle,
+    niezależnie od ustawienia w kreatorze. Brak ustawienia znaczy jeden trening.
+    """
+    if (runner or {}).get("level") == "poczatkujacy":
+        return 0
+    if configured is None:
+        return 1
+    try:
+        return max(int(configured), 0)
+    except (TypeError, ValueError):
+        return 1
+
+
 def decision_reason(runner: dict) -> str:
     """Powód decyzji tygodnia prostym językiem — te same warunki, co w build_runner_profile."""
     decision, adherence = runner.get("decision"), runner.get("adherence")

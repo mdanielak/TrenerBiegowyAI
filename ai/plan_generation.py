@@ -109,8 +109,7 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
    Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR.
-7. W tygodniu jest najwyżej jeden trening jakościowy
-   (kind="tempo", "threshold" albo "intervals") i najwyżej jeden długi bieg (kind="long").
+7. __QUALITY_RULE__
 8. Nie stosuj wartości domyślnych w miejscu nieznanych danych. Brak wartości oznacz `null`.
 9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu.
 10. Wszystkie teksty, także `name`, pisz poprawną polszczyzną z polskimi znakami
@@ -159,10 +158,33 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
 - Gdy czegoś nie ma, wpisz null (null, nie 0 i nie pusty tekst)."""
 
 
-def build_system_prompt(*, runner=None, strategy_path=STRATEGY_PATH) -> str:
+def _quality_rule(limit: int) -> str:
+    """Reguła o liczbie treningów jakościowych — ta sama liczba, którą egzekwuje normalize_plan."""
+    if limit <= 0:
+        return ('W tym tygodniu nie planuj żadnego treningu jakościowego '
+                '(kind="tempo", "threshold" albo "intervals"); '
+                'najwyżej jeden długi bieg (kind="long").')
+    if limit == 1:
+        return ('W tygodniu jest najwyżej jeden trening jakościowy '
+                '(kind="tempo", "threshold" albo "intervals") '
+                'i najwyżej jeden długi bieg (kind="long").')
+    word = "treningi" if limit <= 4 else "treningów"
+    return (f'W tygodniu jest najwyżej {limit} {word} jakościowe '
+            '(kind="tempo", "threshold" albo "intervals") '
+            'i najwyżej jeden długi bieg (kind="long").')
+
+
+def _plan_rules(quality_limit: int) -> str:
+    """Reguły układania tygodnia z limitem treningów jakościowym z preferencji biegacza."""
+    return _PLAN_RULES.replace("__QUALITY_RULE__", _quality_rule(quality_limit))
+
+
+def build_system_prompt(*, runner=None, strategy_path=STRATEGY_PATH, quality_limit=None) -> str:
     """Zbuduj prompt systemowy: trener z modułami profilu, strategia (jeśli jest) i reguły tygodnia."""
     from ai.prompts import coach_prompt
+    from services.runner_profile import quality_sessions_limit
 
+    limit = quality_sessions_limit(runner, quality_limit)
     sections = [coach_prompt(runner, mode="plan")]
 
     strategy = _read_text(strategy_path).strip()
@@ -172,7 +194,7 @@ def build_system_prompt(*, runner=None, strategy_path=STRATEGY_PATH) -> str:
         sections.append("Strategia długoterminowa nie jest dostępna — zaplanuj tydzień "
                         "wyłącznie na podstawie profilu, dostępności i reguł treningu.")
 
-    sections.append(_PLAN_RULES)
+    sections.append(_plan_rules(limit))
     sections.append(_PLAN_SCHEMA)
     return "\n\n".join(sections)
 
@@ -279,8 +301,9 @@ def build_plan_message(context: dict) -> str:
     frequency = (context.get("runner") or {}).get("frequency")
     if frequency:
         lines.append(f"- liczba treningów w tygodniu (wybór biegacza): najwyżej {frequency}; pozostałe dni to odpoczynek")
-    lines.append(f"- maksymalna liczba treningów jakościowych w tygodniu: "
-                 f"{_value(context.get('max_quality_sessions'))}")
+    from services.runner_profile import quality_sessions_limit
+    quality_limit = quality_sessions_limit(context.get("runner"), context.get("max_quality_sessions"))
+    lines.append(f"- maksymalna liczba treningów jakościowych w tygodniu: {quality_limit}")
     lines.append("- maksymalnie jeden długi bieg w tygodniu")
     lines.append("")
 
@@ -348,7 +371,10 @@ def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
     """
     from ai.openai_compatible import AIResponseError
 
-    system, message = build_system_prompt(runner=(context or {}).get("runner")), build_plan_message(context)
+    system, message = build_system_prompt(
+        runner=(context or {}).get("runner"),
+        quality_limit=(context or {}).get("max_quality_sessions"),
+    ), build_plan_message(context)
     for seed in (7, 8):
         try:
             return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed,

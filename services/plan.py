@@ -513,12 +513,24 @@ def _finish_day(day, entry, notes, floors):
     return workout
 
 
+def _quality_limit_text(limit: int) -> str:
+    """Limit treningów jakościowych po polsku, z poprawną liczbą mnogą."""
+    if limit <= 0:
+        return "bez treningów jakościowych w tygodniu"
+    if limit == 1:
+        return "limit 1 treningu jakościowego w tygodniu"
+    word = "treningi" if limit <= 4 else "treningów"
+    return f"limit {limit} {word} jakościowych w tygodniu"
+
+
 def normalize_plan(response, *, context) -> dict:
     """Zamień odpowiedź AI na plan tygodniowy zgodny z regułami i schematem pliku."""
     context = context or {}
     floors = context.get("hr_zone_floors") or {}
-    max_quality = context.get("max_quality_sessions")
-    max_quality = 1 if max_quality is None else int(max_quality)
+    runner = context.get("runner") or {}
+    from services.runner_profile import quality_sessions_limit
+    # Ta sama liczba, którą model dostał w regułach tygodnia i w LIMITY TYGODNIA.
+    max_quality = quality_sessions_limit(runner, context.get("max_quality_sessions"))
 
     week_days = list(context.get("week_days") or []) or _default_week_days(context)
     dates = [day.get("date") for day in week_days]
@@ -531,17 +543,16 @@ def normalize_plan(response, *, context) -> dict:
 
     workouts = [_normalize_day(day, by_date.get(day.get("date")), floors) for day in week_days]
 
-    runner = context.get("runner") or {}
     # Początkujący (także po powrocie z przerwy): bez mocnych akcentów; przebieżki w opisie biegu łatwego są w porządku.
     beginner = runner.get("level") == "poczatkujacy"
     quality = [index for index, workout in enumerate(workouts) if workout["type"] in QUALITY_KINDS]
-    for index in quality[0 if beginner else max_quality:]:
+    for index in quality[max_quality:]:
         workouts[index]["type"] = "easy"
         workouts[index]["pace_target"] = None
         workouts[index]["hr_zone"] = "Z2"
         workouts[index]["notes"] = _append_note(workouts[index]["notes"], (
             "Zmieniono na spokojny bieg: na tym etapie bez mocnych akcentów (przebieżki są w porządku)." if beginner
-            else f"Zmieniono na bieg łatwy (limit {max_quality} treningu jakościowego w tygodniu)."))
+            else f"Zmieniono na bieg łatwy ({_quality_limit_text(max_quality)})."))
 
     long_runs = [index for index, workout in enumerate(workouts) if workout["type"] == "long"]
     for index in long_runs[1:]:

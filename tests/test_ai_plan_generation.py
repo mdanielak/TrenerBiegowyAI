@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """Testy dla ai/plan_generation.py — prompt i wywołanie providera."""
+from datetime import date
+
 import pytest
 
 from ai.plan_generation import (
@@ -9,6 +11,7 @@ from ai.plan_generation import (
     build_system_prompt,
     generate_week_plan,
 )
+from services.runner_profile import build_runner_profile
 from services.strategy import STRATEGY_EXAMPLE_PATH
 
 
@@ -105,6 +108,32 @@ def test_missing_values_are_written_as_brak():
 
     assert "brak" in message
     assert "None" not in message
+
+
+def test_system_prompt_states_the_configured_limit_of_hard_sessions():
+    # Limit z kreatora (0, 1 albo 2) musi być w prompcie taki sam, jak ten, który egzekwuje kod.
+    assert "nie planuj żadnego treningu jakościowego" in build_system_prompt(quality_limit=0)
+    assert "najwyżej jeden trening jakościowy" in build_system_prompt(quality_limit=1)
+    assert "najwyżej 2 treningi jakościowe" in build_system_prompt(quality_limit=2)
+
+
+def test_rule_and_the_limits_section_agree_on_the_same_number():
+    context = {**_context(), "max_quality_sessions": 2}
+    prompt = build_system_prompt(runner=context.get("runner"),
+                                 quality_limit=context["max_quality_sessions"])
+
+    assert "najwyżej 2 treningi jakościowe" in prompt
+    assert "maksymalna liczba treningów jakościowych w tygodniu: 2" in build_plan_message(context)
+
+
+def test_beginner_gets_no_hard_sessions_whatever_the_limit_says():
+    runner = build_runner_profile(activities=[], profile={}, today=date(2026, 10, 26))
+    context = {**_context(), "runner": runner, "max_quality_sessions": 2}
+
+    assert runner["level"] == "poczatkujacy"
+    assert "nie planuj żadnego treningu jakościowego" in build_system_prompt(
+        runner=runner, quality_limit=2)
+    assert "maksymalna liczba treningów jakościowych w tygodniu: 0" in build_plan_message(context)
 
 
 def test_system_prompt_reports_missing_strategy_and_keeps_rules(tmp_path):
