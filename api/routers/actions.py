@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from services.actions import (
+    edit_plan_workout,
     generate_daily_recommendation,
     generate_week_plan,
     push_plan_to_garmin,
@@ -158,49 +159,65 @@ def get_actions_router(
             profile_loader=profile_provider,
         )
 
-    @router.post("/actions/sync")
-    def submit_sync(request: Request, csrf_token: str = Form(default=""), fresh: str = Form(default="")):
-        if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="today.html",
-                context={
-                    "error_message": "Nie można potwierdzić, że żądanie pochodzi z tej strony. Odśwież stronę i spróbuj ponownie.",
-                    "error_link": "/",
-                    "sync_banner": {"refresh": False},
-                },
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+    def start_job(request: Request, operation: str, arguments: dict, runner, *, cooldown=None, prepare=None):
+        """Załóż zadanie i puść je w tle; None, gdy takie już trwa albo trzeba jeszcze poczekać.
+
+        `runner(job_id)` wykonuje pracę; `prepare(job)` działa przed startem nowego zadania
+        i zwracając False odwołuje jego uruchomienie.
+        """
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                full = fresh == "1"
-                job = store.submit("sync", {"fresh": full}, cooldown=SYNC_COOLDOWN)
-                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                if should_schedule:
+                job = store.submit(operation, arguments, cooldown=cooldown)
+                fresh = job.status == "accepted" and job.id not in scheduled_job_ids
+                if fresh:
                     scheduled_job_ids.add(job.id)
-        except LockBusyError:
-            return RedirectResponse(url="/", status_code=303)
-        except JobConflictError:
-            return RedirectResponse(url="/", status_code=303)
-        except JobCooldownError:
-            return RedirectResponse(url="/", status_code=303)
-        if should_schedule:
+        except (LockBusyError, JobConflictError, JobCooldownError):
+            return None
+        if fresh and prepare is not None and prepare(job) is False:
+            scheduled_job_ids.discard(job.id)
+            return job
+        if fresh:
             def execute():
                 try:
-                    return run_sync_job(
-                        store=store,
-                        job_id=job.id,
-                        operation=sync_operation,
-                        fresh=full,
-                        lock_directory=lock_directory,
-                    )
+                    return runner(job.id)
                 finally:
                     scheduled_job_ids.discard(job.id)
 
             request.app.state.job_executor.submit(execute)
+        return job
+
+    def today_error(request: Request):
+        """Strona główna z informacją, że żądanie nie przyszło z tej aplikacji."""
+        return templates.TemplateResponse(
+            request=request,
+            name="today.html",
+            context={"error_message": CSRF_ERROR_MESSAGE, "error_link": "/",
+                     "sync_banner": {"refresh": False}, "active_nav": "today"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    def plan_error(request: Request, message: str = CSRF_ERROR_MESSAGE, *, status_code=403, **extra):
+        """Strona planu z komunikatem błędu."""
+        return templates.TemplateResponse(
+            request=request,
+            name="plan.html",
+            context=plan_page_context(today=today(), error_message=message, now=datetime.now(), **extra),
+            status_code=status_code,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @router.post("/actions/sync")
+    def submit_sync(request: Request, csrf_token: str = Form(default=""), fresh: str = Form(default="")):
+        if not csrf_valid(request, csrf_token):
+            return today_error(request)
+        full = fresh == "1"
+        job = start_job(
+            request, "sync", {"fresh": full}, cooldown=SYNC_COOLDOWN,
+            runner=lambda job_id: run_sync_job(store=store, job_id=job_id, operation=sync_operation,
+                                               fresh=full, lock_directory=lock_directory))
         # Pełne pobranie trwa długo: pokaż stronę postępu zamiast pulpitu bez danych.
-        return RedirectResponse(url=f"/jobs/{job.id}" if full else "/", status_code=303)
+        return RedirectResponse(url=f"/jobs/{job.id}" if job and full else "/", status_code=303)
 
     @router.post("/actions/review")
     def submit_review(
@@ -209,40 +226,11 @@ def get_actions_router(
         review_key: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token) or not review_key:
-            return templates.TemplateResponse(
-                request=request,
-                name="today.html",
-                context={
-                    "error_message": "Nie można potwierdzić, że żądanie pochodzi z tej strony. Odśwież stronę i spróbuj ponownie.",
-                    "error_link": "/",
-                    "sync_banner": {"refresh": False},
-                    "active_nav": "today",
-                },
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
-        try:
-            with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("review", {"review_key": review_key}, cooldown=REVIEW_COOLDOWN)
-                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                if should_schedule:
-                    scheduled_job_ids.add(job.id)
-        except (LockBusyError, JobConflictError, JobCooldownError):
-            return RedirectResponse(url="/", status_code=303)
-        if should_schedule:
-            def execute():
-                try:
-                    return run_review_job(
-                        store=store,
-                        job_id=job.id,
-                        review_key=review_key,
-                        operation=run_review,
-                        lock_directory=lock_directory,
-                    )
-                finally:
-                    scheduled_job_ids.discard(job.id)
-
-            request.app.state.job_executor.submit(execute)
+            return today_error(request)
+        start_job(
+            request, "review", {"review_key": review_key}, cooldown=REVIEW_COOLDOWN,
+            runner=lambda job_id: run_review_job(store=store, job_id=job_id, review_key=review_key,
+                                                 operation=run_review, lock_directory=lock_directory))
         return RedirectResponse(url="/", status_code=303)
 
     @router.post("/actions/plan")
@@ -253,60 +241,20 @@ def get_actions_router(
         on_conflict: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(
-                    today=today(),
-                    error_message=CSRF_ERROR_MESSAGE,
-                    now=datetime.now(),
-                ),
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request)
         if not ai_ready():
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(
-                    today=today(),
-                    error_message="Generowanie planu wymaga włączenia wysyłania danych do AI.",
-                    error_command="python -m trainer setup",
-                    now=datetime.now(),
-                ),
-                status_code=400,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request, "Generowanie planu wymaga włączenia wysyłania danych do AI.",
+                              status_code=400, error_command="setup")
         if any(job.operation == "sync" and job.status in {"accepted", "running"} for job in store.list_jobs().jobs):
             # Plan ma powstać na świeżych danych; przycisk jest wtedy wyłączony, to bezpiecznik dla starej karty.
             return RedirectResponse(url=plan_url(week_start), status_code=303)
         decision, redirect = decide("plan", week_start, on_conflict)
         if redirect is not None:
             return redirect
-        try:
-            with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("plan", {"week_start": week_start, "on_conflict": decision},
-                                   cooldown=PLAN_COOLDOWN)
-                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                if should_schedule:
-                    scheduled_job_ids.add(job.id)
-        except (LockBusyError, JobConflictError, JobCooldownError):
-            return RedirectResponse(url="/plan", status_code=303)
-        if should_schedule:
-            def execute():
-                try:
-                    return run_plan_job(
-                        store=store,
-                        job_id=job.id,
-                        operation=run_plan,
-                        week_start=week_start,
-                        lock_directory=lock_directory,
-                        on_conflict=decision,
-                    )
-                finally:
-                    scheduled_job_ids.discard(job.id)
-
-            request.app.state.job_executor.submit(execute)
+        start_job(
+            request, "plan", {"week_start": week_start, "on_conflict": decision}, cooldown=PLAN_COOLDOWN,
+            runner=lambda job_id: run_plan_job(store=store, job_id=job_id, operation=run_plan, week_start=week_start,
+                                               lock_directory=lock_directory, on_conflict=decision))
         return RedirectResponse(url="/plan", status_code=303)
 
     @router.post("/actions/plan/push")
@@ -317,44 +265,15 @@ def get_actions_router(
         on_conflict: str = Form(default=""),
     ):
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(
-                    today=today(),
-                    error_message=CSRF_ERROR_MESSAGE,
-                    now=datetime.now(),
-                ),
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request)
         decision, redirect = decide("push", week_start, on_conflict)
         if redirect is not None:
             return redirect
-        try:
-            with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit("plan_push", {"week_start": week_start, "on_conflict": decision},
-                                   cooldown=PLAN_PUSH_COOLDOWN)
-                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                if should_schedule:
-                    scheduled_job_ids.add(job.id)
-        except (LockBusyError, JobConflictError, JobCooldownError):
-            return RedirectResponse(url="/plan", status_code=303)
-        if should_schedule:
-            def execute():
-                try:
-                    return run_plan_push_job(
-                        store=store,
-                        job_id=job.id,
-                        operation=run_plan_push,
-                        week_start=week_start,
-                        lock_directory=lock_directory,
-                        on_conflict=decision,
-                    )
-                finally:
-                    scheduled_job_ids.discard(job.id)
-
-            request.app.state.job_executor.submit(execute)
+        start_job(
+            request, "plan_push", {"week_start": week_start, "on_conflict": decision}, cooldown=PLAN_PUSH_COOLDOWN,
+            runner=lambda job_id: run_plan_push_job(store=store, job_id=job_id, operation=run_plan_push,
+                                                    week_start=week_start, lock_directory=lock_directory,
+                                                    on_conflict=decision))
         return RedirectResponse(url="/plan", status_code=303)
 
     @router.post("/actions/plan/remove")
@@ -367,35 +286,15 @@ def get_actions_router(
     ):
         """Usuń trening dnia z planu; z zegarkiem w tle, bo to logowanie do Garmina."""
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request)
         monday = week_monday(week_start)
         if scope == "garmin":
-            try:
-                with acquire_lock(name="jobs", directory=lock_directory):
-                    job = store.submit("plan_remove", {"week_start": week_start, "date": date})
-                    should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                    if should_schedule:
-                        scheduled_job_ids.add(job.id)
-            except (LockBusyError, JobConflictError, JobCooldownError):
-                return RedirectResponse(url=plan_url(week_start), status_code=303)
-            if should_schedule:
-                operation = partial(remove_plan_workout, day=date, from_garmin=True, today=today())
-
-                def execute():
-                    try:
-                        return run_plan_push_job(store=store, job_id=job.id, operation=operation,
-                                                 week_start=monday.date().isoformat(),
-                                                 lock_directory=lock_directory)
-                    finally:
-                        scheduled_job_ids.discard(job.id)
-
-                request.app.state.job_executor.submit(execute)
+            operation = partial(remove_plan_workout, day=date, from_garmin=True, today=today())
+            start_job(
+                request, "plan_remove", {"week_start": week_start, "date": date},
+                runner=lambda job_id: run_plan_push_job(store=store, job_id=job_id, operation=operation,
+                                                        week_start=monday.date().isoformat(),
+                                                        lock_directory=lock_directory))
             return RedirectResponse(url=plan_url(week_start), status_code=303)
         try:
             with acquire_lock(name="plan", directory=lock_directory):
@@ -403,13 +302,40 @@ def get_actions_router(
         except LockBusyError:
             pass
         except ValueError as error:
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(today=today(), error_message=str(error), now=datetime.now(), anchor=monday),
-                status_code=400,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request, str(error), status_code=400, anchor=monday)
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
+
+    @router.post("/actions/plan/edit")
+    def edit_plan_day(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+        date: str = Form(default=""),
+        action: str = Form(default=""),
+        target: str = Form(default=""),
+    ):
+        """Przenieś, skróć albo złagodź jeden trening; gdy jest na zegarku — w tle, bo to logowanie do Garmina."""
+        if not csrf_valid(request, csrf_token):
+            return plan_error(request)
+        monday = week_monday(week_start)
+        operation = partial(edit_plan_workout, day=date, action=action, target=target or None, today=today())
+        touched = {date, target} if action == "move" else {date}
+        on_watch = any(w.get("garmin_workout_id") for w in (stored_plan(week_start) or {}).get("workouts") or []
+                       if w.get("date") in touched)
+        if on_watch:
+            start_job(
+                request, "plan_edit", {"week_start": week_start, "date": date, "action": action, "target": target},
+                runner=lambda job_id: run_plan_push_job(store=store, job_id=job_id, operation=operation,
+                                                        week_start=monday.date().isoformat(),
+                                                        lock_directory=lock_directory))
+            return RedirectResponse(url=plan_url(week_start), status_code=303)
+        try:
+            with acquire_lock(name="plan", directory=lock_directory):
+                operation(week_start=monday.date().isoformat())
+        except LockBusyError:
+            pass
+        except ValueError as error:
+            return plan_error(request, str(error), status_code=400, anchor=monday)
         return RedirectResponse(url=plan_url(week_start), status_code=303)
 
     @router.post("/actions/plan/variant")
@@ -422,13 +348,7 @@ def get_actions_router(
     ):
         """Użyj drugiej wersji planu albo odłóż ją do archiwum; nic nie jest kasowane."""
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request)
         monday = week_monday(week_start)
         try:
             with acquire_lock(name="plan", directory=lock_directory):
@@ -441,13 +361,7 @@ def get_actions_router(
         except LockBusyError:
             pass
         except ValueError as error:
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(today=today(), error_message=str(error), now=datetime.now(), anchor=monday),
-                status_code=400,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request, str(error), status_code=400, anchor=monday)
         return RedirectResponse(url=plan_url(week_start), status_code=303)
 
     @router.post("/actions/plan/note")
@@ -460,13 +374,7 @@ def get_actions_router(
     ):
         """Wiadomość do trenera na tydzień; pusty tekst albo „Usuń wiadomość” ją czyści."""
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="plan.html",
-                context=plan_page_context(today=today(), error_message=CSRF_ERROR_MESSAGE, now=datetime.now()),
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return plan_error(request)
         set_week_note(week_monday(week_start), "" if clear else note)
         return RedirectResponse(url=plan_url(week_start) + "&note=saved#wiadomosc", status_code=303)
 
@@ -478,56 +386,33 @@ def get_actions_router(
         scope: str = Form(default="today"),
     ):
         if not csrf_valid(request, csrf_token):
-            return templates.TemplateResponse(
-                request=request,
-                name="today.html",
-                context={
-                    "error_message": CSRF_ERROR_MESSAGE,
-                    "error_link": "/",
-                    "sync_banner": {"refresh": False},
-                    "active_nav": "today",
-                },
-                status_code=403,
-                headers={"Cache-Control": "no-store"},
-            )
+            return today_error(request)
         if not ai_ready():
             return RedirectResponse(url="/?ai=off", status_code=303)
-        try:
-            with acquire_lock(name="jobs", directory=lock_directory):
-                # Rozmowa: każde pytanie to nowe zadanie (bez blokady czasowej); równolegle trwa najwyżej jedno.
-                job = store.submit("recommendation", {"date": today().date().isoformat(), "message": message,
-                                                      "scope": scope})
-                should_schedule = job.status == "accepted" and job.id not in scheduled_job_ids
-                if should_schedule:
-                    scheduled_job_ids.add(job.id)
-        except (LockBusyError, JobConflictError, JobCooldownError):
-            # Trener odpowiada jeszcze na poprzednie pytanie — zostajemy na stronie głównej z jasną informacją.
-            return RedirectResponse(url="/?rec=busy#rozmowa", status_code=303)
         week_scope = scope == "week" and bool(clean(message, MESSAGE_LIMIT))
-        if week_scope and should_schedule:
-            # „Dotyczy całego tygodnia”: najpierw dopisanie do wiadomości tygodnia, potem odpowiedź trenera, który już ją widzi.
+
+        def save_week_note(job):
+            """„Dotyczy całego tygodnia”: najpierw dopisanie do wiadomości tygodnia, potem odpowiedź trenera."""
+            if not week_scope:
+                return True
             try:
                 append_week_note(today().date(), message)
             except ValueError:
-                scheduled_job_ids.discard(job.id)
                 store.mark_running(job.id)
                 store.mark_failed(job.id, message=WEEK_NOTE_FULL_MESSAGE)
-                return RedirectResponse(url="/#rozmowa", status_code=303)
-        if should_schedule:
-            def execute():
-                try:
-                    return run_recommendation_job(
-                        store=store,
-                        job_id=job.id,
-                        operation=run_recommendation,
-                        lock_directory=lock_directory,
-                        message=clean(message, MESSAGE_LIMIT) or None,
-                        scope="week" if week_scope else None,
-                    )
-                finally:
-                    scheduled_job_ids.discard(job.id)
+                return False
+            return True
 
-            request.app.state.job_executor.submit(execute)
+        # Rozmowa: każde pytanie to nowe zadanie (bez blokady czasowej); równolegle trwa najwyżej jedno.
+        job = start_job(
+            request, "recommendation", {"date": today().date().isoformat(), "message": message, "scope": scope},
+            prepare=save_week_note,
+            runner=lambda job_id: run_recommendation_job(
+                store=store, job_id=job_id, operation=run_recommendation, lock_directory=lock_directory,
+                message=clean(message, MESSAGE_LIMIT) or None, scope="week" if week_scope else None))
+        if job is None:
+            # Trener odpowiada jeszcze na poprzednie pytanie — zostajemy na stronie głównej z jasną informacją.
+            return RedirectResponse(url="/?rec=busy#rozmowa", status_code=303)
         return RedirectResponse(url="/#rozmowa", status_code=303)
 
     @router.get("/jobs/{job_id}", response_class=HTMLResponse)
@@ -550,6 +435,7 @@ def get_actions_router(
                 "job": job,
                 "title": {"sync": "Synchronizacja danych", "plan": "Układanie planu",
                           "plan_push": "Wysyłka planu na zegarek", "plan_remove": "Usuwanie treningu z zegarka",
+                          "plan_edit": "Zmiana treningu",
                           "review": "Ocena treningu", "recommendation": "Rekomendacja na dziś",
                           }.get(job.operation, "Zadanie w tle"),
                 "message": labels[job.status],

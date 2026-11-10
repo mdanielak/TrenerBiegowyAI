@@ -380,6 +380,117 @@ def remove_plan_workout(*, week_start, day, from_garmin=False, workout_deleter=N
     return workouts[index]
 
 
+EDIT_ACTIONS = ("move", "shorten", "easier")
+_SHORTEN_FACTOR = 0.75
+_SHORTEST_RUN_MIN = 20
+
+
+def _fit_day_window(workout, availability) -> None:
+    """Po przeniesieniu: okno dostępności nowego dnia tylko skraca bieg spokojny, nigdy go nie wydłuża."""
+    from services.plan import AEROBIC_KINDS, _append_note
+
+    limit = int((availability.get(workout.get("day")) or {}).get("max_minutes") or 0)
+    minutes = workout.get("duration_min")
+    if workout.get("type") not in AEROBIC_KINDS or not limit or not minutes or minutes <= limit:
+        return
+    if workout.get("distance_km"):
+        workout["distance_km"] = round(workout["distance_km"] * limit / minutes, 1)
+    workout["name"] = str(workout.get("name") or "").replace(f"{minutes} min", f"{limit} min")
+    workout["duration_min"] = limit
+    workout["notes"] = _append_note(workout.get("notes"), f"Skrócono do {limit} min (limit dostępności w tym dniu).")
+
+
+def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=None, today=None,
+                      profile_loader=None) -> dict:
+    """Zmień jeden trening planu: przenieś na inny dzień, skróć albo zamień na spokojny bieg.
+
+    Bezpieczniki jak przy planie AI: minione dni zostają nietknięte, na dzień przerwy nic nie trafia,
+    a okno dostępności dnia tylko skraca. Trening wysłany na zegarek znika z niego przed zapisem planu,
+    więc błąd Garmina zostawia plan zgodny z zegarkiem.
+    """
+    from services import plan as plan_service
+    from trainer.preferences import get_active_pause, get_weekly_availability
+
+    if action not in EDIT_ACTIONS:
+        raise ValueError("Nieznana zmiana treningu.")
+    plan = plan_service.load_week_plan(as_datetime(week_start) or datetime.now())
+    if plan is None:
+        raise ValueError(PLAN_NO_PLAN_MESSAGE)
+    current = (as_datetime(today) or datetime.now()).date().isoformat()
+    workouts = plan.get("workouts", [])
+    index = next((i for i, w in enumerate(workouts) if w.get("date") == day), None)
+    if index is None or workouts[index].get("type") == "rest":
+        raise ValueError("Tego dnia nie ma treningu do zmiany.")
+    if day < current:
+        raise ValueError("Treningów z minionych dni nie zmieniamy: to historia porównywana w Statystykach.")
+    workout = workouts[index]
+    kind, minutes = workout.get("type"), workout.get("duration_min")
+    affected = [workout]
+
+    other_index = None
+    if action == "move":
+        other_index = next((i for i, w in enumerate(workouts) if w.get("date") == target), None)
+        if other_index is None or other_index == index:
+            raise ValueError("Wybierz inny dzień z tego tygodnia.")
+        if target < current:
+            raise ValueError("Nie można przenieść treningu na dzień, który już minął.")
+        if get_active_pause(target):
+            raise ValueError("W tym dniu trwa przerwa treningowa.")
+        affected.append(workouts[other_index])
+    elif action == "shorten":
+        if kind not in plan_service.AEROBIC_KINDS or not minutes:
+            raise ValueError("Skrócić można tylko bieg spokojny albo długi. Mocny trening zamień na spokojny bieg.")
+        shorter = max(_SHORTEST_RUN_MIN, int(round(minutes * _SHORTEN_FACTOR / 5) * 5))
+        if shorter >= minutes:
+            raise ValueError(f"Ten trening jest już krótki ({minutes} min).")
+    elif kind in ("easy", "recovery"):
+        raise ValueError("To już jest spokojny bieg.")
+
+    # Najpierw zegarek: dopiero gdy stare treningi z niego znikną, plan się zmienia.
+    for item in affected:
+        if item.get("garmin_workout_id"):
+            if workout_deleter is None:
+                workout_deleter = _garmin_session()[1]
+            workout_deleter(item["garmin_workout_id"], reason="zmieniony w planie")
+        item["garmin_upload"], item["garmin_workout_id"] = False, None
+
+    if action == "move":
+        other = workouts[other_index]
+        place = lambda item: {"day": item.get("day"), "date": item.get("date")}  # noqa: E731
+        workouts[index], workouts[other_index] = {**other, **place(workout)}, {**workout, **place(other)}
+        availability = get_weekly_availability()
+        _fit_day_window(workouts[index], availability)
+        _fit_day_window(workouts[other_index], availability)
+        changed = workouts[other_index]
+    elif action == "shorten":
+        if workout.get("distance_km"):
+            workout["distance_km"] = round(workout["distance_km"] * shorter / minutes, 1)
+        workout["name"] = str(workout.get("name") or "").replace(f"{minutes} min", f"{shorter} min")
+        workout["duration_min"] = shorter
+        workout["notes"] = plan_service._append_note(workout.get("notes"), f"Skrócono z {minutes} do {shorter} min na Twoją prośbę.")
+        changed = workout
+    else:
+        if profile_loader is None:
+            from trainer.profile_store import load_profile as profile_loader
+        try:
+            floors = (profile_loader() or {}).get("hr_zone_floors")
+        except (OSError, ValueError):
+            floors = None
+        minutes = minutes or 30
+        before = workout.get("name") or "mocny trening"
+        for key in ("repetitions", "work_seconds", "rest_seconds"):
+            workout.pop(key, None)
+        workout.update(
+            type="easy", name=f"Bieg łatwy {minutes} min", duration_min=minutes, distance_km=None, pace_target=None,
+            hr_zone="Z2", hr_target=plan_service.hr_band(2, floors),
+            description="Spokojny bieg w tempie rozmowy, bez przyspieszeń.",
+            notes=plan_service._append_note(workout.get("notes"), f"Zamieniono na spokojny bieg na Twoją prośbę (było: {before})."),
+        )
+        changed = workout
+    plan_service.save_plan(plan)
+    return changed
+
+
 def run_plan_push_job(*, store, job_id, operation=push_plan_to_garmin, week_start=None,
                       lock_directory=None, on_conflict=None):
     """Wykonaj wysyłkę planu do Garmina pod blokadą i zapisz stan zadania."""
