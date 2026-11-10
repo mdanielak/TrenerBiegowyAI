@@ -51,6 +51,19 @@ class AIResponseError(Exception):
     pass
 
 
+def _provider_error(exc: BaseException) -> AIProviderError:
+    """Własny komunikat bez treści odpowiedzi dostawcy; przyczyna zostaje w lokalnym logu.
+
+    Dostawca może odbić w treści błędu klucz albo dane, które wyszły w żądaniu. Do wyjątku
+    trafia więc tylko nazwa błędu i kod statusu — szczegół zapisujemy w logu na tym
+    komputerze, a w aplikacji widać wyłącznie własny, zmapowany komunikat.
+    """
+    status = getattr(exc, "status_code", None)
+    logger.error("AI provider request failed (%s, status %s)", type(exc).__name__, status, exc_info=exc)
+    message = f"AI API error (HTTP {status})" if status else "AI API error"
+    return AIProviderError(message, status)
+
+
 class OpenAICompatibleProvider(AIProvider):
     """AI provider using the OpenAI SDK (works with any compatible endpoint)."""
 
@@ -108,15 +121,14 @@ class OpenAICompatibleProvider(AIProvider):
             # Prompt i tak wymaga samego JSON-a, więc jedna ponowna próba bez nich jest bezpieczna.
             optional = [name for name in ("response_format", "seed", "max_tokens") if name in kwargs]
             if not optional or getattr(e, "status_code", None) != 400:
-                raise AIProviderError(f"AI API error: {e}", getattr(e, "status_code", None)) from e
+                raise _provider_error(e) from e
             logger.info("AI provider rejected %s; retrying without them", ", ".join(optional))
             for name in optional:
                 kwargs.pop(name)
             try:
                 response = self.client.chat.completions.create(**kwargs)
             except Exception as retry_error:
-                raise AIProviderError(f"AI API error: {retry_error}",
-                                      getattr(retry_error, "status_code", None)) from retry_error
+                raise _provider_error(retry_error) from retry_error
 
         content = response.choices[0].message.content
         if response_model is not None and getattr(response.choices[0], "finish_reason", None) == "length":

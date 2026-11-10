@@ -2,7 +2,7 @@
 
 Stabilne kody wyjścia: 1 — błąd ogólny, 3 — brak zależności, 4 — brak
 GarminDB, 5 — problem z profilem lub JSON, 6 — brak uprawnień, 7 — baza
-danych.
+danych, 8 — logowanie do Garmina, 9 — błąd dostawcy AI.
 """
 from __future__ import annotations
 
@@ -64,5 +64,13 @@ def describe_error(exc: BaseException) -> ErrorAdvice:
             "Nie udało się zalogować do Garmin Connect.",
             text or "Zaloguj ponownie: python -m trainer setup. Hasło jest podawane tylko interaktywnie.",
             8,
+        )
+    # Błąd dostawcy AI rozpoznajemy po nazwie klasy, żeby nie wciągać pakietu openai
+    # do modułu obsługi błędów. Treści odpowiedzi dostawcy nie pokazujemy.
+    if type(exc).__name__ == "AIProviderError":
+        return ErrorAdvice(
+            "Dostawca AI odrzucił żądanie.",
+            "Sprawdź w Ustawieniach → AI adres API, nazwę modelu i klucz, a potem sprawdź połączenie.",
+            9,
         )
     return ErrorAdvice("Wystąpił nieoczekiwany błąd.", f"Szczegóły: {text or type(exc).__name__}", 1)

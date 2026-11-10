@@ -148,6 +148,35 @@ class TestOpenAICompatibleProvider:
             provider.chat("System", "User")
 
     @patch('ai.openai_compatible.OpenAI')
+    def test_provider_error_does_not_repeat_the_provider_text(self, mock_openai_cls):
+        # Dostawca może odbić klucz albo dane w treści błędu; do wyjątku nie przenosimy tej treści.
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "sk-tajny-klucz odrzucony przez api.example.test")
+
+        provider = OpenAICompatibleProvider("http://localhost/v1", "key", "model")
+        with pytest.raises(AIProviderError) as exc_info:
+            provider.chat("System", "User")
+        assert "sk-tajny-klucz" not in str(exc_info.value)
+        assert "api.example.test" not in str(exc_info.value)
+
+    @patch('ai.openai_compatible.OpenAI')
+    def test_provider_error_keeps_the_status_code(self, mock_openai_cls):
+        class _RateLimited(Exception):
+            status_code = 429
+
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = _RateLimited("too many requests")
+
+        provider = OpenAICompatibleProvider("http://localhost/v1", "key", "model")
+        with pytest.raises(AIProviderError) as exc_info:
+            provider.chat("System", "User")
+        assert exc_info.value.status_code == 429
+        assert "too many requests" not in str(exc_info.value)
+
+    @patch('ai.openai_compatible.OpenAI')
     def test_chat_empty_response(self, mock_openai_cls):
         mock_client = MagicMock()
         mock_openai_cls.return_value = mock_client

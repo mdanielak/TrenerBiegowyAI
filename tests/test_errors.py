@@ -42,6 +42,16 @@ def test_garmin_auth_error_is_not_reported_as_unexpected():
     assert "GARMIN_PASSWORD" not in advice.hint
 
 
+def test_ai_provider_error_is_reported_in_polish_without_the_provider_text():
+    from ai.openai_compatible import AIProviderError
+
+    advice = describe_error(AIProviderError("AI API error (HTTP 500)"))
+    assert advice.exit_code == 9
+    assert "nieoczekiwany" not in advice.message.lower()
+    assert "Dostawca AI" in advice.message
+    assert "AI API error" not in advice.hint
+
+
 def test_env_hint_matches_current_platform():
     hint = env_hint("MY_VALUE", "abc")
     assert ("$env:MY_VALUE" if __import__("sys").platform == "win32" else "export MY_VALUE") in hint
