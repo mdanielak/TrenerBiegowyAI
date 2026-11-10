@@ -376,6 +376,24 @@ def _empty_workout():
     }
 
 
+def _clip_to_window(entry, notes, max_minutes) -> None:
+    """Skróć trening do okna dostępności dnia i dopisz o tym uwagę."""
+    clipped, changed = _clip_duration(entry["duration_min"], 0, max_minutes)
+    if changed:
+        entry["duration_min"] = clipped
+        notes.append(f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
+
+
+def _settle_aerobic(entry, notes, max_minutes, default_zone=2) -> None:
+    """Bieg spokojny: uzupełnij brakującą strefę i przytnij czas do okna dnia."""
+    zone = zone_number(entry["hr_zone"])
+    if zone is None:
+        zone = default_zone
+        notes.append(f"Uzupełniono brakującą strefę tętna: Z{zone}.")
+    entry["hr_zone"] = zone
+    _clip_to_window(entry, notes, max_minutes)
+
+
 def _normalize_day(day, workout, floors):
     """Zastosuj reguły dnia i zwróć finalny zapis treningu."""
     available = bool(day.get("available"))
@@ -425,15 +443,7 @@ def _normalize_day(day, workout, floors):
         return _finish_day(day, entry, notes, floors)
 
     if kind in AEROBIC_KINDS:
-        zone = zone_number(entry["hr_zone"])
-        if zone is None:
-            zone = 2 if kind in ("easy", "long") else 1
-            notes.append(f"Uzupełniono brakującą strefę tętna: Z{zone}.")
-        entry["hr_zone"] = zone
-        clipped, changed = _clip_duration(entry["duration_min"], min_minutes, max_minutes)
-        if changed:
-            entry["duration_min"] = clipped
-            notes.append(f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
+        _settle_aerobic(entry, notes, max_minutes, default_zone=2 if kind in ("easy", "long") else 1)
 
     if kind in ("tempo", "threshold"):
         if parse_pace_target(entry["pace_target"]) is None:
@@ -455,23 +465,12 @@ def _normalize_day(day, workout, floors):
         entry["kind"] = "easy"
 
     if entry["kind"] != kind and entry["kind"] in AEROBIC_KINDS:
-        zone = zone_number(entry["hr_zone"])
-        if zone is None:
-            zone = 2
-            notes.append("Uzupełniono brakującą strefę tętna: Z2.")
-        entry["hr_zone"] = zone
-        clipped, changed = _clip_duration(entry["duration_min"], min_minutes, max_minutes)
-        if changed:
-            entry["duration_min"] = clipped
-            notes.append(f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
+        _settle_aerobic(entry, notes, max_minutes)
 
     if entry["kind"] != "rest" and entry["duration_min"] is None:
         entry["duration_min"] = min_minutes
         if entry["kind"] in AEROBIC_KINDS:
-            clipped, changed = _clip_duration(entry["duration_min"], min_minutes, max_minutes)
-            if changed:
-                entry["duration_min"] = clipped
-                notes.append(f"Skrócono do {clipped} min (limit dostępności w tym dniu).")
+            _clip_to_window(entry, notes, max_minutes)
 
     return _finish_day(day, entry, notes, floors)
 
