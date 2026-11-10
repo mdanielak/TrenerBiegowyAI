@@ -21,8 +21,9 @@ TrenerBiegowyAI to lokalna aplikacja dla biegaczy korzystających z Garmin Conne
 ## Co możesz zrobić
 
 - **Sprawdzić gotowość** — zobaczyć ocenę dnia, jej uzasadnienie i dostępność pomiarów snu, HRV, tętna spoczynkowego oraz stresu.
-- **Ułożyć tydzień** — uwzględnić cel, dostępność, samopoczucie i przerwy; z pomocą AI przygotować plan i wysłać treningi do Garmina.
-- **Porównać plan z aktywnościami** — przejrzeć kalendarz, czas i dystans biegów zapisanych przez zegarek oraz statystyki ostatnich tygodni.
+- **Ułożyć tydzień** — uwzględnić cel, dostępność, samopoczucie i przerwy; z pomocą AI przygotować plan i wysłać treningi do Garmina. Jeden trening można przenieść na inny dzień, skrócić albo zamienić na spokojny bieg.
+- **Porównać plan z aktywnościami** — przejrzeć kalendarz, czas i dystans biegów zapisanych przez zegarek oraz statystyki ostatnich tygodni. Na stronie Planu widać, ile z tygodnia wykonano, a od piątku także propozycję na kolejny tydzień.
+- **Zaplanować przygotowanie do zawodów** — rozłożyć czas do startu na fazy (baza, budowanie, przygotowanie startowe, odpoczynek przed startem). Liczy je ten komputer z zapisanego celu i ostatnich biegów, bez AI.
 - **Prowadzić dziennik** — zapisać samopoczucie, odczuwany wysiłek, ból i przerwy treningowe.
 - **Kontrolować swoje dane** — wybrać, czy dane treningowe i zdrowotne mogą trafić do wskazanego dostawcy AI.
 
@@ -45,18 +46,18 @@ Bez AI możesz synchronizować i przeglądać dane, korzystać z dziennika oraz 
 
 ### Aktualizacja
 
-Uruchom `update.bat`, aby pobrać najnowsze wydanie i zaktualizować aplikację. Możesz też przeciągnąć pobrany plik ZIP na `update.bat`. Dane lokalne, konfiguracja i własne plany są zachowywane. W kopii repozytorium Git aktualizacja używa `git pull`.
+Uruchom `update.bat`, aby pobrać najnowsze wydanie i zaktualizować aplikację. Możesz też przeciągnąć pobrany plik ZIP na `update.bat`. Dane lokalne, konfiguracja i własne plany są zachowywane. W kopii repozytorium Git aktualizacja używa `git pull`. Aplikacja sama przypomni o nowszym wydaniu, gdy sprawdzi GitHub raz na dobę.
 
 ## Widoki aplikacji
 
 | Widok | Co znajdziesz |
 | --- | --- |
 | **Dzisiaj** | Sygnały, gotowość, trening na dziś i synchronizację |
-| **Plan treningowy** | Cel tygodnia, treningi dzień po dniu, porównanie czasu oraz wysyłkę do Garmina |
+| **Plan treningowy** | Cel tygodnia, treningi dzień po dniu, zmiana jednego treningu, podsumowanie tygodnia i wysyłka do Garmina |
 | **Statystyki** | Dystans, czas biegów, plan i trendy pomiarów |
 | **Analiza** | Wyjaśnienie oceny gotowości i zmierzone wartości |
 | **Dziennik** | Samopoczucie, RPE, ból, notatki i przerwy |
-| **Cel** | Zapisany cel oraz opcjonalną strategię długoterminową |
+| **Cel** | Zapisany cel, fazy przygotowań wyłożone z celu i kryteria gotowości |
 | **Ustawienia** | Połączenia, profil, strefy tętna i cel |
 
 Aplikacja ma jasny i ciemny motyw. **Auto** dopasowuje go do systemu.
@@ -70,7 +71,7 @@ Serwer aplikacji nasłuchuje lokalnie pod adresem `127.0.0.1`. Dane są przechow
 - `~/.GarminDb/` i katalogu danych GarminDB — dane pobrane z Garmina;
 - `.env` — konfiguracja połączenia z AI i e-mail Garmin.
 
-Synchronizacja wymienia dane z usługą Garmin. Funkcje AI wysyłają dane do skonfigurowanego dostawcy dopiero po włączeniu zgody w ustawieniach. Dostępne są konfiguracje zgodne z API OpenAI, w tym dostawcy zewnętrzni i lokalne Ollama. Warunki, limity i koszty zależą od wybranego dostawcy.
+Synchronizacja wymienia dane z usługą Garmin. Przy starcie aplikacja pobiera je sama, jeśli są nieaktualne — to ta sama wymiana danych co przycisk „Zsynchronizuj dane”. Funkcje AI wysyłają dane do skonfigurowanego dostawcy dopiero po włączeniu zgody w ustawieniach. Dostępne są konfiguracje zgodne z API OpenAI, w tym dostawcy zewnętrzni i lokalne Ollama. Warunki, limity i koszty zależą od wybranego dostawcy.
 
 Hasło Garmin jest używane podczas logowania i nie jest zapisywane przez aplikację. Token konta pozostaje na komputerze i można go usunąć przez ustawienia zegarka. Klucz AI jest przechowywany jawnie w lokalnym pliku `.env`; nie udostępniaj go.
 

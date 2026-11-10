@@ -17,7 +17,9 @@ Własne, prywatne zasady dla trenera można dopisać w `local/moje-zasady-trener
 - Aktualne strefy, częstotliwość treningów i cel pobieraj z prywatnego profilu runtime `local/profile.json`. Nie używaj historycznych pól `hrz_*` jako aktualnych stref.
 - Biegi łatwe, regeneracyjne i długie prowadź przede wszystkim według tętna. Każdy bieg Z2 zaczyna się 5–6 minutami spokojnej rozgrzewki bez alarmu HR, potem stosuj alarm strefy.
 - Tempo jest wskazówką pomocniczą; warunki, zmęczenie i tętno mogą uzasadniać jego korektę.
-- Planuj najwyżej jeden główny akcent tygodniowo. Liczba biegów w tygodniu ma respektować profil i strategię, a nie stałą z góry ustaloną wartość.
+- Główny akcent tygodniowo to maksimum; ile mocnych treningów się mieści, zależy od profilu (punkt niżej). Liczba biegów w tygodniu ma respektować profil i strategię, a nie stałą z góry ustaloną wartość.
+- Liczba mocnych treningów w tygodniu (0, 1 albo 2) pochodzi z profilu biegacza, a początkujący nie dostaje żadnego. Podaje ją aplikacja — nie zakładaj jej z góry i nie podawaj własnej.
+- Okno dostępności dnia to górna granica czasu: może skrócić trening, nigdy go nie wydłużyć.
 - Do akcentów preferuj wiarygodny pomiar tętna; gdy dane czujnika są niewiarygodne, nie udawaj precyzji.
 
 ## Strategia i pliki

@@ -37,7 +37,9 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - `templates/`, `static/` — Jinja i CSS (tokeny kolorów w `static/css/styles.css`, zasady w `DESIGN.md`), `static/js/interface.js`.
 - `services/` — logika: `today.py`, `plan.py` (normalizacja planu AI i **bezpieczniki**), `runner_profile.py`
   (profil biegacza, decyzja tygodnia, limity), `actions.py` (zadania w tle: synchronizacja, plan, wysyłka, usuwanie),
-  `jobs.py` (stan zadań w `local/jobs`), `wizard.py` (kreator celu), `strategy.py` (opcjonalna strategia z `training-plans/long-term/strategia.md`).
+  `jobs.py` (stan zadań w `local/jobs`), `wizard.py` (kreator celu), `strategy.py` (opcjonalna strategia z `training-plans/long-term/strategia.md`),
+  `strategy_builder.py` (fazy przygotowań liczone z celu i ostatnich biegów), `week_summary.py` (plan a wykonanie tygodnia),
+  `update_check.py` (sprawdzenie, czy jest nowsze wydanie na GitHubie).
 - `ai/` — wywołania AI: `plan_generation.py` (plan tygodnia, schemat JSON i twarde reguły), `recommendation.py`
   (rekomendacja dnia), `workout_review.py` (komentarz do treningu), `context.py` (dane do promptu).
 - `ai/prompts/` — prompty trenera: `trener.md`, `jezyk/` (forma męska/żeńska/bez form), `core/01–05`, `poziom/`, `cel/`,
@@ -48,8 +50,12 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 ## Zasady, które łatwo złamać
 - Limity planu muszą być te same w prompcie i w kodzie: model dostaje je w linii „LIMITY APLIKACJI”
   (`services/runner_profile.py::profile_lines`), a egzekwuje `services/plan.py::normalize_plan`.
+  Liczba mocnych treningów w tygodniu (0, 1 albo 2) ma jedno źródło:
+  `services/runner_profile.py::quality_sessions_limit` — korzystają z niej i prompt, i kod.
 - Okno dostępności dnia tylko skraca trening, nigdy go nie wydłuża.
-- Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z”, tag `vX.Y.Z`,
+- Komunikat napisany przez aplikację (`services/jobs.py::UserMessageError`) trafia do zadania i na ekran;
+  wyjątek z biblioteki nigdy. Surowe błędy dostawców AI zostają w logu na tym komputerze, nigdy w interfejsie.
+- Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z", tag `vX.Y.Z`,
   `git archive --format=zip --prefix=TrenerBiegowyAI/ -o dist/TrenerBiegowyAI-X.Y.Z.zip vX.Y.Z`,
   `gh release create` z polskimi notatkami (zip jako asset — z niego korzysta `update.bat`).
 - Aktualne prompty są wyłącznie w `ai/prompts/`; `docs/TRAINING_RULES.md` to opis dla ludzi i do promptu nie trafia.
