@@ -332,7 +332,8 @@
               {% if plan_day.available and plan_day.max_minutes %}
                 <span class="day-block-meta">Masz {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min</span>
               {% endif %}
-              {% if plan_day.description or plan_day.notes %}
+              {% set editable = not plan_day.is_rest and not plan_day.is_past %}
+              {% if plan_day.description or plan_day.notes or editable %}
                 {# Opis w wąskiej kolumnie dnia był nieczytelny: pełne szczegóły w okienku. #}
                 {% set dialog_id = 'szczegoly-' ~ plan_day.date %}
                 <button type="button" class="secondary day-details" data-dialog="{{ dialog_id }}" aria-haspopup="dialog" aria-label="Szczegóły: {{ plan_day.weekday }}, {{ plan_day.name or plan_day.kind_label }}">Szczegóły</button>
@@ -356,6 +357,33 @@
                     {% endif %}
                     {% if plan_day.description %}<h4>Jak to zrobić</h4><p>{{ plan_day.description }}</p>{% endif %}
                     {% if plan_day.notes %}<h4>Uwagi</h4><p>{{ plan_day.notes }}</p>{% endif %}
+                    {% if editable %}
+                      {# Zmiana jednego treningu bez układania całego tygodnia od nowa; te same bezpieczniki co w planie. #}
+                      <div class="workout-edit">
+                        <h4>Zmień ten trening</h4>
+                        {% if plan_day.garmin_upload %}<p class="tile-foot">Ten trening jest na zegarku. Po zmianie zniknie z niego — wyślij wtedy plan ponownie.</p>{% endif %}
+                        <form method="post" action="/actions/plan/edit" class="row">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                          <input type="hidden" name="week_start" value="{{ week_start }}">
+                          <input type="hidden" name="date" value="{{ plan_day.date }}">
+                          <label class="field inline">Przenieś na
+                            <select name="target" class="text-input">
+                              {% for other in plan.days if not other.is_past and other.date != plan_day.date %}
+                                <option value="{{ other.date }}">{{ other.weekday }}{% if not other.is_rest %} — zamiana z: {{ other.name }}{% endif %}</option>
+                              {% endfor %}
+                            </select>
+                          </label>
+                          <button type="submit" name="action" value="move" class="btn-secondary">Przenieś</button>
+                        </form>
+                        <form method="post" action="/actions/plan/edit" class="row">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                          <input type="hidden" name="week_start" value="{{ week_start }}">
+                          <input type="hidden" name="date" value="{{ plan_day.date }}">
+                          {% if plan_day.kind in ('easy', 'recovery', 'long') and plan_day.duration_min %}<button type="submit" name="action" value="shorten" class="btn-secondary">Skróć o ćwierć</button>{% endif %}
+                          {% if plan_day.kind not in ('easy', 'recovery') %}<button type="submit" name="action" value="easier" class="btn-secondary">Zamień na spokojny bieg</button>{% endif %}
+                        </form>
+                      </div>
+                    {% endif %}
                   </div>
                 </dialog>
               {% endif %}
@@ -365,6 +393,27 @@
       </div>
       <p class="tile-foot">Gotowość zmierzona w {{ plan.measured_days }} z 7 dni.</p>
     </section>
+
+    {% if week_summary %}
+    <section class="card" id="wykonanie">
+      <div class="card-head">
+        <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>{% if week_summary.over %}Jak poszedł ten tydzień{% else %}Jak idzie ten tydzień{% endif %}</span></h2>
+      </div>
+      <p><strong>Wykonano {{ week_summary.done }} z {{ week_summary.due }} {{ week_summary.due|plural('zaplanowanego treningu', 'zaplanowanych treningów', 'zaplanowanych treningów') }}{% if not week_summary.over %} do wczoraj{% endif %}</strong>{% if week_summary.planned_min %} — {{ week_summary.done_min|num }} z {{ week_summary.planned_min|num }} min{% endif %}.
+        {% if week_summary.runs %}Zegarek zapisał w tym tygodniu {{ week_summary.runs }} {{ week_summary.runs|plural('bieg', 'biegi', 'biegów') }}, razem {{ week_summary.km|num }} km.{% endif %}</p>
+      {% if week_summary.missed %}<p class="mid">Bez biegu z zegarka: {{ week_summary.missed|join('; ') }}.</p>{% endif %}
+      {% if week_summary.shortened %}<p class="mid">Wyraźnie krótsze niż w planie: {{ week_summary.shortened }}.</p>{% endif %}
+      {% if week_summary.proposal %}
+        <div class="suggestion plain">
+          <div>
+            <p class="suggestion-title">Propozycja na kolejny tydzień: {{ week_summary.proposal.label }}</p>
+            <p class="suggestion-text">{{ week_summary.proposal.reason }} Tę samą wskazówkę dostanie trener przy układaniu następnego planu — decyzja należy do Ciebie.</p>
+          </div>
+        </div>
+        <p><a class="btn btn-secondary" href="/plan?week={{ next_week }}">Przejdź do kolejnego tygodnia</a></p>
+      {% endif %}
+    </section>
+    {% endif %}
 
     <section class="card">
       <div class="card-head">
@@ -413,8 +462,8 @@
             <img class="asset tile-icon" src="/assets/07_ui_icons/tile_quality.png" width="28" height="28" alt="">
           <span class="tile-label"><span>Treningi jakościowe</span></span>
           </span>
-          <span class="tile-value">{{ plan.totals.quality_sessions }}<span class="tile-unit">z 1</span></span>
-          <span class="tile-foot">Limit z ustawień treningowych</span>
+          <span class="tile-value">{{ plan.totals.quality_sessions }}<span class="tile-unit">z {{ max_quality_sessions }}</span></span>
+          <span class="tile-foot">Limit zmienisz w <a href="/wizard">celu i dniach treningowych</a></span>
         </div>
       </div>
 

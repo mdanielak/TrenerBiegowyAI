@@ -193,6 +193,26 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     }
 
 
+def decision_reason(runner: dict) -> str:
+    """Powód decyzji tygodnia prostym językiem — te same warunki, co w build_runner_profile."""
+    decision, adherence = runner.get("decision"), runner.get("adherence")
+    if decision == "odpusc":
+        if runner.get("pain"):
+            return "W dzienniku z ostatnich dni jest ból."
+        if (runner.get("rhr_up") or 0) >= 5:
+            return f"Tętno spoczynkowe jest o {runner['rhr_up']} bpm wyższe niż zwykle — to znak zmęczenia."
+        return "Wykonano mniej niż 60% zaplanowanych treningów."
+    if decision == "utrzymaj":
+        if adherence is None:
+            return "Za mało danych o wykonaniu planu, żeby dokładać."
+        if adherence < 0.9:
+            return "Nie wszystkie zaplanowane treningi zostały wykonane."
+        if runner.get("returning"):
+            return "Wracasz po dłuższej przerwie — najpierw regularność."
+        return "Spokojne biegi wychodzą za mocno: tętno często powyżej strefy 2."
+    return "Plan wykonany, a pomiary nie pokazują zmęczenia."
+
+
 def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     """Sekcja PROFIL BIEGACZA w wiadomości do AI; ``weekly`` dodaje decyzję i limity tygodnia (tylko plan)."""
     def value(number, unit=""):

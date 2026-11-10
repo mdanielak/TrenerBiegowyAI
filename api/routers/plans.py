@@ -13,6 +13,7 @@ from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan import previous_week_load
 from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
+from services.week_summary import build_week_summary
 from services import plan_conflicts
 from services.ai_notes import WEEK_NOTE_LIMIT, note_for_week
 from trainer import preferences
@@ -38,7 +39,43 @@ PLAN_REMOVE_MESSAGES = {
     "failed": "Nie udało się usunąć treningu z zegarka. Plan został bez zmian.",
     "succeeded": "Trening usunięty z planu i z zegarka.",
 }
+PLAN_EDIT_MESSAGES = {
+    "running": "Trwa zmiana treningu: najpierw znika z zegarka, potem zmienia się w planie.",
+    "failed": "Nie udało się zmienić treningu, bo nie dało się go usunąć z zegarka. Plan został bez zmian.",
+    "succeeded": "Trening zmieniony i zdjęty z zegarka. Wyślij plan ponownie przyciskiem „Wyślij do Garmina”.",
+}
 _EMPTY_BANNER = {"message": None, "details_url": None, "refresh": False, "disabled": False}
+
+
+def _max_quality_sessions() -> int:
+    """Ten sam limit, który dostaje model i egzekwuje normalize_plan."""
+    try:
+        return int(preferences.load_preferences().get("max_quality_sessions_per_week", 1) or 0)
+    except (OSError, ValueError, TypeError):
+        return 0
+
+
+def _week_summary(stored, data, today, profile_provider) -> dict | None:
+    """Plan a wykonanie tygodnia; propozycja na kolejny tydzień z tego samego profilu, co układanie planu."""
+    if not stored or not isinstance(data, dict):
+        return None
+    runner = None
+    try:
+        from ai.context import build_training_context
+        from services.plan import _plan_trends
+        from services.runner_profile import build_runner_profile
+
+        training = build_training_context(data, plan=None, today=today)
+        runner = build_runner_profile(
+            activities=data.get("activities"), profile=profile_provider(), today=today.date(),
+            rhr_trend=((_plan_trends(data, today.date()) or {}).get("metrics") or {}).get("rhr"),
+            previous_plan=stored, pain=bool((training.get("journal") or {}).get("pain_days")))
+    except Exception:  # noqa: BLE001 - bez propozycji strona planu nadal pokazuje liczby
+        logger.warning("Could not build the weekly proposal")
+    try:
+        return build_week_summary(stored, data.get("activities"), today=today.date(), runner=runner)
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
@@ -83,6 +120,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "conflict": conflict,
         "variants": variants or [],
         "week_note_limit": WEEK_NOTE_LIMIT,
+        "max_quality_sessions": _max_quality_sessions(),
     }
 
 
@@ -127,16 +165,16 @@ def get_plans_router(
             profile_provider()
         except FileNotFoundError:
             error_message = "Brakuje lokalnego profilu biegacza."
-            error_command = "python -m trainer setup"
+            error_command = "setup"
         except Exception:
             logger.error("Could not read runner profile")
             error_message = "Nie można odczytać lokalnego profilu biegacza."
-            error_command = "python -m trainer setup"
+            error_command = "setup"
 
         snapshot = snapshot_provider()
         if snapshot.status is SnapshotStatus.MISSING:
-            error_message = "Brakuje lokalnego snapshotu danych."
-            error_command = "python -m trainer sync"
+            error_message = "Nie ma jeszcze danych z zegarka."
+            error_command = "sync"
         data = snapshot.data or {}
 
         readiness_by_date = {}
@@ -178,6 +216,10 @@ def get_plans_router(
         except OSError:
             variants = []
 
+        # Zmiana i usunięcie treningu dzielą jedno miejsce na stronie: pokazujemy to, co się dzieje teraz.
+        edit_banner = _plan_banner(store, now, "plan_edit", PLAN_EDIT_MESSAGES)
+        remove_banner = edit_banner if edit_banner["message"] else _plan_banner(
+            store, now, "plan_remove", PLAN_REMOVE_MESSAGES)
         token = csrf_token(request)
         context = plan_page_context(
             today=today,
@@ -187,7 +229,7 @@ def get_plans_router(
             ai_ready=ai_ready,
             banner=_plan_banner(store, now, "plan", PLAN_MESSAGES),
             push_banner=_plan_banner(store, now, "plan_push", PLAN_PUSH_MESSAGES),
-            remove_banner=_plan_banner(store, now, "plan_remove", PLAN_REMOVE_MESSAGES),
+            remove_banner=remove_banner,
             error_message=error_message,
             error_command=error_command,
             now=now,
@@ -199,6 +241,7 @@ def get_plans_router(
             conflict=conflict,
             variants=variants,
         )
+        context["week_summary"] = _week_summary(stored, data, today, profile_provider)
         try:
             context["week_note"] = note_for_week(monday)
         except OSError:
