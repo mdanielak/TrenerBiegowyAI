@@ -35,7 +35,21 @@
 </section>
 {% endif %}
 
+{% macro strategy_form(label, style='') %}
+  <form method="post" action="/goal/strategy" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit"{% if style %} class="{{ style }}"{% endif %}>{{ label }}</button>
+  </form>
+{% endmacro %}
 {% if no_strategy and has_goal %}
+
+  {% if can_build_strategy and saved_goal.target_date %}
+  <section class="card" aria-labelledby="fazy-naglowek">
+    <div class="card-head"><h2 id="fazy-naglowek"><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Fazy przygotowań</span></h2></div>
+    <p class="mid">Aplikacja może rozłożyć czas do zawodów na fazy (baza, budowanie, przygotowanie startowe, odpoczynek przed startem) z orientacyjnymi kilometrami. Liczy je ten komputer z Twojego celu i biegów z ostatnich 4 tygodni, bez AI. Trener weźmie je pod uwagę przy układaniu planu tygodnia.</p>
+    {{ strategy_form('Ułóż fazy przygotowań') }}
+  </section>
+  {% endif %}
 
   <details class="card">
     <summary>Zaawansowane: fazy przygotowań z własnej strategii</summary>
@@ -87,7 +101,14 @@
   </div>
 
   <div class="stack">
-    {% if strategy_mismatch %}<div class="banner warn" role="status">Data Twojego celu różni się od końca strategii. Fazy poniżej nie zostały dopasowane do nowej daty. Używaj zapisanego celu przy planowaniu tygodnia.</div>{% endif %}
+    {% if strategy_notice %}<div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{{ strategy_notice }}</p></div></div>{% endif %}
+    {% if strategy_mismatch %}
+      <div class="banner warn" role="status">{{ ico.info() }}<div class="banner-body">
+        <p class="banner-title">Data Twojego celu różni się od końca strategii.</p>
+        <p class="mid">Fazy poniżej nie zostały dopasowane do nowej daty.{% if can_build_strategy %} Możesz ułożyć je od nowa z zapisanego celu i ostatnich biegów — obecna strategia zostanie zachowana jako kopia w folderze <code>training-plans/long-term</code>.{% endif %}</p>
+        {% if can_build_strategy %}{{ strategy_form('Ułóż fazy od nowa', 'btn-secondary') }}{% endif %}
+      </div></div>
+    {% endif %}
     {% if wizard_done %}
       <div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">Zapisano cel i dni treningowe. Kolejne „Ułóż plan” weźmie je pod uwagę.</p></div></div>
     {% endif %}
