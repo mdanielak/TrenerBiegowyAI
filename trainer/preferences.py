@@ -89,6 +89,17 @@ def set_weekly_availability(day: str, available: bool, min_minutes: int = 0, max
     return preferences["days"][day]
 
 
+def set_max_quality_sessions(count: int) -> int:
+    """Ustaw tygodniowy limit mocnych treningów (0–2), zachowując pozostałe preferencje."""
+    count = int(count)
+    if not 0 <= count <= 2:
+        raise ValueError("Limit mocnych treningów to od 0 do 2.")
+    preferences = load_preferences()
+    preferences["max_quality_sessions_per_week"] = count
+    save_preferences(preferences)
+    return count
+
+
 def get_active_pause(target_date: str | date | None = None) -> dict | None:
     """Sprawdź, czy na dany dzień przypada zaplanowana przerwa (np. zabieg, choroba)."""
     if target_date is None:

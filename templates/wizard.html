@@ -107,6 +107,14 @@
           <label class="field">Ile treningów w tygodniu chcesz robić?
             <input class="text-input narrow" type="number" name="frequency"{{ error_attrs('frequency') }} min="1" max="7" value="{{ values.frequency }}" required>{{ field_error('frequency') }}
           </label>
+          <label class="field">Ile mocnych treningów w tygodniu (tempo, interwały)?
+            <select class="text-input narrow" name="quality"{{ error_attrs('quality') }}>
+              {% for value, label in (('0', '0 — same spokojne biegi'), ('1', '1 — zalecane'), ('2', '2 — dla zaawansowanych')) %}
+                <option value="{{ value }}"{% if values.quality == value %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>{{ field_error('quality') }}
+          </label>
+          <p class="tile-foot">To górny limit — trener nie zaplanuje więcej. Osobom zaczynającym bieganie plan i tak nie daje mocnych treningów.</p>
           <fieldset class="field-group wizard-days">
             <legend>W które dni możesz trenować i ile minut?</legend>
             {% for day in days %}
@@ -120,7 +128,7 @@
           </fieldset>
         {% else %}
           {% for day in days %}{% for prefix in ("day", "min", "max") %}<input type="hidden" name="{{ prefix }}_{{ day }}" value="{{ values[prefix ~ '_' ~ day] }}">{% endfor %}{% endfor %}
-          {% if step != 'week' %}<input type="hidden" name="frequency" value="{{ values.frequency }}">{% endif %}
+          <input type="hidden" name="frequency" value="{{ values.frequency }}"><input type="hidden" name="quality" value="{{ values.quality }}">
         {% endif %}
 
         {% if step == 'summary' %}
@@ -134,6 +142,7 @@
             <div><dt>Zdrowie</dt><dd>{{ values.health_notes or 'bez uwag' }}</dd></div>
             <div><dt>Trener pisze</dt><dd>{{ address_forms.get(values.address_form, address_forms['neutral']) }}</dd></div>
             <div><dt>Treningi w tygodniu</dt><dd>{{ values.frequency }}</dd></div>
+            {% if values.quality %}<div><dt>Mocne treningi</dt><dd>najwyżej {{ values.quality }} w tygodniu</dd></div>{% endif %}
           </dl>
           <ul class="wizard-week">
             {% for day in days %}

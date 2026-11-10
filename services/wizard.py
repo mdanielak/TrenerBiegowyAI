@@ -50,7 +50,7 @@ def _distance_key(race: str) -> str:
     return "other" if text else "hm"
 
 
-def prefill(profile: dict, availability: dict) -> dict:
+def prefill(profile: dict, availability: dict, quality=None) -> dict:
     """Wartości startowe kreatora z obecnego profilu i dostępności."""
     profile = profile or {}
     date_match = re.search(r"\d{4}-\d{2}-\d{2}", str(profile.get("target_date") or ""))
@@ -68,6 +68,7 @@ def prefill(profile: dict, availability: dict) -> dict:
         "health_notes": profile.get("health_notes") or "",
         "address_form": address_form(profile),
         "frequency": frequency.group(0) if frequency else "4",
+        "quality": "" if quality is None else str(quality),
     }
     for day in DAYS:
         slot = (availability or {}).get(day) or {}
@@ -139,6 +140,11 @@ def validate_step(step: str, values: dict, *, today: date) -> dict:
         if not 1 <= frequency <= 7:
             raise FieldError("Liczba treningów w tygodniu to od 1 do 7.", "frequency")
         cleaned = {"frequency": str(frequency)}
+        # Puste pole (stary formularz) zostawia dotychczasowy limit mocnych treningów.
+        quality = str(values.get("quality") or "").strip()
+        if quality and quality not in ("0", "1", "2"):
+            raise FieldError("Wybierz liczbę mocnych treningów: 0, 1 albo 2.", "quality")
+        cleaned["quality"] = quality
         chosen = 0
         for day in DAYS:
             on = values.get(f"day_{day}") == "on"
@@ -161,7 +167,7 @@ def goal_label(values: dict) -> str:
     return values.get("distance_other") if distance == "other" else DISTANCES.get(distance, "")
 
 
-def save(values: dict, *, update_profile, set_availability, now=None) -> None:
+def save(values: dict, *, update_profile, set_availability, set_quality_limit=None, now=None) -> None:
     """Zapisz cel do profilu i dni do preferencji (funkcje zapisu wstrzyknięte)."""
     race = goal_label(values)
     if values.get("event_name"):
@@ -185,6 +191,8 @@ def save(values: dict, *, update_profile, set_availability, now=None) -> None:
         training_frequency=f"{frequency} {word} w tygodniu",
         onboarding_completed_at=(now or datetime.now()).replace(microsecond=0).isoformat(),
     )
+    if set_quality_limit is not None and values.get("quality"):
+        set_quality_limit(int(values["quality"]))
     for day in DAYS:
         on = values.get(f"day_{day}") == "on"
         set_availability(day, on, int(values[f"min_{day}"]) if on else 0, int(values[f"max_{day}"]) if on else 0)

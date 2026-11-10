@@ -11,9 +11,10 @@ from fastapi.templating import Jinja2Templates
 
 from api.views.common import _format_date
 from services import wizard
+from trainer import preferences
 
 _CSRF_ERROR = "Odśwież stronę i spróbuj ponownie."
-_FIELDS = (["distance", "distance_other", "event_name", "event_date", "target_time", "record", "frequency",
+_FIELDS = (["distance", "distance_other", "event_name", "event_date", "target_time", "record", "frequency", "quality",
             "running_since", "health_notes", "address_form"]
            + [f"{prefix}_{day}" for day in wizard.DAYS for prefix in ("day", "min", "max")])
 
@@ -74,7 +75,11 @@ def get_wizard_router(
             availability = availability_provider()
         except Exception:  # noqa: BLE001 - brak preferencji to puste dni
             availability = {}
-        return render(request, step="goal", values=wizard.prefill(profile_or_none() or {}, availability))
+        try:
+            quality = preferences.load_preferences().get("max_quality_sessions_per_week")
+        except (OSError, ValueError):
+            quality = None
+        return render(request, step="goal", values=wizard.prefill(profile_or_none() or {}, availability, quality))
 
     @router.post("/wizard", response_class=HTMLResponse)
     async def advance(request: Request):
@@ -110,7 +115,8 @@ def get_wizard_router(
             if profile_or_none() is None:
                 return render(request, step="summary", values=values, status_code=409,
                               error="Najpierw połącz zegarek (Ustawienia → Połącz zegarek), potem zapisz cel.")
-            wizard.save(values, update_profile=update_profile, set_availability=set_availability)
+            wizard.save(values, update_profile=update_profile, set_availability=set_availability,
+                        set_quality_limit=preferences.set_max_quality_sessions)
             return RedirectResponse(url="/goal?wizard=done", status_code=303)
         return render(request, step=wizard.STEPS[min(index + 1, len(wizard.STEPS) - 1)], values=values)
 
