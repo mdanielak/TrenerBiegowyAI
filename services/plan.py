@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date as _date, datetime, timedelta, timezone
 
 from services import plan_files
 from services.readiness import readiness_for_day
@@ -289,8 +289,37 @@ def _limit_training_days(workouts, runner) -> None:
         workout["notes"] = _append_note(workout["notes"], f"Zmieniono na odpoczynek: wybrano {frequency} {word} w tygodniu.")
 
 
+_HARD_KINDS = QUALITY_KINDS + ("long",)
+
+
+def _space_hard_days(workouts) -> None:
+    """Dwa mocne dni z rzędu (akcent albo długi bieg): drugi z nich staje się spokojnym biegiem.
+
+    Po akcencie i po długim biegu organizm potrzebuje dnia na regenerację — prompt to zaleca,
+    a ta funkcja pilnuje, gdy model się nie posłucha.
+    """
+    previous_hard = None
+    for workout in workouts:
+        try:
+            day = _date.fromisoformat(str(workout.get("date") or ""))
+        except ValueError:
+            continue
+        if workout["type"] not in _HARD_KINDS:
+            continue
+        if previous_hard is not None and (day - previous_hard).days == 1:
+            workout["type"] = "easy"
+            workout["pace_target"] = None
+            workout["hr_zone"] = "Z2"
+            for key in ("repetitions", "work_seconds", "rest_seconds"):
+                workout.pop(key, None)
+            workout["notes"] = _append_note(workout["notes"], (
+                "Zmieniono na spokojny bieg: dzień po akcencie albo długim biegu organizm potrzebuje regeneracji."))
+            continue
+        previous_hard = day
+
+
 def _limit_week_minutes(workouts, runner) -> None:
-    """Przytnij tydzień do największego z ostatnich czterech razy mnożnik decyzji tygodnia.
+    """Przytnij tydzień do limitu z profilu biegacza (zwykły tydzień razy mnożnik decyzji tygodnia).
 
     Biegi spokojne i długi skracają się proporcjonalnie (długi zostaje najdłuższy), żaden poniżej 20 minut.
     Przy krótkiej historii z zegarka limitu nie ma — nie wiemy jeszcze, ile ktoś biega.
@@ -560,6 +589,8 @@ def normalize_plan(response, *, context) -> dict:
         workouts[index]["notes"] = _append_note(
             workouts[index]["notes"], "Zmieniono na bieg łatwy (limit 1 długiego biegu w tygodniu).")
 
+    _space_hard_days(workouts)
+
     for index, workout in enumerate(workouts):
         if workout["type"] not in AEROBIC_KINDS:
             continue
@@ -581,7 +612,9 @@ def normalize_plan(response, *, context) -> dict:
     from services.runner_profile import LONG_RUN_STEP_MIN
     longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
-        limits = {"long": longest + LONG_RUN_STEP_MIN, "easy": longest, "recovery": longest}
+        # Akcent (z rozgrzewką i schłodzeniem) też nie dłuższy niż najdłuższy niedawny bieg.
+        limits = {"long": longest + LONG_RUN_STEP_MIN, "easy": longest, "recovery": longest,
+                  **{kind: longest for kind in QUALITY_KINDS}}
         for workout in workouts:
             limit, minutes = limits.get(workout["type"]), workout["duration_min"]
             if limit and minutes and minutes > limit:

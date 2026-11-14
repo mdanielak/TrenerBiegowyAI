@@ -203,7 +203,8 @@ def main(use_ai=False, strict_ai=False):
 
     # 4. Readiness
     latest_day = str((data.get('daily_health') or [{}])[0].get('date', ''))[:10]
-    breakdown = compute_readiness_breakdown(data, norms=personal_norms(data, latest_day))
+    breakdown = compute_readiness_breakdown(data, norms=personal_norms(data, latest_day),
+                                            activities=data.get('activities'), day=latest_day)
     print_readiness(breakdown)
 
     # 5. Plan comparison

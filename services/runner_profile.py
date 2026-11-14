@@ -18,12 +18,20 @@ RUNNING_SINCE_LABELS = {"start": "dopiero zaczyna", "under6": "do 6 miesięcy", 
                         "over24": "ponad 2 lata"}
 LEVEL_LABELS = {"poczatkujacy": "początkujący", "regularny": "regularny", "zaawansowany": "zaawansowany"}
 DECISION_LABELS = {
-    "odpusc": "odpuść — wyraźnie lżejszy tydzień (około 75% czasu największego z ostatnich tygodni)",
+    "odpusc": "odpuść — wyraźnie lżejszy tydzień (około 75% zwykłego tygodnia z ostatniego czasu)",
     "utrzymaj": "utrzymaj — podobna objętość jak ostatnio, bez dokładania",
     "doloz": "dołóż — objętość może wzrosnąć o 5–10%",
 }
-# Mnożnik największego tygodnia z ostatnich czterech, którego plan nie przekroczy.
+# Mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
 WEEK_LIMIT = {"odpusc": 0.75, "utrzymaj": 1.0, "doloz": 1.1}
+# Tydzień nigdy nie przekracza tylu średnich z czterech tygodni: chroni przed skokiem obciążenia
+# zaraz po wyjątkowo dużym tygodniu.
+WEEK_SPIKE_LIMIT = 1.3
+# Staż z kreatora od pół roku: poziom początkujący dopiero przy biegach krótszych niż to.
+EXPERIENCED_SHORT_RUN_MIN = 30
+# Garmin: efekt beztlenowy od 2,0 to trening z mocnymi odcinkami, nie bieg spokojny.
+HARD_ANAEROBIC_EFFECT = 2.0
+EASY_TYPES = ("easy", "recovery", "long")
 # Długi bieg najwyżej tyle minut dłuższy niż najdłuższy niedawny bieg; łatwy nie dłuższy niż on.
 LONG_RUN_STEP_MIN = 10
 ADDRESS_FORMS = ("female", "male", "neutral")
@@ -61,6 +69,40 @@ def _returning(run_days: list[date], today: date) -> bool:
         return False
     before = [d for d in run_days if d < min(recent)]
     return bool(before) and (min(recent) - max(before)).days >= 21
+
+
+def week_reference(week_minutes: list[float]) -> float | None:
+    """Zwykły tydzień z ostatnich czterech (od najstarszego do ostatniego) — podstawa limitu tygodnia.
+
+    Ostatni tydzień albo mediana z czterech, co większe: jeden wyjątkowo duży tydzień sprzed miesiąca
+    nie zawyża limitu, a stopniowo rosnący trening nie jest cofany. Brak biegów w tygodniu to 0 minut.
+    """
+    if not week_minutes or not any(week_minutes):
+        return None
+    ordered = sorted(week_minutes)
+    middle = len(ordered) // 2
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    return max(week_minutes[-1], median)
+
+
+def week_cap(week_minutes: list[float], decision: str) -> int | None:
+    """Limit minut planowanego tygodnia: zwykły tydzień razy mnożnik decyzji, bez skoku ponad średnią."""
+    reference = week_reference(week_minutes)
+    if not reference:
+        return None
+    average = sum(week_minutes) / len(week_minutes)
+    return round(min(reference * WEEK_LIMIT[decision], average * WEEK_SPIKE_LIMIT))
+
+
+def _planned_easy_runs(previous_plan, activities) -> list:
+    """Biegi, które w poprzednim planie miały być spokojne (łatwy, regeneracyjny, długi)."""
+    runs = []
+    for workout in (previous_plan or {}).get("workouts") or []:
+        if isinstance(workout, dict) and workout.get("type") in EASY_TYPES:
+            activity, _ = find_activity_for_workout(workout=workout, activities=activities)
+            if activity is not None and activity not in runs:
+                runs.append(activity)
+    return runs
 
 
 def _adherence(previous_plan, activities, today: date):
@@ -113,7 +155,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     monday = today - timedelta(days=today.weekday())
     runs = _runs(activities)
     window = [a for a in runs if monday - timedelta(days=WINDOW_DAYS) <= _run_day(a) < monday]
-    weeks = {}
+    weeks = {}  # 0 = ostatni pełny tydzień, 3 = najstarszy
     for activity in window:
         key = (monday - _run_day(activity)).days // 7
         week = weeks.setdefault(key, {"runs": 0, "km": 0.0, "minutes": 0.0})
@@ -132,9 +174,12 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
 
     since = profile.get("running_since")
     months = RUNNING_SINCE.get(since)
+    # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
+    # krótkie biegi pod 5 km to wybór, a nie brak przygotowania.
+    short_run = EXPERIENCED_SHORT_RUN_MIN if months is not None and months >= 6 else 45
     if short_history and months is not None:
         level = "poczatkujacy" if months < 6 else "regularny"
-    elif (months is not None and months < 6) or runs_per_week < 2 or (longest or 0) < 45:
+    elif (months is not None and months < 6) or runs_per_week < 2 or (longest or 0) < short_run:
         level = "poczatkujacy"
     elif (months is None or months >= 24) and runs_per_week >= 4 and ((longest or 0) >= 90 or km_per_week >= 40):
         level = "zaawansowany"
@@ -144,7 +189,12 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     floors = profile.get("hr_zone_floors") or {}
     z3 = _number(floors.get("z3"))
     last_two_weeks = [a for a in runs if _run_day(a) >= monday - timedelta(days=14)]
-    with_hr = [a for a in last_two_weeks if _number(a.get("avg_hr"))]
+    # Tylko biegi spokojne: akcent ma wysokie tętno z założenia i nie świadczy o zbyt mocnych
+    # spokojnych biegach. Z planem — dokładnie te biegi, które miały być spokojne; bez planu — biegi
+    # z 2 tygodni bez mocnych odcinków (efekt beztlenowy z Garmina).
+    easy_runs = (_planned_easy_runs(previous_plan, activities)
+                 or [a for a in last_two_weeks if (_number(a.get("ate")) or 0) < HARD_ANAEROBIC_EFFECT])
+    with_hr = [a for a in easy_runs if _number(a.get("avg_hr"))]
     too_hard = sum(1 for a in with_hr if z3 and _number(a.get("avg_hr")) >= z3)
     rhr_recent = _number((rhr_trend or {}).get("recent"))
     rhr_normal = _number((rhr_trend or {}).get("average"))
@@ -152,7 +202,10 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
 
     adherence, done, shortened = _adherence(previous_plan, activities, today)
     returning = _returning(run_days, today)
-    if pain or (rhr_up is not None and rhr_up >= 5) or (adherence is not None and adherence < 0.6):
+    # Opuszczone treningi same w sobie nie są zmęczeniem (wyjazd, praca): lżejszy tydzień dopiero wtedy,
+    # gdy także wykonane treningi wychodziły wyraźnie krótsze.
+    struggling = adherence is not None and adherence < 0.6 and shortened > 0
+    if pain or (rhr_up is not None and rhr_up >= 5) or struggling:
         decision = "odpusc"
     elif adherence is None or adherence < 0.9 or returning or (len(with_hr) >= 2 and too_hard * 2 >= len(with_hr)):
         decision = "utrzymaj"
@@ -161,6 +214,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
 
     weight, height = _number(profile.get("weight_kg")), _number(profile.get("height_cm"))
     max_week = round(max((w["minutes"] for w in weeks.values()), default=0)) or None
+    week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
+    reference = week_reference(week_minutes)
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
         "level": "poczatkujacy" if returning else level,
@@ -171,7 +226,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "km_per_week": round(km_per_week, 1),
         "longest_min": longest,
         "max_week_minutes": max_week,
-        "week_cap_min": round(max_week * WEEK_LIMIT[decision]) if max_week and not short_history else None,
+        "week_reference_min": round(reference) if reference else None,
+        "week_cap_min": week_cap(week_minutes, decision) if not short_history else None,
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
         "rhr_up": rhr_up,
@@ -217,7 +273,7 @@ def decision_reason(runner: dict) -> str:
             return "W dzienniku z ostatnich dni jest ból."
         if (runner.get("rhr_up") or 0) >= 5:
             return f"Tętno spoczynkowe jest o {runner['rhr_up']} bpm wyższe niż zwykle — to znak zmęczenia."
-        return "Wykonano mniej niż 60% zaplanowanych treningów."
+        return "Wykonano mniej niż 60% zaplanowanych treningów, a część z nich wyszła wyraźnie krótsza."
     if decision == "utrzymaj":
         if adherence is None:
             return "Za mało danych o wykonaniu planu, żeby dokładać."
@@ -242,10 +298,11 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append("- historia z zegarka: krótsza niż 3 tygodnie, liczby poniżej są niepełne")
     lines.append(f"- ostatnie 4 tygodnie: średnio {value(runner['runs_per_week'])} biegu/tydz., "
                  f"{value(runner['km_per_week'], ' km')}/tydz., najdłuższy bieg {value(runner['longest_min'], ' min')}, "
+                 f"zwykły tydzień {value(runner.get('week_reference_min'), ' min')}, "
                  f"największy tydzień {value(runner['max_week_minutes'], ' min')}")
     if runner["easy_runs_with_hr"]:
-        lines.append(f"- tętno na biegach (2 tyg.): {runner['runs_above_z2']} z {runner['easy_runs_with_hr']} "
-                     "biegów ze średnim tętnem powyżej strefy 2")
+        lines.append(f"- tętno na spokojnych biegach (bez akcentów): {runner['runs_above_z2']} z "
+                     f"{runner['easy_runs_with_hr']} biegów ze średnim tętnem powyżej strefy 2")
     if runner["rhr_up"] is not None:
         lines.append(f"- tętno spoczynkowe: {runner['rhr_up']:+d} bpm wobec normy z 12 tygodni")
     if runner["adherence"] is not None:
@@ -269,7 +326,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     limits = []
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {runner['longest_min'] + LONG_RUN_STEP_MIN} min, "
-                      f"bieg łatwy najwyżej {runner['longest_min']} min")
+                      f"bieg łatwy i akcent najwyżej {runner['longest_min']} min")
     if runner.get("frequency"):
         count = runner["frequency"]
         limits.append(f"najwyżej {count} " + ("trening" if count == 1 else "treningi" if count <= 4 else "treningów")

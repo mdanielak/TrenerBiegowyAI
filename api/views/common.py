@@ -54,6 +54,12 @@ _SIGNAL_META = {
                           "porównuje go z Twoją średnią z ostatnich czterech tygodni, bo zwykły poziom stresu zależy od osoby "
                           "i pracy. Niezależnie od średniej do 25 to niski stres, a powyżej 50 wysoki (kategorie Garmina). "
                           "Stres w pracy czy słaby sen obciążają organizm podobnie jak trening, dlatego też wpływają na ocenę."},
+    "Load": {"label": "Wczorajszy trening", "unit": "", "icon": "load",
+             "asset": "03_activity/training_load.png", "trend_key": None,
+             "explain": "Mocny trening potrzebuje dnia na regenerację, nawet gdy sen i tętno jeszcze tego nie pokazują. "
+                        "Aplikacja sprawdza, co było wczoraj: odpoczynek albo lekki bieg nie obniża oceny, a trening "
+                        "z szybkimi odcinkami, bardzo wyraźny efekt treningowy w zegarku albo bieg dłuższy niż 90 minut — "
+                        "obniża. Dlatego dzień po akcencie albo długim biegu najlepiej pobiec spokojnie."},
 }
 _WEEKDAYS_SHORT = ("pon", "wt", "śr", "czw", "pt", "sob", "ndz")
 _READINESS_PILL_CLASSES = {"ready": "ok", "ready_with_reserves": "warn", "not_ready": "bad"}

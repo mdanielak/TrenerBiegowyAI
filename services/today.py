@@ -127,7 +127,7 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
     hrv = record_for_day(data.get("hrv"), today)
     readiness = compute_readiness_breakdown({
         "daily_health": [health] if health else [], "sleep": [sleep] if sleep else [], "hrv": [hrv] if hrv else []},
-        norms=personal_norms(data, today))
+        norms=personal_norms(data, today), activities=data.get("activities"), day=today)
     trends = signal_trends(data, today)
     # Gotowość z 7 dni (dziś na końcu): kontekst „czy dzisiejsza ocena jest u mnie nietypowa”.
     readiness_week = []
