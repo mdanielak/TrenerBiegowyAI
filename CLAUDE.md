@@ -24,7 +24,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - Komunikaty commitów po angielsku, z linią `Co-Authored-By` podaną w instrukcjach sesji.
 
 ## Polecenia
-- Testy: `python -m pytest -q` (ok. 960 testów, ~1 min). Lint: `.venv/Scripts/python.exe -m pyflakes <pliki>`.
+- Testy: `python -m pytest -q` (ok. 960 testów, ~1 min). Lint: `python -m pyflakes <pliki>` z `.venv` (Windows: `.venv/Scripts/python.exe`, Linux: `.venv/bin/python`).
 - Aplikacja: `start.bat` (http://127.0.0.1:8001). Pierwsza instalacja: `install.bat`; aktualizacja: `update.bat`.
 - **Testowanie na zmyślonych danych:** `testowanie.bat` (http://127.0.0.1:8002) — kopia kodu w `%TEMP%\trener-testowanie`,
   zegar przesunięty, Garmin i AI udawane, prawdziwe dane nietknięte. Flagi: `--dzien czwartek`,
@@ -32,7 +32,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
   `--zachowaj` (dane z poprzedniego testu zostają). Nie trafia do paczki wydania (`export-ignore`).
 - Linux: `start.sh`, `testowanie.sh` (te same flagi, piaskownica w `/tmp/trener-testowanie`) i `update.sh`
   (`git pull --ff-only` + pakiety z `constraints.txt`); wspólne funkcje w `scripts/linux_common.sh`.
-- Zrzuty stron: Chrome headless na działającym testowaniu (`--screenshot`, `--force-prefers-color-scheme=light`).
+- Zrzuty stron: Chrome headless na działającym testowaniu (`--screenshot`; motyw: `--blink-settings=preferredColorScheme=1` jasny, `=0` ciemny — `--force-prefers-color-scheme` w `--headless=new` nie działa).
 
 ## Mapa
 - `api/` — FastAPI: `main.py` (`create_app` z wstrzykiwanymi dostawcami), `routers/` (strony i akcje), `views/` (dane dla szablonów).
