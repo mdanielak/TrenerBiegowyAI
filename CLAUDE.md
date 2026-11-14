@@ -30,6 +30,8 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
   zegar przesunięty, Garmin i AI udawane, prawdziwe dane nietknięte. Flagi: `--dzien czwartek`,
   `--biegacz poczatkujacy|regularny|zaawansowany`, `--verbose` (HTTP, Garmin, pełne prompty w `logs/`),
   `--zachowaj` (dane z poprzedniego testu zostają). Nie trafia do paczki wydania (`export-ignore`).
+- Linux: `start.sh`, `testowanie.sh` (te same flagi, piaskownica w `/tmp/trener-testowanie`) i `update.sh`
+  (`git pull --ff-only` + pakiety z `constraints.txt`); wspólne funkcje w `scripts/linux_common.sh`.
 - Zrzuty stron: Chrome headless na działającym testowaniu (`--screenshot`, `--force-prefers-color-scheme=light`).
 
 ## Mapa
