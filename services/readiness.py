@@ -65,6 +65,43 @@ def rhr_baseline(daily_health, day: str) -> float | None:
     return norm["mean"] if norm else None
 
 
+# Wczorajszy trening (efekt treningowy Garmina 0–5 i czas): od tych progów organizm zwykle
+# potrzebuje dnia na regenerację. Efekt tlenowy 4+ to „znacznie poprawiający”, beztlenowy 2,5+
+# to wyraźna praca na mocnych odcinkach.
+_LOAD_HARD = {"te": 4.0, "ate": 2.5, "minutes": 90}
+_LOAD_MODERATE = {"te": 3.5, "ate": 1.5, "minutes": 75}
+# Sygnały z pomiarów organizmu; obciążenie z treningu nie jest pomiarem i nie zastępuje ich.
+_BODY_METRICS = ("rhr", "hrv", "sleep", "stress")
+
+
+def _activity_load(activity) -> str:
+    """„hard”, „moderate” albo „light” dla jednej aktywności."""
+    def value(key):
+        number = activity.get(key)
+        return number if isinstance(number, (int, float)) and not isinstance(number, bool) else 0
+    minutes = value("duration_min")
+    if value("te") >= _LOAD_HARD["te"] or value("ate") >= _LOAD_HARD["ate"] or minutes >= _LOAD_HARD["minutes"]:
+        return "hard"
+    if (value("te") >= _LOAD_MODERATE["te"] or value("ate") >= _LOAD_MODERATE["ate"]
+            or minutes >= _LOAD_MODERATE["minutes"]):
+        return "moderate"
+    return "light"
+
+
+def yesterday_load(activities, day: str) -> str | None:
+    """Najcięższe obciążenie z dnia przed ``day``: „hard”, „moderate”, „light”, „rest”; None bez daty."""
+    try:
+        previous = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
+    loads = [_activity_load(a) for a in activities or []
+             if isinstance(a, dict) and str(a.get("date", ""))[:10] == previous]
+    for level in ("hard", "moderate", "light"):
+        if level in loads:
+            return level
+    return "rest"
+
+
 def _num(value) -> str:
     return f"{value:g}".replace(".", ",") if isinstance(value, (int, float)) else str(value)
 
@@ -77,13 +114,15 @@ def _range_text(points, low, high, unit=""):
     return f"; {points} pkt — {span}{unit}"
 
 
-def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None):
+def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None, activities=None, day=None):
     """Ocena gotowości z punktami za każdy sygnał.
 
     ``norms`` (z ``personal_norms()``): tętno spoczynkowe, sen i stres są oceniane wobec normy tej osoby
     z ostatnich 4 tygodni (średnia i zwykłe wahania), z granicami według kategorii Garmina. HRV porównuje zegarek
     z zakresem tej osoby. Bez normy: tętno spoczynkowe nie jest oceniane, sen i stres — według kategorii Garmina.
     ``rhr_baseline`` — dawny sposób podania samej normy tętna (zgodność wsteczna).
+    ``activities`` i ``day``: z nimi dochodzi sygnał wczorajszego treningu — mocny trening dzień wcześniej
+    obniża ocenę, nawet gdy pomiary nocne jeszcze tego nie pokazują. Bez nich sygnału nie ma.
     Każdy wiersz ``details`` ma ``scoring``: za co punkty, z liczbami tej osoby.
     """
     norms = dict(norms or {})
@@ -109,7 +148,7 @@ def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None):
     available_metrics = []
     missing_metrics = []
 
-    weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0}
+    weights = {'rhr': 2.5, 'hrv': 3.0, 'sleep': 2.5, 'stress': 2.0, 'load': 2.0}
 
     scoring = {}
 
@@ -219,6 +258,20 @@ def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None):
         measured('stress', 'Stress', "WARN", 1, f"{label} ({stress}{stress_note})")
     else:
         measured('stress', 'Stress', "FAIL", 0, f"Wysoki stres ({stress}{stress_note})")
+    # 5. Wczorajszy trening — tylko gdy znamy aktywności; liczy się razem z pomiarami organizmu.
+    load = yesterday_load(activities, day) if activities is not None and day else None
+    body_metrics = [name for name in available_metrics if name in _BODY_METRICS]
+    if load is not None and body_metrics:
+        scoring['load'] = ("2 pkt — wczoraj odpoczynek albo lekki trening; 1 pkt — średnio mocny trening "
+                           "(np. ponad 75 minut albo wyraźny efekt treningowy w zegarku); 0 pkt — mocny trening "
+                           "(akcent z szybkimi odcinkami albo ponad 90 minut).")
+        if load == "hard":
+            measured('load', 'Load', "FAIL", 0, "Wczoraj był mocny trening — dziś organizm się regeneruje")
+        elif load == "moderate":
+            measured('load', 'Load', "WARN", 1, "Wczoraj był średnio mocny trening")
+        else:
+            measured('load', 'Load', "OK", 2, "Wczoraj odpoczynek" if load == "rest" else "Wczoraj lekki trening")
+
     available_max_score = sum(weights[name] for name in available_metrics)
     score = round(raw_score / available_max_score * max_score, 1) if available_max_score else 0
     if not available_metrics:
@@ -239,9 +292,10 @@ def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None):
         "insufficient_data": bool(missing_metrics),
         "missing_metrics": missing_metrics,
         "available_metrics": available_metrics,
-        "data_coverage": len(available_metrics) / 4,
-        "confidence": ('none' if not available_metrics else 'low' if len(available_metrics) == 1
-                       else 'medium' if len(available_metrics) < 4 else 'high'),
+        "data_coverage": len(body_metrics) / 4,
+        "confidence": ('none' if not body_metrics else 'low' if len(body_metrics) == 1
+                       else 'medium' if len(body_metrics) < 4 else 'high'),
+        "yesterday_load": load,
         "level": level,
         "rhr": rhr,
         "rhr_baseline": rhr_norm["mean"] if rhr_norm else None,
@@ -277,7 +331,7 @@ def readiness_for_day(data, day):
         'daily_health': [health],
         'sleep': [sleep] if sleep is not None else [],
         'hrv': [hrv] if hrv is not None else [],
-    }, norms=personal_norms(data, day))
+    }, norms=personal_norms(data, day), activities=data.get('activities'), day=day)
 
 
 def signal_trends(data, day):

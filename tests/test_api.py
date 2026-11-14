@@ -1135,7 +1135,7 @@ def test_signals_explain_themselves_on_analysis_only():
     assert '<details class="analysis-row">' in analysis and '<div class="explain-panel">' in analysis
     assert "Za co punkty:" in analysis and "2,5 pkt — ocena 78 i więcej (Twoja średnia 83)" in analysis
     assert "drobne różnice w odstępach między kolejnymi uderzeniami serca" in analysis
-    assert "Ocena 0–10 sumuje cztery sygnały" in analysis
+    assert "Ocena 0–10 sumuje pięć sygnałów" in analysis
     with TestClient(create_app(report_provider=lambda: _report())) as client:
         home = client.get("/").text
     # Strona główna to szybki przegląd: „?” rozjeżdżał karty sygnałów, objaśnienia są na Analizie.

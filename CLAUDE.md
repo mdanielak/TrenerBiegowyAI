@@ -55,6 +55,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
   Liczba mocnych treningów w tygodniu (0, 1 albo 2) ma jedno źródło:
   `services/runner_profile.py::quality_sessions_limit` — korzystają z niej i prompt, i kod.
 - Okno dostępności dnia tylko skraca trening, nigdy go nie wydłuża.
+- Limit tygodnia: `services/runner_profile.py::week_cap` (zwykły tydzień, nie największy). Mocne dni nie stoją obok siebie: `services/plan.py::_space_hard_days`.
 - Komunikat napisany przez aplikację (`services/jobs.py::UserMessageError`) trafia do zadania i na ekran;
   wyjątek z biblioteki nigdy. Surowe błędy dostawców AI zostają w logu na tym komputerze, nigdy w interfejsie.
 - Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z", tag `vX.Y.Z`,

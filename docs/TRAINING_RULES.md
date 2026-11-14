@@ -20,6 +20,11 @@ Własne, prywatne zasady dla trenera można dopisać w `local/moje-zasady-trener
 - Główny akcent tygodniowo to maksimum; ile mocnych treningów się mieści, zależy od profilu (punkt niżej). Liczba biegów w tygodniu ma respektować profil i strategię, a nie stałą z góry ustaloną wartość.
 - Liczba mocnych treningów w tygodniu (0, 1 albo 2) pochodzi z profilu biegacza, a początkujący nie dostaje żadnego. Podaje ją aplikacja — nie zakładaj jej z góry i nie podawaj własnej.
 - Okno dostępności dnia to górna granica czasu: może skrócić trening, nigdy go nie wydłużyć.
+- Limit czasu tygodnia liczy się od zwykłego tygodnia (ostatni albo mediana z czterech, co większe), nie od największego: „odpuść” 75%, „utrzymaj” 100%, „dołóż” 110%, a nigdy ponad 130% średniej z czterech tygodni.
+- Dwa mocne dni z rzędu (akcent, długi bieg) są niedozwolone: drugi z nich aplikacja zamienia na spokojny bieg. Akcent nie jest dłuższy niż najdłuższy niedawny bieg.
+- Opuszczone treningi same w sobie nie wymuszają lżejszego tygodnia; „odpuść” dopiero, gdy wykonane też wychodziły wyraźnie krótsze.
+- Przy podanym stażu od pół roku poziom początkujący daje dopiero bieg krótszy niż 30 minut (bez stażu: 45 minut).
+- Ocena gotowości uwzględnia wczorajszy trening: mocny (efekt beztlenowy 2,5+, tlenowy 4+ albo ponad 90 min) obniża ją.
 - Do akcentów preferuj wiarygodny pomiar tętna; gdy dane czujnika są niewiarygodne, nie udawaj precyzji.
 
 ## Strategia i pliki

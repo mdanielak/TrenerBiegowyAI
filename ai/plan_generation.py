@@ -305,6 +305,7 @@ def build_plan_message(context: dict) -> str:
     quality_limit = quality_sessions_limit(context.get("runner"), context.get("max_quality_sessions"))
     lines.append(f"- maksymalna liczba treningów jakościowych w tygodniu: {quality_limit}")
     lines.append("- maksymalnie jeden długi bieg w tygodniu")
+    lines.append("- bez dwóch mocnych dni z rzędu (akcent, długi bieg): dzień po nich to odpoczynek albo spokojny bieg")
     lines.append("")
 
     lines.append("OSTATNIE BIEGI")

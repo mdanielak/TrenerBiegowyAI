@@ -82,7 +82,7 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>Dlaczego taka ocena</span></h2>
       </div>
-      <p class="mid explain-intro">Ocena 0–10 sumuje cztery sygnały: zmienność tętna do 3 pkt, sen i tętno spoczynkowe po 2,5 pkt, stres 2 pkt. Brakujący pomiar nie obniża oceny — liczą się tylko dostępne sygnały. Kliknij sygnał, żeby zobaczyć, co znaczy i za co dostaje punkty.</p>
+      <p class="mid explain-intro">Ocena 0–10 sumuje pięć sygnałów: zmienność tętna do 3 pkt, sen i tętno spoczynkowe po 2,5 pkt, stres i wczorajszy trening po 2 pkt. Brakujący pomiar nie obniża oceny — liczą się tylko dostępne sygnały. Kliknij sygnał, żeby zobaczyć, co znaczy i za co dostaje punkty.</p>
       {% if metric_rows %}
         <div class="list">
           {% for row in metric_rows %}
@@ -94,6 +94,7 @@
                 {% elif row.icon == 'pulse' %}<img class="asset" src="/assets/02_health_status/hrv.png" width="28" height="28" alt="">
                 {% elif row.icon == 'heart' %}<img class="asset" src="/assets/02_health_status/resting_hr.png" width="28" height="28" alt="">
                 {% elif row.icon == 'bolt' %}<img class="asset" src="/assets/02_health_status/stress.png" width="28" height="28" alt="">
+                {% elif row.icon == 'load' %}<img class="asset" src="/assets/03_activity/training_load.png" width="28" height="28" alt="">
                 {% else %}<img class="asset" src="/assets/02_health_status/info.png" width="28" height="28" alt="">{% endif %}
               </span>
               <span class="item-body">
