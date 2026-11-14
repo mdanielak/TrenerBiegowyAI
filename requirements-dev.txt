@@ -1,5 +1,7 @@
 # Development / testing dependencies
 pytest>=7.0
 httpx>=0.24
+# Lint used in CLAUDE.md and by the local Claude Code hook
+pyflakes>=3.0
 # Used only by scripts/rescale_assets.py, not by the running application
 Pillow>=10
