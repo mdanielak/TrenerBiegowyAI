@@ -25,6 +25,7 @@ from fastapi.templating import Jinja2Templates
 from ai.connection_test import check_connection  # Re-exported for tests/api
 from services.actions import synchronize_data
 from services.runner_level import current_runner
+from services.update_check import update_command
 from services.assets import build_manifest
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.jobs import JobStore
@@ -101,6 +102,7 @@ _TEMPLATES.env.globals["sidebar_ai_badge"] = lambda request: (
 _TEMPLATES.env.globals["sync_in_progress"] = lambda request: (
     getattr(request.state, "sync_status_provider", None) or (lambda: None))()
 # Numer nowszego wydania z GitHuba albo None; ustawiany w tle przy starcie prawdziwej aplikacji.
+_TEMPLATES.env.globals["update_command"] = lambda: update_command()
 _TEMPLATES.env.globals["update_available"] = lambda request: getattr(
     getattr(getattr(request, "app", None), "state", None), "update_available", None)
 
