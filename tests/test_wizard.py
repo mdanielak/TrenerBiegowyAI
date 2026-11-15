@@ -142,3 +142,19 @@ def test_skip_marks_the_decision_and_forged_posts_are_rejected(tmp_path):
     skipped = _post(client, token, step="goal", action="skip")
 
     assert skipped.headers["location"] == "/" and "onboarding_skipped_at" in saved
+
+
+def _saved_running_since(current, answer):
+    saved = {}
+    values = {"distance": "fitness", "frequency": "3", "running_since": answer,
+              **{f"{p}_{d}": "0" for d in wizard.DAYS for p in ("min", "max")}}
+    wizard.save(values, update_profile=lambda **kw: saved.update(kw), set_availability=lambda *a: None,
+                now=__import__("datetime").datetime(2026, 11, 15, 12, 0), current_profile=current)
+    return saved
+
+
+def test_saving_the_same_running_since_keeps_its_date():
+    current = {"running_since": "under6", "running_since_at": "2026-01-10"}
+    assert _saved_running_since(current, "under6")["running_since_at"] == "2026-01-10"
+    assert _saved_running_since(current, "6to24")["running_since_at"] == "2026-11-15"
+    assert _saved_running_since(None, "start")["running_since_at"] == "2026-11-15"

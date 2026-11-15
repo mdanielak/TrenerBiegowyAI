@@ -62,6 +62,24 @@ def _runs(activities):
             and _run_day(a) is not None]
 
 
+def running_months(profile, on: date) -> int | None:
+    """Staż w miesiącach w dniu ``on``: odpowiedź z kreatora plus czas od jej udzielenia."""
+    base = RUNNING_SINCE.get((profile or {}).get("running_since"))
+    if base is None:
+        return None
+    answered = None
+    for key in ("running_since_at", "onboarding_completed_at"):
+        try:
+            answered = date.fromisoformat(str((profile or {}).get(key) or "")[:10])
+            break
+        except ValueError:
+            continue
+    if answered is None:
+        return base
+    elapsed = (on.year - answered.year) * 12 + on.month - answered.month - (on.day < answered.day)
+    return base + max(elapsed, 0)
+
+
 def _returning(run_days: list[date], today: date) -> bool:
     """Biega znowu (ostatnie 14 dni) po co najmniej trzech tygodniach bez biegania."""
     recent = [d for d in run_days if d >= today - timedelta(days=14)]
@@ -173,7 +191,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     km_per_week = sum(w["km"] for w in weeks.values()) / 4
 
     since = profile.get("running_since")
-    months = RUNNING_SINCE.get(since)
+    months = running_months(profile, today)
     # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
     # krótkie biegi pod 5 km to wybór, a nie brak przygotowania.
     short_run = EXPERIENCED_SHORT_RUN_MIN if months is not None and months >= 6 else 45

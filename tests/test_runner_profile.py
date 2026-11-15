@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ai.prompts import coach_prompt, modules_for
 from services import plan as plan_service
-from services.runner_profile import build_runner_profile, profile_lines
+from services.runner_profile import build_runner_profile, profile_lines, running_months
 
 TODAY = date(2026, 11, 4)  # środa; poprzednie 4 tygodnie: 5.10–1.11
 FLOORS = {"z1": 98, "z2": 120, "z3": 138, "z4": 156, "z5": 172}
@@ -186,3 +186,19 @@ def test_daily_recommendation_gets_no_weekly_decision_or_limits():
     kwargs = provider.chat.call_args[1]
     assert "# Tryb: rekomendacja na dziś" in kwargs["system_prompt"]  # prompt składa sama rekomendacja dnia
     assert "DECYZJA TYGODNIA" not in kwargs["user_message"]
+
+
+def test_years_of_running_grow_from_the_wizard_answer():
+    p = _profile(running_since="start", running_since_at="2025-10-01")
+    assert running_months(p, date(2026, 11, 4)) == 13
+    assert running_months(_profile(running_since="start", onboarding_completed_at="2026-05-04T10:00:00"),
+                          date(2026, 11, 4)) == 6
+    assert running_months(_profile(running_since="under6"), date(2026, 11, 4)) == 3   # bez daty — jak dziś
+    assert running_months(_profile(), date(2026, 11, 4)) is None
+
+
+def test_a_year_after_starting_a_frequent_runner_is_no_longer_a_beginner():
+    runs = _runs(range(3, 85, 2), 50)   # ~3,5 biegu tygodniowo przez 12 tygodni
+    runner = build_runner_profile(activities=runs, today=TODAY,
+                                  profile=_profile(running_since="start", running_since_at="2025-10-01"))
+    assert runner["level"] == "regularny"
