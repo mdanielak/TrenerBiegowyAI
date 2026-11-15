@@ -176,9 +176,10 @@ def save(values: dict, *, update_profile, set_availability, set_quality_limit=No
     now = now or datetime.now()
     current_profile = current_profile or {}
     running_since = values.get("running_since") or ""
-    since_at = (current_profile.get("running_since_at")
-                if running_since and current_profile.get("running_since") == running_since
-                and current_profile.get("running_since_at") else now.date().isoformat())
+    # Ta sama odpowiedź zachowuje swoją datę; profil sprzed wersji 0.8.1 — datę ukończenia kreatora.
+    kept = (current_profile.get("running_since_at") or str(current_profile.get("onboarding_completed_at") or "")[:10]
+            if running_since and current_profile.get("running_since") == running_since else "")
+    since_at = kept or now.date().isoformat()
     race = goal_label(values)
     if values.get("event_name"):
         race = f"{race} — {values['event_name']}"

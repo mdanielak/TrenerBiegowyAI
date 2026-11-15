@@ -206,11 +206,11 @@ def _level_rule(months, runs_per_week, km_per_week, longest, short_history) -> s
 
 
 def _settle_level(ratings: list[str]):
-    """Poziom z kolejnych ocen tygodni: (poziom, indeks oceny, od której obowiązuje, "up"/"down"/None)."""
+    """Poziom z kolejnych ocen tygodni: (poziom, indeks ostatniej zmiany albo None, "up"/"down"/None)."""
     if not ratings:
         return None, None, None
     # Start od najniższej z pierwszych ocen: przesuwające się okno historii samo nie podnosi poziomu.
-    level, since, changed = min(ratings[:LEVEL_UP_WEEKS], key=LEVEL_ORDER.index), 0, None
+    level, since, changed = min(ratings[:LEVEL_UP_WEEKS], key=LEVEL_ORDER.index), None, None
     up = down = 0
     for index, rated in enumerate(ratings[1:], start=1):
         if rated == "poczatkujacy" and level != "poczatkujacy":
@@ -226,6 +226,22 @@ def _settle_level(ratings: list[str]):
     return level, since, changed
 
 
+def _history_level(ratings: list[str]):
+    """Poziom z ostatnich LEVEL_HISTORY_WEEKS ocen i zmiana do ogłoszenia: (poziom, "up"/"down"/None).
+
+    ``ratings`` może mieć jedną ocenę więcej (najstarszą): zmiana jest ogłaszana tylko wtedy, gdy
+    w ostatniej ocenie poziom naprawdę różni się od ustalonego tydzień wcześniej — a nie dlatego,
+    że okno historii przesunęło się o tydzień.
+    """
+    current = ratings[-LEVEL_HISTORY_WEEKS:]
+    level, since, changed = _settle_level(current)
+    if since != len(current) - 1:
+        return level, None
+    if len(ratings) > 1 and _settle_level(ratings[:-1][-LEVEL_HISTORY_WEEKS:])[0] == level:
+        return level, None
+    return level, changed
+
+
 def _level_history(runs, profile, monday: date, today: date):
     """Poziom ustalony z ocen ostatnich tygodni: (poziom, poniedziałek ustalenia, "up"/"down"/None).
 
@@ -236,7 +252,7 @@ def _level_history(runs, profile, monday: date, today: date):
     if not run_days:
         return None, None, None
     points, ratings = [], []
-    for k in range(LEVEL_HISTORY_WEEKS - 1, -1, -1):
+    for k in range(LEVEL_HISTORY_WEEKS, -1, -1):  # o tydzień więcej: poziom ustalony tydzień wcześniej
         point = monday - timedelta(days=7 * k)
         if (point - run_days[0]).days < 21 or not any(point - timedelta(days=7) <= d < point for d in run_days):
             continue
@@ -245,9 +261,10 @@ def _level_history(runs, profile, monday: date, today: date):
         ratings.append(_level_rule(running_months(profile, point, first_run=run_days[0]), rpw, km, longest, False))
     if not ratings:
         return None, None, None
-    level, index, changed = _settle_level(ratings)
-    since = points[index]
-    return level, since, (changed if since == monday else None)
+    level, index, _ = _settle_level(ratings[-LEVEL_HISTORY_WEEKS:])
+    since = points[-LEVEL_HISTORY_WEEKS:][index] if index is not None else None
+    _, announced = _history_level(ratings)
+    return level, since, (announced if points[-1] == monday else None)
 
 
 def _decimal(value) -> str:
@@ -315,6 +332,10 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     level_auto, level_since, level_changed = _level_history(runs, profile, monday, today)
     if level_auto is None:
         level_auto = level_now
+    elif level_now == "poczatkujacy" and level_auto != "poczatkujacy" and not short_history:
+        # Tydzień bez biegania nie jest oceniany, ale bezpiecznik działa od razu: po przerwie, zanim
+        # pojawi się pierwszy bieg, trener nie planuje akcentów.
+        level_auto, level_since, level_changed = "poczatkujacy", None, None
     override = profile.get("level_override") if profile.get("level_override") in LEVEL_LABELS else None
     level = level_auto
     if override:

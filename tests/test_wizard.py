@@ -158,3 +158,8 @@ def test_saving_the_same_running_since_keeps_its_date():
     assert _saved_running_since(current, "under6")["running_since_at"] == "2026-01-10"
     assert _saved_running_since(current, "6to24")["running_since_at"] == "2026-11-15"
     assert _saved_running_since(None, "start")["running_since_at"] == "2026-11-15"
+
+
+def test_saving_again_keeps_the_original_date_of_an_older_profile():
+    older = {"running_since": "start", "onboarding_completed_at": "2026-05-04T10:00:00"}
+    assert _saved_running_since(older, "start")["running_since_at"] == "2026-05-04"

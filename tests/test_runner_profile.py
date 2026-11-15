@@ -5,7 +5,8 @@ from pathlib import Path
 
 from ai.prompts import coach_prompt, modules_for
 from services import plan as plan_service
-from services.runner_profile import _settle_level, build_runner_profile, level_message, profile_lines, running_months
+from services.runner_profile import (_history_level, _settle_level, build_runner_profile, level_message, profile_lines,
+                                     quality_sessions_limit, running_months)
 
 TODAY = date(2026, 11, 4)  # środa; poprzednie 4 tygodnie: 5.10–1.11
 FLOORS = {"z1": 98, "z2": 120, "z3": 138, "z4": 156, "z5": 172}
@@ -301,3 +302,20 @@ def test_a_change_is_announced_only_in_its_own_week():
                                   today=TODAY + timedelta(days=7))
     assert runner["level"] == "regularny" and runner["level_changed"] is None
     assert runner["level_since"] == MONDAY.isoformat()
+
+
+def test_a_monday_after_a_break_plans_carefully_before_the_first_run_back():
+    runner = build_runner_profile(activities=_weeks((8, 4, 50, 10.0), (3, 0, 0)), profile=_profile(), today=MONDAY)
+    assert runner["level"] == "poczatkujacy" and quality_sessions_limit(runner, 2) == 0
+
+
+def test_a_level_that_only_slid_into_the_window_is_not_announced():
+    A, R = "zaawansowany", "regularny"
+    ratings = [A, A, A, R, A, R, A, R, A, R, A, A, A]   # 13 tygodni: poprzednie 12 i bieżące 12
+    assert _settle_level(ratings[:-1])[0] == A and _settle_level(ratings[1:])[2] == "up"
+    assert _history_level(ratings) == (A, None)
+
+
+def test_a_steady_level_has_no_since_date():
+    runner = build_runner_profile(activities=_weeks((10, 4, 50)), profile=_profile(), today=TODAY)
+    assert runner["level"] == "regularny" and runner["level_since"] is None
