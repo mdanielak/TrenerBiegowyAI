@@ -167,8 +167,19 @@ def goal_label(values: dict) -> str:
     return values.get("distance_other") if distance == "other" else DISTANCES.get(distance, "")
 
 
-def save(values: dict, *, update_profile, set_availability, set_quality_limit=None, now=None) -> None:
-    """Zapisz cel do profilu i dni do preferencji (funkcje zapisu wstrzyknięte)."""
+def save(values: dict, *, update_profile, set_availability, set_quality_limit=None, now=None,
+         current_profile=None) -> None:
+    """Zapisz cel do profilu i dni do preferencji (funkcje zapisu wstrzyknięte).
+
+    ``current_profile``: dotychczasowy profil — ta sama odpowiedź o stażu zachowuje swoją datę.
+    """
+    now = now or datetime.now()
+    current_profile = current_profile or {}
+    running_since = values.get("running_since") or ""
+    # Ta sama odpowiedź zachowuje swoją datę; profil sprzed wersji 0.8.1 — datę ukończenia kreatora.
+    kept = (current_profile.get("running_since_at") or str(current_profile.get("onboarding_completed_at") or "")[:10]
+            if running_since and current_profile.get("running_since") == running_since else "")
+    since_at = kept or now.date().isoformat()
     race = goal_label(values)
     if values.get("event_name"):
         race = f"{race} — {values['event_name']}"
@@ -185,11 +196,12 @@ def save(values: dict, *, update_profile, set_availability, set_quality_limit=No
         # Pola zgodne wstecz: AI i strona Cel czytają te nazwy.
         target_hm=" ".join(part for part in (race, values.get("target_time") or "") if part) if not fitness else race,
         current_hm_record=values.get("record") or "",
-        running_since=values.get("running_since") or "",
+        running_since=running_since,
+        running_since_at=since_at if running_since else "",
         health_notes=values.get("health_notes") or "",
         address_form=values.get("address_form") or "neutral",
         training_frequency=f"{frequency} {word} w tygodniu",
-        onboarding_completed_at=(now or datetime.now()).replace(microsecond=0).isoformat(),
+        onboarding_completed_at=now.replace(microsecond=0).isoformat(),
     )
     if set_quality_limit is not None and values.get("quality"):
         set_quality_limit(int(values["quality"]))

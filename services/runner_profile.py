@@ -44,6 +44,8 @@ def address_form(profile) -> str:
         return profile["address_form"]
     return profile.get("sex") if profile.get("sex") in ("female", "male") else "neutral"
 WINDOW_DAYS = 28
+# Tyle dni historii biegów z zegarka (pobierane jest 120) wystarcza, by uznać, że osoba biega od dawna.
+RUNNING_SEEN_DAYS = 90
 
 
 def _run_day(activity) -> date | None:
@@ -60,6 +62,35 @@ def _number(value) -> float | None:
 def _runs(activities):
     return [a for a in activities or [] if isinstance(a, dict) and str(a.get("type") or "").startswith("running")
             and _run_day(a) is not None]
+
+
+def running_months(profile, on: date, first_run: date | None = None) -> int | None:
+    """Staż w miesiącach w dniu ``on``: odpowiedź z kreatora plus czas od jej udzielenia.
+
+    ``first_run``: pierwszy bieg widoczny na zegarku. Gdy zegarek pokazuje bieganie krócej niż
+    RUNNING_SEEN_DAYS, staż rośnie najwyżej o tyle miesięcy, ile widać biegania — sam kalendarz bez
+    biegania nie robi z nikogo osoby doświadczonej.
+    """
+    base = RUNNING_SINCE.get((profile or {}).get("running_since"))
+    if base is None:
+        return None
+    answered = None
+    for key in ("running_since_at", "onboarding_completed_at"):
+        try:
+            answered = date.fromisoformat(str((profile or {}).get(key) or "")[:10])
+            break
+        except ValueError:
+            continue
+    if answered is None:
+        return base
+    elapsed = _full_months(answered, on)
+    if first_run is not None and (on - first_run).days < RUNNING_SEEN_DAYS:
+        elapsed = min(elapsed, _full_months(first_run, on))
+    return base + max(elapsed, 0)
+
+
+def _full_months(start: date, end: date) -> int:
+    return (end.year - start.year) * 12 + end.month - start.month - (end.day < start.day)
 
 
 def _returning(run_days: list[date], today: date) -> bool:
@@ -144,6 +175,133 @@ def _phase(target_date, today: date):
     return weeks, ("taper" if weeks <= 2 else "budowanie" if weeks <= 12 else "baza")
 
 
+LEVEL_ORDER = ("poczatkujacy", "regularny", "zaawansowany")
+# Poziom z historii: tyle ostatnich poniedziałków, tyle ocen z rzędu do awansu i do spadku.
+LEVEL_HISTORY_WEEKS = 12
+LEVEL_UP_WEEKS = 3
+LEVEL_DOWN_WEEKS = 4
+
+
+def _window_stats(runs, monday: date, until: date):
+    """Biegi i km na tydzień z 28 dni przed ``monday``; najdłuższy bieg z 28 dni przed ``until``."""
+    window = [a for a in runs if monday - timedelta(days=WINDOW_DAYS) <= _run_day(a) < monday]
+    durations = [_number(a.get("duration_min")) for a in runs
+                 if until - timedelta(days=WINDOW_DAYS) <= _run_day(a) < until and _number(a.get("duration_min"))]
+    km = sum(_number(a.get("distance_km")) or 0 for a in window)
+    return len(window) / 4, km / 4, (round(max(durations)) if durations else None)
+
+
+def _level_rule(months, runs_per_week, km_per_week, longest, short_history) -> str:
+    """Poziom z jednego okna 28 dni — progi bez zmian od wersji 0.8.0."""
+    # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
+    # krótkie biegi pod 5 km to wybór, a nie brak przygotowania.
+    short_run = EXPERIENCED_SHORT_RUN_MIN if months is not None and months >= 6 else 45
+    if short_history and months is not None:
+        return "poczatkujacy" if months < 6 else "regularny"
+    if (months is not None and months < 6) or runs_per_week < 2 or (longest or 0) < short_run:
+        return "poczatkujacy"
+    if (months is None or months >= 24) and runs_per_week >= 4 and ((longest or 0) >= 90 or km_per_week >= 40):
+        return "zaawansowany"
+    return "regularny"
+
+
+def _settle_level(ratings: list[str]):
+    """Poziom z kolejnych ocen tygodni: (poziom, indeks ostatniej zmiany albo None, "up"/"down"/None)."""
+    if not ratings:
+        return None, None, None
+    # Start od najniższej z pierwszych ocen: przesuwające się okno historii samo nie podnosi poziomu.
+    level, since, changed = min(ratings[:LEVEL_UP_WEEKS], key=LEVEL_ORDER.index), None, None
+    up = down = 0
+    for index, rated in enumerate(ratings[1:], start=1):
+        if rated == "poczatkujacy" and level != "poczatkujacy":
+            # Bezpiecznik ważniejszy niż stabilność: bez regularnego biegania od razu bez akcentów.
+            level, since, changed, up, down = rated, index, "down", 0, 0
+            continue
+        step = LEVEL_ORDER.index(rated) - LEVEL_ORDER.index(level)
+        up, down = (up + 1, 0) if step > 0 else (0, down + 1) if step < 0 else (0, 0)
+        if up >= LEVEL_UP_WEEKS or down >= LEVEL_DOWN_WEEKS:
+            direction = 1 if up else -1
+            level, since, changed = LEVEL_ORDER[LEVEL_ORDER.index(level) + direction], index, "up" if up else "down"
+            up = down = 0
+    return level, since, changed
+
+
+def _history_level(ratings: list[str]):
+    """Poziom z ostatnich LEVEL_HISTORY_WEEKS ocen i zmiana do ogłoszenia: (poziom, "up"/"down"/None).
+
+    ``ratings`` może mieć jedną ocenę więcej (najstarszą): zmiana jest ogłaszana tylko wtedy, gdy
+    w ostatniej ocenie poziom naprawdę różni się od ustalonego tydzień wcześniej — a nie dlatego,
+    że okno historii przesunęło się o tydzień.
+    """
+    current = ratings[-LEVEL_HISTORY_WEEKS:]
+    level, since, changed = _settle_level(current)
+    if since != len(current) - 1:
+        return level, None
+    if len(ratings) > 1 and _settle_level(ratings[:-1][-LEVEL_HISTORY_WEEKS:])[0] == level:
+        return level, None
+    return level, changed
+
+
+def _level_history(runs, profile, monday: date, today: date):
+    """Poziom ustalony z ocen ostatnich tygodni: (poziom, poniedziałek ustalenia, "up"/"down"/None).
+
+    Tydzień bez biegów (przerwa) i punkt z historią krótszą niż 3 tygodnie nie są oceniane.
+    Bez żadnej oceny — (None, None, None).
+    """
+    run_days = sorted(_run_day(a) for a in runs)
+    if not run_days:
+        return None, None, None
+    points, ratings = [], []
+    for k in range(LEVEL_HISTORY_WEEKS, -1, -1):  # o tydzień więcej: poziom ustalony tydzień wcześniej
+        point = monday - timedelta(days=7 * k)
+        if (point - run_days[0]).days < 21 or not any(point - timedelta(days=7) <= d < point for d in run_days):
+            continue
+        rpw, km, longest = _window_stats(runs, point, today if k == 0 else point)
+        points.append(point)
+        ratings.append(_level_rule(running_months(profile, point, first_run=run_days[0]), rpw, km, longest, False))
+    if not ratings:
+        return None, None, None
+    level, index, _ = _settle_level(ratings[-LEVEL_HISTORY_WEEKS:])
+    since = points[-LEVEL_HISTORY_WEEKS:][index] if index is not None else None
+    _, announced = _history_level(ratings)
+    return level, since, (announced if points[-1] == monday else None)
+
+
+def _decimal(value) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def _level_reason(runs_per_week, longest) -> str | None:
+    """Jedno zdanie z liczbami tej osoby (czas teraźniejszy — bez form płciowych)."""
+    if not runs_per_week:
+        return None
+    times = "raz" if runs_per_week == 1 else "razy"
+    text = f"W ostatnich 4 tygodniach biegasz średnio {_decimal(round(runs_per_week, 1))} {times} w tygodniu"
+    return text + (f", a najdłuższy bieg trwał {longest} min." if longest else ".")
+
+
+_LEVEL_UP_TEXT = {"regularny": "Trener traktuje Cię teraz jak osobę biegającą regularnie.",
+                  "zaawansowany": "Trener traktuje Cię teraz jak osobę zaawansowaną."}
+_LEVEL_DOWN_TEXT = {
+    "regularny": "Ostatnie tygodnie były lżejsze, więc trener planuje teraz jak dla osoby biegającej regularnie.",
+    "poczatkujacy": ("Ostatnie tygodnie były lżejsze, więc trener na razie planuje ostrożniej"
+                     " — jak dla osoby, która zaczyna biegać."),
+}
+
+
+def level_message(runner: dict) -> str | None:
+    """Zdanie na Stronę główną w tygodniu zmiany poziomu; bez zmiany, przy ręcznym wyborze i po przerwie — None."""
+    runner = runner or {}
+    if runner.get("level_override") or runner.get("returning"):
+        return None
+    if runner.get("level_changed") == "up" and runner.get("level_auto") in _LEVEL_UP_TEXT:
+        reason = runner.get("level_reason")
+        return f"{reason} {_LEVEL_UP_TEXT[runner['level_auto']]}" if reason else _LEVEL_UP_TEXT[runner["level_auto"]]
+    if runner.get("level_changed") == "down" and runner.get("level_auto") in _LEVEL_DOWN_TEXT:
+        return _LEVEL_DOWN_TEXT[runner["level_auto"]]
+    return None
+
+
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
                          pain=False) -> dict:
     """Profil do promptu i do bezpieczników planu.
@@ -163,28 +321,27 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         week["km"] += _number(activity.get("distance_km")) or 0
         week["minutes"] += _number(activity.get("duration_min")) or 0
     # Najdłuższy bieg z 28 dni do dziś (z bieżącym tygodniem): ta sama liczba trafia do promptu i do bezpieczników.
-    durations = [_number(a.get("duration_min")) for a in runs
-                 if today - timedelta(days=WINDOW_DAYS) <= _run_day(a) < today and _number(a.get("duration_min"))]
-    longest = round(max(durations)) if durations else None
+    runs_per_week, km_per_week, longest = _window_stats(runs, monday, today)
     run_days = sorted(_run_day(a) for a in runs)
     # Zegarek z historią krótszą niż 3 tygodnie nie mówi jeszcze, jak ktoś biega.
     short_history = not run_days or (monday - run_days[0]).days < 21
-    runs_per_week = len(window) / 4
-    km_per_week = sum(w["km"] for w in weeks.values()) / 4
 
     since = profile.get("running_since")
-    months = RUNNING_SINCE.get(since)
-    # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
-    # krótkie biegi pod 5 km to wybór, a nie brak przygotowania.
-    short_run = EXPERIENCED_SHORT_RUN_MIN if months is not None and months >= 6 else 45
-    if short_history and months is not None:
-        level = "poczatkujacy" if months < 6 else "regularny"
-    elif (months is not None and months < 6) or runs_per_week < 2 or (longest or 0) < short_run:
-        level = "poczatkujacy"
-    elif (months is None or months >= 24) and runs_per_week >= 4 and ((longest or 0) >= 90 or km_per_week >= 40):
-        level = "zaawansowany"
-    else:
-        level = "regularny"
+    level_now = _level_rule(running_months(profile, today, first_run=run_days[0] if run_days else today),
+                            runs_per_week, km_per_week, longest, short_history)
+    level_auto, level_since, level_changed = _level_history(runs, profile, monday, today)
+    if level_auto is None:
+        level_auto = level_now
+    elif level_now == "poczatkujacy" and level_auto != "poczatkujacy" and not short_history:
+        # Tydzień bez biegania nie jest oceniany, ale bezpiecznik działa od razu: po przerwie, zanim
+        # pojawi się pierwszy bieg, trener nie planuje akcentów.
+        level_auto, level_since, level_changed = "poczatkujacy", None, None
+    override = profile.get("level_override") if profile.get("level_override") in LEVEL_LABELS else None
+    level = level_auto
+    if override:
+        # Ręcznie można obniżyć poziom dowolnie, podnieść najwyżej o stopień — i nie przy krótkiej historii.
+        ceiling = level_auto if short_history else LEVEL_ORDER[min(LEVEL_ORDER.index(level_auto) + 1, 2)]
+        level = min(override, ceiling, key=LEVEL_ORDER.index)
 
     floors = profile.get("hr_zone_floors") or {}
     z3 = _number(floors.get("z3"))
@@ -219,6 +376,11 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
         "level": "poczatkujacy" if returning else level,
+        "level_auto": level_auto,
+        "level_since": level_since.isoformat() if level_since else None,
+        "level_changed": level_changed,
+        "level_override": override,
+        "level_reason": _level_reason(runs_per_week, longest),
         "returning": returning,
         "running_since": since,
         "short_history": short_history,

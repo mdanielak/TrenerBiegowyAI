@@ -116,7 +116,7 @@ def get_wizard_router(
                 return render(request, step="summary", values=values, status_code=409,
                               error="Najpierw połącz zegarek (Ustawienia → Połącz zegarek), potem zapisz cel.")
             wizard.save(values, update_profile=update_profile, set_availability=set_availability,
-                        set_quality_limit=preferences.set_max_quality_sessions)
+                        set_quality_limit=preferences.set_max_quality_sessions, current_profile=profile_or_none())
             return RedirectResponse(url="/goal?wizard=done", status_code=303)
         return render(request, step=wizard.STEPS[min(index + 1, len(wizard.STEPS) - 1)], values=values)
 

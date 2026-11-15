@@ -24,6 +24,7 @@ from fastapi.templating import Jinja2Templates
 
 from ai.connection_test import check_connection  # Re-exported for tests/api
 from services.actions import synchronize_data
+from services.runner_level import current_runner
 from services.assets import build_manifest
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.jobs import JobStore
@@ -186,12 +187,17 @@ def create_app(
     ai_settings_provider: Callable[[], dict] | None = None,
     snapshot_provider: Callable[[], object] = read_snapshot_status,
     startup_tasks: bool = False,
+    runner_provider: Callable[[], Optional[dict]] | None = None,
 ) -> FastAPI:
     """Utwórz aplikację z wstrzykiwalnym, tylko do odczytu dostawcą raportu."""
     store = job_store or JobStore(JOBS_DIR)
     journal_path = journal_path or JOURNAL_PATH
     ai_status_path = ai_status_path or AI_STATUS_PATH
     settings_view = ai_settings_provider or (lambda: ai_settings_view(ai_env_path))
+    if runner_provider is None:
+        def runner_provider():
+            return current_runner(snapshot_provider=snapshot_provider, profile_provider=profile_provider,
+                                  today=now_provider().astimezone().date())
 
     def ai_badge():
         try:
@@ -345,6 +351,7 @@ def create_app(
             app_version=app.version,
             journal_path=journal_path,
             ai_badge_provider=ai_badge,
+            runner_provider=runner_provider,
         )
     )
     app.include_router(get_stats_router(stats_report_provider=stats_report_provider, templates=_TEMPLATES))
@@ -388,6 +395,8 @@ def create_app(
     app.include_router(
         get_settings_router(
             profile_provider=profile_provider,
+            runner_provider=runner_provider,
+            update_profile=profile_updater or _profile_store.update_profile,
             availability_provider=availability_provider,
             ai_env_path=ai_env_path,
             lock_directory=lock_directory,
