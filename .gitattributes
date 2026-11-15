@@ -3,6 +3,7 @@
 .githooks/* text eol=lf
 *.ps1 text eol=crlf
 testowanie.bat export-ignore
+testowanie.sh export-ignore
 scripts/testowanie.py export-ignore
 # Źródła grafik (ok. 85 MB): potrzebne do pracy nad ikonami, nie do działania aplikacji.
 trener_biegowy_ai_assets/_originals export-ignore
