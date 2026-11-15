@@ -13,6 +13,8 @@ from fastapi.templating import Jinja2Templates
 from ai.connection_test import AIConnectionTestError
 from services.ai_status import ai_status_view, load_status, record_test
 from services.locking import LockBusyError, acquire_lock
+from services.runner_profile import LEVEL_LABELS
+from api.views.common import _format_date
 from trainer.ai_settings import (
     read_ai_settings,
     resolve_test_key,
@@ -52,6 +54,8 @@ def get_settings_router(
     ai_status_path=None,
     apply_settings=None,
     has_token: Callable[[], bool] | None = None,
+    runner_provider: Callable[[], dict | None] | None = None,
+    update_profile: Callable[..., dict] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -105,13 +109,29 @@ def get_settings_router(
             token,
         )
 
-    def settings_page(request: Request, *, status_code=200):
+    def level_view() -> dict | None:
+        runner = runner_provider() if runner_provider else None
+        if not runner or runner.get("level_auto") not in LEVEL_LABELS:
+            return None
+        since = runner.get("level_since")
+        return {"label": LEVEL_LABELS[runner["level"]] if runner.get("level") in LEVEL_LABELS else None,
+                "auto_label": LEVEL_LABELS[runner["level_auto"]],
+                "since": _format_date(since) if since else None,
+                "reason": runner.get("level_reason"),
+                "override": runner.get("level_override") or "",
+                "returning": bool(runner.get("returning")),
+                "capped": bool(runner.get("level_override") and not runner.get("returning")
+                               and runner.get("level_override") != runner.get("level")),
+                "choices": [("", "Automatycznie (zalecane)")] + list(LEVEL_LABELS.items())}
+
+    def settings_page(request: Request, *, status_code=200, level_error=None):
         token = csrf_token(request)
         try:
             garmin_connected = bool(has_token()) if has_token is not None else False
         except OSError:
             garmin_connected = False
-        context = {"active_nav": "settings", "garmin_connected": garmin_connected}
+        context = {"active_nav": "settings", "garmin_connected": garmin_connected,
+                   "level": level_view(), "level_error": level_error, "csrf_token": token}
         try:
             availability = availability_provider() or {}
             context["available_days"] = [label for day, label in (("mon", "poniedziałek"), ("tue", "wtorek"), ("wed", "środa"), ("thu", "czwartek"), ("fri", "piątek"), ("sat", "sobota"), ("sun", "niedziela")) if (availability.get(day) or {}).get("available")]
@@ -156,6 +176,22 @@ def get_settings_router(
     @router.get("/settings", response_class=HTMLResponse)
     def settings(request: Request):
         return settings_page(request)
+
+    @router.post("/settings/level", response_class=HTMLResponse)
+    def save_level(request: Request, csrf_token: str = Form(default=""), level_override: str = Form(default="")):
+        if not csrf_valid(request, csrf_token):
+            return settings_page(request, level_error="Odśwież stronę i spróbuj ponownie.", status_code=403)
+        if level_override and level_override not in LEVEL_LABELS:
+            return settings_page(request, level_error="Wybierz jeden z poziomów.", status_code=400)
+        if update_profile is None:
+            return settings_page(request, level_error="Nie można zapisać poziomu. Uruchom aplikację ponownie i spróbuj jeszcze raz.", status_code=503)
+        try:
+            update_profile(level_override=level_override)
+        except (OSError, ValueError):
+            logger.error("Could not save the level setting")
+            return settings_page(request, level_error="Nie można zapisać poziomu. Spróbuj ponownie.",
+                                 status_code=503)
+        return RedirectResponse(url="/settings#level", status_code=303, headers={"Cache-Control": "no-store"})
 
     @router.get("/settings/ai", response_class=HTMLResponse)
     def ai_settings(request: Request):

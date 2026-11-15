@@ -75,6 +75,32 @@
       <p class="tile-foot">Dostępne dni: {% if available_days is none %}Nie można odczytać dostępności.{% elif available_days %}{{ available_days|join(', ') }}.{% else %}Brak dni oznaczonych jako dostępne.{% endif %}</p>
     </section>
 
+    {% if level %}
+    <section class="card" id="level" aria-labelledby="level-heading">
+      <div class="card-head">
+        <h2 id="level-heading"><img class="asset head-icon" src="/assets/07_ui_icons/tile_person.png" width="28" height="28" alt=""><span>Poziom</span></h2>
+      </div>
+      <p><strong>Twój poziom: {{ level.label }}</strong>{% if level.override %} (ustawiony ręcznie){% elif level.since %} · od {{ level.since }}{% endif %}</p>
+      {% if level.returning %}<p class="mid">Po przerwie w bieganiu trener przez pierwsze dwa tygodnie planuje ostrożniej.</p>{% endif %}
+      {% if level.capped %}<p class="mid">Ręcznie można podnieść poziom najwyżej o jeden stopień ponad to, co wynika z danych z zegarka.</p>{% endif %}
+      {% if level.reason %}<p class="mid">{{ level.reason }}{% if level.override %} Według danych z zegarka: poziom {{ level.auto_label }}.{% endif %}</p>{% endif %}
+      <form method="post" action="/settings/level">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <fieldset class="field-group">
+          <legend>Jak ustalać poziom?</legend>
+          {% for key, label in level.choices %}
+            <label class="choice"><input type="radio" name="level_override" value="{{ key }}"{% if level.override == key %} checked{% endif %}> {{ label if key == '' else 'Zawsze poziom ' ~ label }}</label>
+          {% endfor %}
+          {% if level_error %}<span class="field-error" role="alert">{{ level_error }}</span>{% endif %}
+        </fieldset>
+        <p class="tile-foot">Również przy ręcznym wyborze trener po przerwie w bieganiu zaczyna ostrożnie.</p>
+        <button type="submit" class="btn btn-secondary">Zapisz</button>
+      </form>
+    </section>
+    {% elif level_error %}
+    <div class="banner bad" role="alert">{{ ico.info() }}<div class="banner-body"><p>{{ level_error }}</p></div></div>
+    {% endif %}
+
     <div class="banner info">
       {{ ico.info() }}
       <div class="banner-body">

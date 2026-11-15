@@ -230,7 +230,7 @@ def test_steady_weeks_promote_and_too_few_do_not():
     runner = build_runner_profile(activities=_weeks((8, 1, 30), (4, 4, 50)), profile=_profile(), today=TODAY)
     assert runner["level"] == "regularny" and runner["level_changed"] == "up"
     assert runner["level_since"] == MONDAY.isoformat()
-    assert runner["level_reason"] == "W ostatnich 4 tygodniach biegasz średnio 4 razy w tygodniu, najdłużej 50 min."
+    assert runner["level_reason"] == "W ostatnich 4 tygodniach biegasz średnio 4 razy w tygodniu, a najdłuższy bieg trwał 50 min."
     assert level_message(runner) == (runner["level_reason"]
                                      + " Trener traktuje Cię teraz jak osobę biegającą regularnie.")
     slower = build_runner_profile(activities=_weeks((8, 1, 30), (3, 4, 50)), profile=_profile(), today=TODAY)

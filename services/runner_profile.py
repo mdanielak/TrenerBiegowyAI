@@ -260,7 +260,7 @@ def _level_reason(runs_per_week, longest) -> str | None:
         return None
     times = "raz" if runs_per_week == 1 else "razy"
     text = f"W ostatnich 4 tygodniach biegasz średnio {_decimal(round(runs_per_week, 1))} {times} w tygodniu"
-    return text + (f", najdłużej {longest} min." if longest else ".")
+    return text + (f", a najdłuższy bieg trwał {longest} min." if longest else ".")
 
 
 _LEVEL_UP_TEXT = {"regularny": "Trener traktuje Cię teraz jak osobę biegającą regularnie.",

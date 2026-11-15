@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from services.data_extract import SnapshotStatus
 from services.journal import entries_by_day
 from services.wizard import needs_onboarding
+from services.runner_profile import level_message
 from services.jobs import JobStore
 from services.today import TodayReport
 from api.schemas import HealthResponse, ReadinessResponse
@@ -61,6 +62,7 @@ def get_dashboard_router(
     app_version: str,
     journal_path,
     ai_badge_provider: Callable[[], dict] | None = None,
+    runner_provider: Callable[[], Optional[dict]] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -167,6 +169,7 @@ def get_dashboard_router(
                     "ai_ready": badge is not None and badge["state"] not in ("missing", "no_consent"),
                     "ai_off_notice": request.query_params.get("ai") == "off",
                     "active_nav": "today",
+                    "level_notice": level_message(runner_provider()) if runner_provider else None,
                 },
                 headers={"Cache-Control": "no-store"},
             ),

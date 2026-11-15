@@ -72,6 +72,16 @@
       </div>
     {% endif %}
 
+    {% if level_notice %}
+      <div class="banner info">
+        {{ ico.info() }}
+        <div class="banner-body">
+          <p class="banner-title">Trener zmienił Twój poziom</p>
+          <p class="mid">{{ level_notice }} <a href="/settings#level">Ustawienia poziomu</a></p>
+        </div>
+      </div>
+    {% endif %}
+
     {% if health_alert %}
       <div class="health-alert {{ health_alert.tone }}" role="alert">
         <img class="asset" src="/assets/07_ui_icons/tile_alert.png" width="40" height="40" alt="">
