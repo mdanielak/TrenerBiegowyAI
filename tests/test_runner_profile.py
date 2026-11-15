@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ai.prompts import coach_prompt, modules_for
 from services import plan as plan_service
-from services.runner_profile import build_runner_profile, profile_lines, running_months
+from services.runner_profile import _settle_level, build_runner_profile, level_message, profile_lines, running_months
 
 TODAY = date(2026, 11, 4)  # środa; poprzednie 4 tygodnie: 5.10–1.11
 FLOORS = {"z1": 98, "z2": 120, "z3": 138, "z4": 156, "z5": 172}
@@ -198,7 +198,106 @@ def test_years_of_running_grow_from_the_wizard_answer():
 
 
 def test_a_year_after_starting_a_frequent_runner_is_no_longer_a_beginner():
-    runs = _runs(range(3, 85, 2), 50)   # ~3,5 biegu tygodniowo przez 12 tygodni
+    runs = _runs(range(3, 113, 2), 50)   # ~3,5 biegu tygodniowo przez 16 tygodni
     runner = build_runner_profile(activities=runs, today=TODAY,
                                   profile=_profile(running_since="start", running_since_at="2025-10-01"))
     assert runner["level"] == "regularny"
+
+
+MONDAY = TODAY - timedelta(days=TODAY.weekday())
+_RUN_DAYS = (5, 1, 3, 6)  # sobota, wtorek, czwartek, niedziela
+
+
+def _weeks(*segments, extra=()):
+    """Biegi w pełnych tygodniach przed bieżącym: (tygodnie, biegi w tygodniu, minuty), od najstarszych.
+
+    Ostatni segment kończy się w poprzednim tygodniu; ``extra`` — dni wstecz od TODAY z biegiem 30 min.
+    """
+    total = sum(segment[0] for segment in segments)
+    runs, week = [], total
+    for count, per_week, minutes, *km in segments:
+        for _ in range(count):
+            start = MONDAY - timedelta(days=7 * week)
+            runs += [{"date": f"{start + timedelta(days=d)} 18:00", "type": "running/generic",
+                      "duration_min": minutes, "distance_km": km[0] if km else 5.0, "avg_hr": 130}
+                     for d in _RUN_DAYS[:per_week]]
+            week -= 1
+    return runs + _runs(extra, 30)
+
+
+def test_steady_weeks_promote_and_too_few_do_not():
+    # Ocena tygodnia patrzy na 28 dni: 4 tygodnie po 4 biegi dają 3 oceny „regularny” z rzędu, 3 tygodnie — dwie.
+    runner = build_runner_profile(activities=_weeks((8, 1, 30), (4, 4, 50)), profile=_profile(), today=TODAY)
+    assert runner["level"] == "regularny" and runner["level_changed"] == "up"
+    assert runner["level_since"] == MONDAY.isoformat()
+    assert runner["level_reason"] == "W ostatnich 4 tygodniach biegasz średnio 4 razy w tygodniu, najdłużej 50 min."
+    assert level_message(runner) == (runner["level_reason"]
+                                     + " Trener traktuje Cię teraz jak osobę biegającą regularnie.")
+    slower = build_runner_profile(activities=_weeks((8, 1, 30), (3, 4, 50)), profile=_profile(), today=TODAY)
+    assert slower["level"] == "poczatkujacy" and slower["level_changed"] is None and level_message(slower) is None
+
+
+def test_a_lighter_stretch_lowers_advanced_slowly_but_beginner_at_once():
+    # Z zaawansowanego na regularny dopiero po 4 słabszych ocenach z rzędu.
+    three = build_runner_profile(activities=_weeks((8, 4, 50, 10.0), (3, 4, 50, 6.0)), profile=_profile(), today=TODAY)
+    assert three["level"] == "zaawansowany" and three["level_changed"] is None
+    four = build_runner_profile(activities=_weeks((8, 4, 50, 10.0), (4, 4, 50, 6.0)), profile=_profile(), today=TODAY)
+    assert four["level"] == "regularny" and four["level_changed"] == "down"
+    assert level_message(four) == ("Ostatnie tygodnie były lżejsze, więc trener planuje teraz jak dla osoby"
+                                   " biegającej regularnie.")
+    # Bieganie rzadziej niż 2 razy w tygodniu: od razu ostrożnie, bez akcentów (bezpiecznik ważniejszy niż stabilność).
+    light = build_runner_profile(activities=_weeks((8, 4, 50), (3, 1, 30)), profile=_profile(), today=TODAY)
+    assert light["level"] == "poczatkujacy" and light["level_changed"] == "down"
+    assert level_message(light) == ("Ostatnie tygodnie były lżejsze, więc trener na razie planuje ostrożniej"
+                                    " — jak dla osoby, która zaczyna biegać.")
+
+
+def test_the_sliding_history_does_not_change_the_level_by_itself():
+    ratings = ["regularny", "zaawansowany", "zaawansowany"] * 6
+    assert {_settle_level(ratings[i:i + 12])[0] for i in range(4)} == {"regularny"}
+
+
+def test_years_of_running_do_not_grow_without_running():
+    # Odpowiedź „start” 10 miesięcy temu, a zegarek pokazuje bieganie dopiero od 2 tygodni.
+    runner = build_runner_profile(activities=_runs([2, 5, 9, 12], 30), today=TODAY,
+                                  profile=_profile(running_since="start", running_since_at="2026-01-10"))
+    assert runner["level"] == "poczatkujacy"
+
+
+def test_a_manual_level_raises_at_most_one_step():
+    beginner = _weeks((8, 1, 20))
+    chosen = build_runner_profile(activities=beginner, profile=_profile(level_override="zaawansowany"), today=TODAY)
+    assert chosen["level_auto"] == "poczatkujacy" and chosen["level"] == "regularny"
+    lower = build_runner_profile(activities=_weeks((8, 4, 50)), profile=_profile(level_override="poczatkujacy"),
+                                 today=TODAY)
+    assert lower["level"] == "poczatkujacy"
+    fresh = build_runner_profile(activities=_runs([2, 5], 20), today=TODAY,
+                                 profile=_profile(running_since="start", level_override="regularny"))
+    assert fresh["short_history"] and fresh["level"] == "poczatkujacy"
+
+
+def test_weeks_without_running_are_not_evidence():
+    pause = build_runner_profile(activities=_weeks((8, 4, 50), (2, 0, 0)), profile=_profile(), today=TODAY)
+    assert pause["level_auto"] == "regularny" and pause["level_changed"] is None
+    back = build_runner_profile(activities=_weeks((8, 4, 50), (4, 0, 0)) + _runs([1, 6, 3], 30),
+                                profile=_profile(), today=TODAY)
+    assert back["returning"] and back["level"] == "poczatkujacy"
+
+
+def test_manual_level_wins_except_after_a_break():
+    steady = _weeks((8, 4, 50))
+    chosen = build_runner_profile(activities=steady, profile=_profile(level_override="zaawansowany"), today=TODAY)
+    assert chosen["level"] == "zaawansowany" and chosen["level_auto"] == "regularny"
+    assert level_message(chosen) is None
+    unknown = build_runner_profile(activities=steady, profile=_profile(level_override="cokolwiek"), today=TODAY)
+    assert unknown["level"] == "regularny" and unknown["level_override"] is None
+    back = _weeks((8, 4, 50), (4, 0, 0)) + _runs([1, 6, 3], 30)
+    after_break = build_runner_profile(activities=back, profile=_profile(level_override="zaawansowany"), today=TODAY)
+    assert after_break["level"] == "poczatkujacy"
+
+
+def test_a_change_is_announced_only_in_its_own_week():
+    runner = build_runner_profile(activities=_weeks((8, 1, 30), (4, 4, 50)), profile=_profile(),
+                                  today=TODAY + timedelta(days=7))
+    assert runner["level"] == "regularny" and runner["level_changed"] is None
+    assert runner["level_since"] == MONDAY.isoformat()

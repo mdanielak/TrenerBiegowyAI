@@ -48,7 +48,9 @@ początkujący, tylko biega regularnie. Dzisiaj tak się nie dzieje:
 
 ### Staż rośnie z czasem
 - Przy zapisie kreatora zapisywana jest data odpowiedzi o stażu (`running_since_at`, data ISO).
-- Miesiące stażu = wartość z `RUNNING_SINCE` + pełne miesiące od `running_since_at` do dziś.
+- Miesiące stażu = wartość z `RUNNING_SINCE` + pełne miesiące od `running_since_at` do dziś. Gdy zegarek pokazuje
+  bieganie krócej niż 90 dni, staż rośnie najwyżej o tyle, ile widać biegania (poprawka po przeglądzie: sam kalendarz
+  bez biegania nie może dać akcentów).
 - Starsze profile bez tej daty: data z `onboarding_completed_at`; gdy i jej brak — staż bez wzrostu (jak dziś).
 - Ponowne przejście kreatora z tą samą odpowiedzią nie zeruje daty (decyzja wykonawcy: data zmienia się tylko wtedy,
   gdy zmienia się odpowiedź).
@@ -59,19 +61,22 @@ początkujący, tylko biega regularnie. Dzisiaj tak się nie dzieje:
 - Tygodnie bez biegania (przerwa) nie są dowodem — pomija się je przy ustalaniu poziomu.
 - Poziom = poziom z poprzedniej oceny, chyba że:
   - **awans**: 3 ostatnie oceniane tygodnie z rzędu wskazują wyższy poziom;
-  - **spadek**: 4 ostatnie oceniane tygodnie z rzędu wskazują niższy poziom.
+  - **spadek**: 4 ostatnie oceniane tygodnie z rzędu wskazują niższy poziom — dotyczy zaawansowany → regularny;
+    ocena „początkujący” (np. mniej niż 2 biegi w tygodniu) obniża poziom od razu, bo bezpiecznik jest ważniejszy niż
+    stabilność (poprawka po przeglądzie).
+  - start łańcucha: najniższa z pierwszych 3 ocen, żeby przesuwające się okno samo nie podnosiło poziomu.
   Poziom zmienia się o jeden stopień naraz. Na starcie historii (najstarszy tydzień) poziom = jego surowa ocena.
 - Krótka historia (`short_history`, < 3 tygodnie danych): jak dziś, bez histerezy.
-- Powrót po przerwie (`returning`): przez te 14 dni `level` = początkujący jak dziś; potem wraca poziom z historii,
-  w której tygodnie przerwy nie były liczone.
-- Ręczne ustawienie poziomu w Ustawieniach (`level_override` w profilu) ma pierwszeństwo przed wynikiem z historii,
-  ale nie przed okresem powrotu.
+- Powrót po przerwie (`returning`): przez te 14 dni `level` = początkujący jak dziś. Tygodnie przerwy nie obniżają
+  poziomu, ale rzadkie bieganie po powrocie tak (zob. spadek), więc wcześniejszy poziom wraca przez zwykły awans.
+- Ręczne ustawienie poziomu w Ustawieniach (`level_override` w profilu): obniża dowolnie, podnosi najwyżej o jeden
+  stopień ponad wynik z historii i wcale przy krótkiej historii; nie działa w okresie powrotu.
 - Liczby do decyzji (biegi na tydzień, najdłuższy bieg, km) — z tych samych pól co dziś; obliczenie zostaje czystą
   funkcją danych (bez zapisu stanu), żeby prompt, bezpieczniki i ekran dostawały ten sam poziom.
 
 ### Komunikat o zmianie
 - `build_runner_profile` zwraca dodatkowo: `level_since` (poniedziałek, od którego obowiązuje poziom),
-  `level_changed` (`"up"`, `"down"` albo `None` — gdy zmiana nastąpiła w bieżącym albo poprzednim tygodniu)
+  `level_changed` (`"up"`, `"down"` albo `None` — gdy zmiana nastąpiła w bieżącym tygodniu, od poniedziałku zmiany)
   i `level_reason` (jedno zdanie z liczbami tej osoby).
 - Strona główna pokazuje komunikat przez tydzień od zmiany, np.:
   „Od 3 tygodni biegasz 4 razy w tygodniu, najdłużej 55 minut. Trener traktuje Cię teraz jak osobę biegającą regularnie.”
