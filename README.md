@@ -46,7 +46,7 @@ Bez AI możesz synchronizować i przeglądać dane, korzystać z dziennika oraz 
 
 ### Aktualizacja
 
-Uruchom `update.bat`, aby pobrać najnowsze wydanie i zaktualizować aplikację. Możesz też przeciągnąć pobrany plik ZIP na `update.bat`. Dane lokalne, konfiguracja i własne plany są zachowywane. W kopii repozytorium Git aktualizacja używa `git pull`. Aplikacja sama przypomni o nowszym wydaniu, gdy sprawdzi GitHub raz na dobę.
+Uruchom `update.bat`, aby pobrać najnowsze wydanie i zaktualizować aplikację. Możesz też przeciągnąć pobrany plik ZIP na `update.bat`. Dane lokalne, konfiguracja i własne plany są zachowywane. W kopii repozytorium Git aktualizacja używa `git pull`. Na Linuksie to samo robi `./update.sh` (z pobranej paczki: `./update.sh --zip ŚCIEŻKA`). Aplikacja sama przypomni o nowszym wydaniu, gdy sprawdzi GitHub raz na dobę.
 
 ## Widoki aplikacji
 

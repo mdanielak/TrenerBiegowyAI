@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -27,6 +28,11 @@ def _cache_path() -> Path:
 def _parse(version) -> tuple[int, int, int] | None:
     match = _VERSION.match(str(version or "").strip())
     return tuple(int(part) for part in match.groups()) if match else None
+
+
+def update_command(platform: str | None = None) -> str:
+    """Plik, którym osoba aktualizuje aplikację na swoim systemie."""
+    return "update.bat" if (platform or sys.platform).startswith("win") else "./update.sh"
 
 
 def newer_version(current: str, latest: str) -> str | None:
