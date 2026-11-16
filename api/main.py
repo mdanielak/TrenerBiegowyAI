@@ -6,9 +6,11 @@ import hashlib
 import logging
 import os
 import secrets
+import threading
 import tomllib
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from functools import partial
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -248,11 +250,6 @@ def create_app(
 
         app_instance.state.job_executor.submit(execute)
 
-    def check_for_update(app_instance: FastAPI) -> None:
-        from services.update_check import available_update
-
-        app_instance.state.update_available = available_update(app_instance.version)
-
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI):
         from concurrent.futures import ThreadPoolExecutor
@@ -262,15 +259,19 @@ def create_app(
         store.mark_abandoned_running_as_unknown()
         store.prune_finished(now=now_provider())
         app_instance.state.job_executor = ThreadPoolExecutor(max_workers=1)
+        closing = threading.Event()
         if startup_tasks:
-            import threading
+            from services.update_check import watch_for_updates
 
             sync_stale_data(app_instance)
-            # Osobny wątek: wolna sieć nie opóźnia startu ani kolejki zadań.
-            threading.Thread(target=check_for_update, args=(app_instance,), daemon=True).start()
+            # Osobny wątek: wolna sieć nie opóźnia startu ani kolejki zadań; działa, póki działa aplikacja.
+            threading.Thread(target=watch_for_updates, daemon=True,
+                             args=(app_instance.version, partial(setattr, app_instance.state, "update_available"),
+                                   closing)).start()
         try:
             yield
         finally:
+            closing.set()
             app_instance.state.job_executor.shutdown(wait=True)
 
     app = FastAPI(
