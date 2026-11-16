@@ -80,6 +80,7 @@ def _week_summary(stored, data, today, profile_provider) -> dict | None:
 
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
                       banner=None, push_banner=None, remove_banner=None, error_message=None, error_command=None,
+                      error_countdown=None,
                       now=None, readiness_by_date=None, previous_week=None,
                       snapshot_stale=False, anchor=None, conflict=None, variants=None, activities=None) -> dict:
     """Zbuduj kontekst strony planu; ten sam zestaw używa router i obsługa błędów CSRF."""
@@ -116,6 +117,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "current_week": week_bounds(today)[0].date().isoformat(),
         "next_week": (monday + timedelta(days=7)).date().isoformat(),
         "error_message": error_message,
+        "error_countdown": error_countdown,
         "error_command": error_command,
         "conflict": conflict,
         "variants": variants or [],

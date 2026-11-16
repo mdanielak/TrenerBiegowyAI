@@ -86,6 +86,25 @@ setInterval(() => {
   });
 }, 1000);
 
+// Odliczanie przerwy (np. po ułożeniu planu): co sekundę mniej, przy zerze komunikat znika.
+function secondsWord(count) {
+  const last = count % 10, lastTwo = count % 100;
+  if (count === 1) return 'sekundę';
+  return last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? 'sekundy' : 'sekund';
+}
+document.querySelectorAll('[data-countdown]').forEach(span => {
+  const timer = setInterval(() => {
+    const seconds = Number(span.dataset.countdown) - 1;
+    if (seconds <= 0) {
+      clearInterval(timer);
+      (span.closest('[data-countdown-banner]') || span).remove();
+      return;
+    }
+    span.dataset.countdown = seconds;
+    span.textContent = `${seconds} ${secondsWord(seconds)}`;
+  }, 1000);
+});
+
 // Keep submitter names intact for multi-action forms while preventing duplicate requests.
 document.querySelectorAll('form[method="post"]').forEach(form => {
   let submitting = false;

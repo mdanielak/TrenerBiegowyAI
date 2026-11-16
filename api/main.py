@@ -103,6 +103,8 @@ _TEMPLATES.env.globals["sync_in_progress"] = lambda request: (
     getattr(request.state, "sync_status_provider", None) or (lambda: None))()
 # Numer nowszego wydania z GitHuba albo None; ustawiany w tle przy starcie prawdziwej aplikacji.
 _TEMPLATES.env.globals["update_command"] = lambda: update_command()
+# Ta sama odmiana co w static/js/interface.js (secondsWord): 1 sekundę, 2 sekundy, 5 sekund.
+_TEMPLATES.env.globals["seconds_word"] = lambda count: _plural(count, "sekundę", "sekundy", "sekund")
 _TEMPLATES.env.globals["update_available"] = lambda request: getattr(
     getattr(getattr(request, "app", None), "state", None), "update_available", None)
 

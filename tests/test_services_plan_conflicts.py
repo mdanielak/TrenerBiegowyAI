@@ -319,7 +319,10 @@ def test_a_new_plan_right_after_the_last_one_says_how_long_to_wait(tmp_path):
         response = _post(client, "/actions/plan", on_conflict="overwrite")
 
     assert response.status_code == 429
-    assert "Plan ułożono przed chwilą" in response.text and "za 5 min" in response.text
+    assert "Plan ułożono przed chwilą" in response.text
+    # Odliczanie w przeglądarce: liczba sekund w atrybucie, komunikat znika przy zerze.
+    assert re.search(r'data-countdown="(29|30)">(29|30) sekund<', response.text)
+    assert "data-countdown-banner" in response.text
     assert calls == [] and len(store.list_jobs().jobs) == 1
 
 
@@ -329,3 +332,8 @@ def test_the_wait_is_told_before_asking_about_overwriting(tmp_path):
     with _client(tmp_path, plan=_plan(), jobs=store) as client:
         response = _post(client, "/actions/plan")
     assert response.status_code == 429 and "Plan ułożono przed chwilą" in response.text
+
+
+def test_the_wait_after_a_plan_is_30_seconds():
+    from api.views.jobs import PLAN_COOLDOWN
+    assert PLAN_COOLDOWN == timedelta(seconds=30)

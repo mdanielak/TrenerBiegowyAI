@@ -9,7 +9,7 @@ from services.sync_progress import plan_progress_view, progress_view
 
 SYNC_COOLDOWN = timedelta(seconds=60)
 REVIEW_COOLDOWN = timedelta(seconds=30)
-PLAN_COOLDOWN = timedelta(minutes=5)
+PLAN_COOLDOWN = timedelta(seconds=30)
 PLAN_PUSH_COOLDOWN = timedelta(minutes=1)
 
 
