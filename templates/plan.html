@@ -7,10 +7,10 @@
 {% import "_icons.html" as ico %}
 
 {% if error_message %}
-  <div class="banner bad">
+  <div class="banner bad"{% if error_countdown %} data-countdown-banner{% endif %}>
     {{ ico.info() }}
     <div class="banner-body">
-      <p>{{ error_message }}</p>
+      <p>{{ error_message }}{% if error_countdown %} Ułóż go ponownie za <span data-countdown="{{ error_countdown }}">{{ error_countdown }} {{ seconds_word(error_countdown) }}</span>.{% endif %}</p>
       {% from "_fix_hint.html" import fix_hint %}{{ fix_hint(error_command) }}
     </div>
   </div>
