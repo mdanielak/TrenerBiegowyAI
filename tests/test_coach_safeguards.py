@@ -52,9 +52,62 @@ def test_steady_progress_is_not_cut_back():
     assert week_cap([120, 130, 140, 150], "doloz") == 165
 
 
-def test_right_after_a_spike_the_week_stays_below_it():
-    # Ostatni tydzień 240 przy zwykłych 150: dokładanie kolejnych 10% byłoby skokiem obciążenia.
-    assert week_cap([150, 150, 150, 240], "doloz") == round(172.5 * 1.3) < 240
+def test_right_after_a_spike_the_week_does_not_grow_further():
+    # Ostatni tydzień 240 przy zwykłych 150: dokładanie kolejnych 10% byłoby skokiem obciążenia,
+    # ale powtórzenie przebiegniętego tygodnia nie jest skokiem.
+    assert week_cap([150, 150, 150, 240], "doloz") == 240
+    assert week_cap([150, 150, 150, 240], "odpusc") < 240
+
+
+def _history(totals):
+    """Trzy biegi w tygodniu; ``totals``: {tygodni wstecz: minuty}, 0 = ostatni pełny tydzień, brak = bez biegów."""
+    return [_run(7 * weeks_back + day, total / 3) for weeks_back, total in totals.items() if total
+            for day in (1, 3, 5)]
+
+
+UNEVEN = {3: 60, 2: 0, 1: 40, 0: 120}  # nierówne tygodnie z jednym pustym
+EARLIER = {weeks_back: 200 for weeks_back in range(4, 12)}  # wcześniej regularnie 200 min
+
+
+def test_a_missed_week_does_not_cut_the_plan_below_last_week():
+    runner = build_runner_profile(activities=_history(UNEVEN), profile=_profile(), today=TODAY)
+    assert runner["decision"] == "utrzymaj"
+    assert runner["week_cap_min"] == 120  # a nie 1,3 × średnia 55 min = 72
+
+
+def test_coming_back_to_an_earlier_volume_grows_faster():
+    runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY)
+    assert runner["earlier_week_min"] == 200
+    assert runner["week_cap_min"] == 150  # +25% wobec ostatnich 120 min, w drodze do 200
+
+
+def test_the_comeback_never_goes_above_the_earlier_usual_week():
+    earlier = {weeks_back: 130 for weeks_back in range(4, 12)}
+    runner = build_runner_profile(activities=_history({**earlier, **UNEVEN}), profile=_profile(), today=TODAY)
+    assert runner["week_cap_min"] == 130
+
+
+def test_an_easier_week_stays_easier_even_with_a_bigger_past():
+    runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY,
+                                  pain=True)
+    assert runner["decision"] == "odpusc" and runner["week_cap_min"] < 120
+
+
+def test_after_a_long_break_there_is_no_fast_comeback():
+    earlier = {weeks_back: 200 for weeks_back in range(5, 12)}  # potem 4 tygodnie bez biegania
+    runs = _history(earlier) + [_run(2, 40)]
+    runner = build_runner_profile(activities=runs, profile=_profile(), today=TODAY)
+    assert runner["returning"] and runner["week_cap_min"] == 40
+
+
+def test_the_model_sees_the_earlier_volume():
+    runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY)
+    lines = "\n".join(profile_lines(runner))
+    assert "wcześniej (5–12 tygodni temu) zwykły tydzień 200 min" in lines
+    assert "cały tydzień najwyżej 150 min" in lines
+    plain = "\n".join(profile_lines(build_runner_profile(activities=_history(UNEVEN), profile=_profile(),
+                                                         today=TODAY)))
+    assert "wcześniej" not in plain
 
 
 def test_a_missed_week_counts_as_zero_minutes():
