@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 
@@ -222,6 +223,16 @@ def get_actions_router(
             headers={"Cache-Control": "no-store"},
         )
 
+    def plan_wait_minutes() -> int:
+        """Ile pełnych minut zostało z przerwy po ostatnim udanym planie (0 = można układać)."""
+        finished = [job.finished_at for job in store.list_jobs().jobs
+                    if job.operation == "plan" and job.status == "succeeded" and job.finished_at]
+        if not finished:
+            return 0
+        remaining = (datetime.fromisoformat(max(finished)) + PLAN_COOLDOWN
+                     - datetime.now(timezone.utc)).total_seconds()
+        return math.ceil(remaining / 60) if remaining > 0 else 0
+
     def plan_error(request: Request, message: str = CSRF_ERROR_MESSAGE, *, status_code=403, **extra):
         """Strona planu z komunikatem błędu."""
         return templates.TemplateResponse(
@@ -273,6 +284,12 @@ def get_actions_router(
         if any(job.operation == "sync" and job.status in {"accepted", "running"} for job in store.list_jobs().jobs):
             # Plan ma powstać na świeżych danych; przycisk jest wtedy wyłączony, to bezpiecznik dla starej karty.
             return RedirectResponse(url=plan_url(week_start), status_code=303)
+        wait = plan_wait_minutes()
+        if wait and on_conflict != "cancel":
+            # Bez tego prośba w czasie przerwy znikała bez słowa i wyglądało, że przycisk nie działa.
+            # Przed pytaniem o nadpisanie: nie pytamy o coś, czego i tak teraz nie zrobimy.
+            return plan_error(request, f"Plan ułożono przed chwilą. Ułóż go ponownie za {wait} min.",
+                              status_code=429, anchor=week_monday(week_start))
         decision, redirect = decide("plan", week_start, on_conflict)
         if redirect is not None:
             return redirect

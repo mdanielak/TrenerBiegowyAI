@@ -307,3 +307,25 @@ def test_overwrite_deletes_old_workouts_only_after_new_ones_are_on_the_watch():
                             workout_deleter=lambda *a, **k: calls.append("delete"),
                             registry_entries=_registry(1), on_conflict="overwrite")
     assert "delete" not in calls  # przerwana wysyłka nie zostawia pustego dnia na zegarku
+
+
+def test_a_new_plan_right_after_the_last_one_says_how_long_to_wait(tmp_path):
+    # Wcześniej prośba w czasie przerwy po ostatnim planie znikała bez słowa: nic się nie działo.
+    store = JobStore(tmp_path / "jobs")
+    finished = store.mark_running(store.submit("plan", {"week_start": "2026-10-26", "on_conflict": "add"}).id)
+    store.mark_succeeded(finished.id)
+    calls = []
+    with _client(tmp_path, plan=_plan(), jobs=store, plan_calls=calls) as client:
+        response = _post(client, "/actions/plan", on_conflict="overwrite")
+
+    assert response.status_code == 429
+    assert "Plan ułożono przed chwilą" in response.text and "za 5 min" in response.text
+    assert calls == [] and len(store.list_jobs().jobs) == 1
+
+
+def test_the_wait_is_told_before_asking_about_overwriting(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    store.mark_succeeded(store.mark_running(store.submit("plan", {"week_start": "2026-10-26"}).id).id)
+    with _client(tmp_path, plan=_plan(), jobs=store) as client:
+        response = _post(client, "/actions/plan")
+    assert response.status_code == 429 and "Plan ułożono przed chwilą" in response.text
