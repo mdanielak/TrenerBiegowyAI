@@ -243,3 +243,14 @@ def test_daily_coach_answers_a_follow_up_directly():
 
     prompt = coach_prompt(None, mode="dzien")
     assert "„Wcześniej dziś”" in prompt and "odpowiadasz wprost na najnowsze pytanie" in prompt
+
+
+def test_null_text_fields_from_the_model_read_as_empty():
+    # Prompt każe wpisywać null, gdy czegoś nie ma — model robi tak też z notatkami i opisami.
+    plan = WeekPlanResponse.model_validate({
+        "focus": None, "summary": None,
+        "workouts": [{"date": "2026-10-26", "kind": "rest", "name": "Odpoczynek",
+                      "description": None, "notes": None}],
+    })
+    assert (plan.focus, plan.summary) == ("", "")
+    assert (plan.workouts[0].description, plan.workouts[0].notes) == ("", "")

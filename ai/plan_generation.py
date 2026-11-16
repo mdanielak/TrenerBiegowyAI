@@ -9,8 +9,9 @@ from __future__ import annotations
 import logging
 
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from ai.context import journal_lines
 from services.strategy import STRATEGY_PATH
@@ -20,13 +21,17 @@ logger = logging.getLogger(__name__)
 PLAN_MAX_TOKENS = 8000
 
 
+# Prompt każe wpisywać null, gdy czegoś nie ma; model robi tak też z tekstami. null w tekście = pusty tekst.
+Text = Annotated[str, BeforeValidator(lambda value: "" if value is None else value)]
+
+
 class PlanWorkout(BaseModel):
     """Pojedynczy dzień planu. Brakujące wartości uzupełnia warstwa reguł."""
 
     date: str
     kind: str
     name: str
-    description: str = ""
+    description: Text = ""
     duration_min: int | None = None
     distance_km: float | None = None
     hr_zone: int | None = None
@@ -34,16 +39,16 @@ class PlanWorkout(BaseModel):
     repetitions: int | None = None
     work_seconds: int | None = None
     rest_seconds: int | None = None
-    notes: str = ""
+    notes: Text = ""
 
 
 class WeekPlanResponse(BaseModel):
     """Odpowiedź modelu: tydzień pon–niedz wraz z listą treningów."""
 
-    start_date: str = ""
-    end_date: str = ""
-    focus: str = ""
-    summary: str = ""
+    start_date: Text = ""
+    end_date: Text = ""
+    focus: Text = ""
+    summary: Text = ""
     workouts: list[PlanWorkout] = Field(default_factory=list)
 
 
