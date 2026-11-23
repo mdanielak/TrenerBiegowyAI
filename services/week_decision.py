@@ -65,6 +65,8 @@ HRV_FRESH_DAYS = 3
 LONG_RUN_GROWTH = 1.10
 LONG_RUN_REQUEST_GROWTH = 1.15  # przy wiadomości od biegacza (nie dotyczy lekkich stopni)
 LONG_RUN_MIN_STEP = 5
+# Twardy sufit długiego biegu (moduł maratonu: „nigdy powyżej 3 godzin”); dłuższy bieg już zrobiony nie jest skracany.
+LONG_RUN_MAX_MIN = 180
 
 
 def long_run_limit(runner, longest) -> int:
@@ -72,7 +74,8 @@ def long_run_limit(runner, longest) -> int:
     runner = runner or {}
     asked = runner.get("user_request") and runner.get("decision") not in LIGHT_DECISIONS
     growth = LONG_RUN_REQUEST_GROWTH if asked else LONG_RUN_GROWTH
-    return max(round(longest * growth), longest + LONG_RUN_MIN_STEP)
+    limit = max(round(longest * growth), longest + LONG_RUN_MIN_STEP)
+    return max(min(limit, LONG_RUN_MAX_MIN), min(longest, limit))
 
 
 def week_reference(week_minutes: list[float]) -> float | None:

@@ -320,6 +320,7 @@ def test_the_long_run_grows_by_about_ten_percent_with_a_five_minute_minimum():
     assert (long_run_limit(plain, 30), long_run_limit(plain, 67), long_run_limit(plain, 120)) == (35, 74, 132)
     assert long_run_limit({"user_request": True, "decision": "utrzymaj"}, 67) == 77  # prośba: +15%
     assert long_run_limit({"user_request": True, "decision": "odpusc"}, 67) == 74  # lekki tydzień bez bonusu
+    assert long_run_limit(plain, 170) == 180 and long_run_limit(plain, 200) == 200  # sufit 3 h, bez skracania zrobionego
 
 
 # --- Pięć stopni decyzji tygodnia ---------------------------------------------------------------
