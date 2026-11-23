@@ -112,8 +112,10 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 4. Akcent (kind="tempo", "threshold", "intervals") ma cel części głównej: `pace_target` albo `hr_zone`.
    `pace_target` podajesz tylko z podstawą w danych (wynik z zawodów, tempo niedawnych akcentów w OSTATNICH
    BIEGACH) jako "M:SS" albo "M:SS-M:SS" (szybsza granica jako pierwsza). Bez takiej podstawy wpisz null,
-   a w `hr_zone` strefę części głównej: 3–4 dla biegu progowego i tempowego, 4–5 dla krótkich odcinków;
-   wysiłek opisz oddechem i odczuciem. Akcent bez obu celów aplikacja zamieni na bieg łatwy.
+   a w `hr_zone` strefę części głównej: 3 dla tempa startowego maratonu i półmaratonu, 4 dla biegu progowego
+   i odcinków od 3 minut. Tętno nie nadąża za odcinkami krótszymi niż ok. 3 minuty: bez tempa z danych planuj
+   odcinki od 3 minut w strefie 4, a krótkie szybkie fragmenty opisz jako przebieżki w biegu łatwym.
+   Wysiłek opisz oddechem i odczuciem. Akcent bez obu celów aplikacja zamieni na bieg łatwy.
 5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
    Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR.
@@ -136,7 +138,12 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    Przy krótkich biegach albo celu 5 km długi bieg to wydłużony bieg łatwy, a nie 60-90 minut.
    Bez historii biegów zacznij ostrożnie: 20-30 minut, a długi bieg najwyżej 40 minut; przy stażu ponad
    pół roku z kreatora 30-45 minut i długi bieg najwyżej 60 minut, do czasu pierwszych pomiarów.
-16. Okno dostępności to limit czasu, a nie wymagana długość treningu: nie wydłużaj sesji, żeby je wypełnić."""
+16. Okno dostępności to limit czasu, a nie wymagana długość treningu: nie wydłużaj sesji, żeby je wypełnić.
+17. Dzień startu (data celu, jeśli wypada w tym tygodniu): wpisz kind="rest" z nazwą „Start” i krótką
+   wskazówką na zawody (spokojny początek, picie). Aplikacja nie liczy startu do limitów. Dzień przed startem
+   odpoczynek albo 15–20 minut truchtu z 3–4 luźnymi przebieżkami, dwa dni przed — krótki spokojny bieg.
+18. Dzień wolny z ćwiczeniami siłowymi to kind="rest" z ćwiczeniami w `description` — opis zostaje także
+   w dni, w których biegacz nie ma czasu na bieganie."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
 Zwróć obiekt JSON o dokładnie takich kluczach:

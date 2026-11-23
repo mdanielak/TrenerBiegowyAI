@@ -32,7 +32,7 @@ _DATE_RANGE = re.compile(
 # „12-16 km” albo „ok. 42 km” (objętość stoi w miejscu przez całą fazę).
 _LONG = re.compile(r"long(?:\s+maks\.)?\s+(?:ok\.\s+)?(\d+)(?:\s*-\s*(\d+))?\s*km")
 _KM = re.compile(r"(\d+)(?:\s*-\s*(\d+))?\s*km")
-_LONG_TARGET = re.compile(r"long run\w*\s+(\d+)\s*-\s*(\d+)\s*km")
+_LONG_TARGET = re.compile(r"long run\w*\s+(?:ok\.\s+)?(\d+)(?:\s*-\s*(\d+))?\s*km")
 _TEST_10K = re.compile(r"test 10 km[^0-9]*(\d+):(\d{2})\s*-\s*(\d+):(\d{2})")
 _RUNS_PER_WEEK = re.compile(r"(\d)\s*-\s*(\d)\s*biegami/tydz")
 

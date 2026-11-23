@@ -319,7 +319,7 @@ def test_the_long_run_grows_by_about_ten_percent_with_a_five_minute_minimum():
     plain = {"decision": "utrzymaj"}
     assert (long_run_limit(plain, 30), long_run_limit(plain, 67), long_run_limit(plain, 120)) == (35, 74, 132)
     assert long_run_limit({"user_request": True, "decision": "utrzymaj"}, 67) == 77  # prośba: +15%
-    assert long_run_limit({"user_request": True, "decision": "odpusc"}, 67) == 74  # lekki tydzień bez bonusu
+    assert long_run_limit({"user_request": True, "decision": "odpusc"}, 67) == 50  # lekki tydzień: długi krótszy
     assert long_run_limit(plain, 170) == 180 and long_run_limit(plain, 200) == 200  # sufit 3 h, bez skracania zrobionego
 
 
@@ -495,3 +495,71 @@ def test_yesterday_load_is_judged_against_the_runners_own_longest_run():
     assert yesterday_load(runs(150, 150), day) == "hard"      # długi bieg
     assert yesterday_load(runs(30, 80), day) == "moderate"    # początkująca: progi jak dotąd (75 i 90 min)
     assert yesterday_load(runs(30, 95), day) == "hard"
+
+
+# --- Znaleziska niezależnej recenzji (straznik-limitow, 2026-11-23) -------------------------------------
+
+def test_pain_means_no_quality_and_no_long_run_and_a_shorter_long_limit():
+    from services.runner_profile import quality_sessions_limit
+    runner = build_runner_profile(activities=_weeks([200, 200, 200, 200]), profile=_profile(), today=TODAY,
+                                  previous_plan=_done_last_week(), pain=True)
+    assert runner["decision"] == "regeneracja" and quality_sessions_limit(runner, 2) == 0
+    response = {"workouts": [_intervals("2026-11-18"),
+                             {"date": "2026-11-22", "kind": "long", "name": "Długi", "duration_min": 88, "hr_zone": 2}]}
+    workouts = plan_service.normalize_plan(response, context=_context(runner, max_quality=2))["workouts"]
+    assert all(w["type"] not in ("intervals", "tempo", "threshold", "long") for w in workouts)
+    from services.week_decision import long_run_limit
+    assert long_run_limit(runner, 80) == 48  # regeneracja: 60% najdłuższego, bez wzrostu
+
+
+def test_after_the_race_the_race_itself_is_not_the_longest_run():
+    race = TODAY - timedelta(days=1)  # niedziela, maraton 205 min
+    runs = _weeks([300, 300, 300, 300]) + [dict(_run(1, 205), date=f"{race} 09:00")]
+    runner = build_runner_profile(activities=runs, today=TODAY, previous_plan=_done_last_week(),
+                                  profile=_profile(target_date=str(race), target_distance="marathon"))
+    from services.week_decision import long_run_limit
+    assert runner["decision"] == "regeneracja" and runner["longest_min"] < 205
+    assert long_run_limit(runner, runner["longest_min"]) < runner["longest_min"]
+
+
+def test_a_plan_made_on_sunday_for_next_week_uses_next_weeks_taper():
+    sunday = TODAY - timedelta(days=1)
+    race = TODAY + timedelta(days=6)  # niedziela planowanego tygodnia
+    profile = _profile(target_date=str(race), target_distance="marathon")
+    planned = build_runner_profile(activities=_weeks([300, 300, 300, 300]), profile=profile, today=sunday,
+                                   previous_plan=_done_last_week(), plan_monday=TODAY)
+    assert (planned["decision_cause"], planned["taper_percent"]) == ("race_week", 50)
+
+
+def test_a_rest_day_keeps_the_strength_session_even_when_running_is_not_available():
+    runner = _regular()
+    context = _context(runner)
+    context["week_days"][2]["available"] = False  # środa bez czasu na bieganie
+    response = {"workouts": [{"date": "2026-11-18", "kind": "rest", "name": "Siła 15 min",
+                              "description": "2 × 12 mostków biodrowych, 3 × 10 wspięć na palce."}]}
+    wednesday = plan_service.normalize_plan(response, context=context)["workouts"][2]
+    assert wednesday["type"] == "rest" and "mostków" in wednesday["description"]
+
+
+def test_the_week_limit_is_hard_even_with_the_twenty_minute_floor():
+    runner = _regular()
+    runner["week_cap_min"] = 39
+    response = {"workouts": [{"date": f"2026-11-{d}", "kind": "easy", "name": "Łatwy", "duration_min": 20, "hr_zone": 2}
+                             for d in (17, 19, 21)]}
+    workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
+    assert sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest") <= 39
+
+
+def test_no_quality_session_on_monday_after_sundays_long_run():
+    context = _context(_regular(), max_quality=2)
+    context["hard_day_before"] = str(TODAY - timedelta(days=1))
+    monday = plan_service.normalize_plan({"workouts": [_intervals(str(TODAY))]}, context=context)["workouts"][0]
+    assert monday["type"] == "easy" and "regeneracji" in monday["notes"]
+
+
+def test_race_day_is_a_start_and_does_not_count_toward_the_limits():
+    context = _context(_regular())
+    context.update(race_date="2026-11-22", race_name="maraton")
+    response = {"workouts": [{"date": "2026-11-22", "kind": "long", "name": "Maraton", "duration_min": 210, "hr_zone": 3}]}
+    sunday = plan_service.normalize_plan(response, context=context)["workouts"][6]
+    assert sunday["type"] == "rest" and sunday["name"] == "Start: maraton" and sunday["duration_min"] is None

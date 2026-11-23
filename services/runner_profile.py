@@ -12,8 +12,8 @@ from datetime import date, timedelta
 
 from services.activity_matching import find_activity_for_workout
 from services.week_decision import (
-    CAUSE_LABELS, DECISION_LABELS, WEEK_LIMIT, _hrv_low, _race_days, _taper_phrase, decide_week, earlier_week,
-    long_run_limit, week_cap, week_reference,
+    CAUSE_LABELS, DECISION_LABELS, FATIGUE_CAUSES, WEEK_LIMIT, _hrv_low, _race_days, _taper_phrase, decide_week,
+    decision_reason, earlier_week, long_run_limit, week_cap, week_reference,
 )
 
 # Odpowiedź z kreatora → przybliżony staż w miesiącach.
@@ -312,6 +312,13 @@ def level_message(runner: dict) -> str | None:
     return None
 
 
+def _race_date(target_date) -> date | None:
+    try:
+        return date.fromisoformat(str(target_date or "")[:10])
+    except ValueError:
+        return None
+
+
 def goal_distance(profile) -> str | None:
     """Dystans celu: z pola kreatora, a przy starszym profilu (samo „półmaraton” w nazwie celu) — z nazwy."""
     profile = profile or {}
@@ -325,15 +332,19 @@ def goal_distance(profile) -> str | None:
 
 
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
-                         pain=False, user_request=False, hrv=None) -> dict:
+                         pain=False, user_request=False, hrv=None, plan_monday: date | None = None) -> dict:
     """Profil do promptu i do bezpieczników planu.
 
     ``user_request``: biegacz zostawił trenerowi wiadomość na ten tydzień; limit tygodnia rośnie do WEEK_REQUEST_LIMIT.
     ``rhr_trend``: {"recent": średnia 7 dni, "average": średnia 12 tygodni} tętna spoczynkowego.
     ``previous_plan``: plan poprzedniego tygodnia (do policzenia wykonania).
+    ``plan_monday``: poniedziałek planowanego tygodnia, gdy plan powstaje wcześniej (np. w niedzielę na kolejny
+    tydzień) — od niego liczą się tygodnie historii i dni do startu, żeby taper nie przesunął się o tydzień.
     """
     profile = profile or {}
     monday = today - timedelta(days=today.weekday())
+    if plan_monday is not None and plan_monday > monday:
+        monday = plan_monday
     runs = _runs(activities)
     window = [a for a in runs if monday - timedelta(days=WINDOW_DAYS) <= _run_day(a) < monday]
     weeks = {}  # 0 = ostatni pełny tydzień, 3 = najstarszy
@@ -345,6 +356,10 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         week["minutes"] += _number(activity.get("duration_min")) or 0
     # Najdłuższy bieg z 28 dni do dziś (z bieżącym tygodniem): ta sama liczba trafia do promptu i do bezpieczników.
     runs_per_week, km_per_week, longest = _window_stats(runs, monday, today)
+    race_day = _race_date(profile.get("target_date"))
+    if race_day is not None and race_day < monday:
+        # Sam start nie jest „najdłuższym niedawnym biegiem”: po maratonie długi bieg nie rośnie od 3,5 h zawodów.
+        longest = _window_stats([a for a in runs if _run_day(a) != race_day], monday, today)[2]
     run_days = sorted(_run_day(a) for a in runs)
     # Zegarek z historią krótszą niż 3 tygodnie nie mówi jeszcze, jak ktoś biega.
     short_history = not run_days or (monday - run_days[0]).days < 21
@@ -393,7 +408,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     week = decide_week(
         pain=pain, rhr_up=rhr_up, struggling=struggling, hrv_low=hrv_low, adherence=adherence, returning=returning,
         hr_too_high=hr_too_high, short_history=short_history, week_minutes=week_minutes,
-        race_days=_race_days(profile.get("target_date"), today), goal=goal_distance(profile))
+        race_days=_race_days(profile.get("target_date"), monday), goal=goal_distance(profile))
     decision, cause, taper_factor, taper = week.decision, week.cause, week.taper_factor, week.taper
 
     weight, height = _number(profile.get("weight_kg")), _number(profile.get("height_cm"))
@@ -475,11 +490,11 @@ def quality_sessions_limit(runner: dict, configured=None) -> int:
 
     Początkujący (także po powrocie od przerwy) nie dostaje mocnych akcentów w ogóle; regularny drugi akcent
     tylko przy co najmniej 4 biegach w tygodniu; zaawansowany tyle, ile ustawiono w kreatorze.
-    Brak ustawienia znaczy jeden trening.
+    Brak ustawienia znaczy jeden trening. Przy zmęczeniu, bólu i po starcie 0; w tygodniu cofnięcia i w taperze najwyżej 1.
     """
     level = (runner or {}).get("level")
-    if level == "poczatkujacy":
-        return 0
+    if level == "poczatkujacy" or (runner or {}).get("decision_cause") in FATIGUE_CAUSES:
+        return 0  # początkujący, a także zmęczenie, ból i tydzień po starcie: bez akcentów
     if configured is None:
         return 1
     try:
@@ -490,6 +505,8 @@ def quality_sessions_limit(runner: dict, configured=None) -> int:
     # dniami nie ma miejsca na spokojne biegi (tak też mówi moduł poziomu w prompcie).
     if level == "regularny" and (runner.get("runs_per_week") or 0) < REGULAR_SECOND_QUALITY_RUNS:
         return min(wanted, 1)
+    if (runner or {}).get("decision_cause") in ("step_back", "taper", "race_week"):
+        return min(wanted, 1)  # tydzień cofnięcia i taper: najwyżej jeden krótszy akcent
     return wanted
 
 
@@ -544,6 +561,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     label = (CAUSE_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]).format(
         taper=_taper_phrase(runner))
     lines.append(f"- DECYZJA TYGODNIA: {label}")
+    lines.append(f"- powód decyzji (napisz go biegaczowi jednym zdaniem w `summary`): {decision_reason(runner)}")
     limits = []
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {long_run_limit(runner, runner['longest_min'])} min, "

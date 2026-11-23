@@ -15,7 +15,7 @@ _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota
 _PROPOSALS = {
     "regeneracja": "Regeneracja — kolejny tydzień bardzo lekki",
     "odpusc": "Odpuść — kolejny tydzień wyraźnie lżejszy",
-    "utrzymaj": "Utrzymaj — podobnie jak w tym tygodniu, bez dokładania",
+    "utrzymaj": "Utrzymaj — podobnie jak w tym tygodniu",
     "doloz": "Dołóż — kolejny tydzień może być o 5–10% większy",
     "odbuduj": "Odbuduj — powrót do znanej objętości, tydzień może być dłuższy",
 }

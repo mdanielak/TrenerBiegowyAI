@@ -171,6 +171,20 @@ def _plan_trends(data, today) -> dict:
     return {"metrics": metrics, "weekly_km": completed[-4:]}
 
 
+def _hard_day_before(previous_plan, activities, monday) -> str | None:
+    """Data dnia tuż przed planowanym tygodniem, jeśli był mocny (akcent albo długi bieg w planie, albo bieg
+    z wyraźnym efektem beztlenowym z zegarka); inaczej None."""
+    day_before = (monday - timedelta(days=1)).isoformat()
+    for workout in (previous_plan or {}).get("workouts") or []:
+        if isinstance(workout, dict) and workout.get("date") == day_before and workout.get("type") in _HARD_KINDS:
+            return day_before
+    for activity in activities or []:
+        if (isinstance(activity, dict) and str(activity.get("date") or "")[:10] == day_before
+                and isinstance(activity.get("ate"), (int, float)) and activity["ate"] >= 2.0):
+            return day_before
+    return None
+
+
 def _week_note(monday) -> str:
     from services.ai_notes import note_for_week
 
@@ -239,7 +253,7 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         activities=data.get("activities"), profile=profile, today=current.date(),
         rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
         pain=bool((training.get("journal") or {}).get("pain_days")),
-        user_request=bool(user_note), hrv=data.get("hrv"))
+        user_request=bool(user_note), hrv=data.get("hrv"), plan_monday=monday.date())
     # Dni, w których biegacz ma czas: ich okna to naturalny sufit tygodnia, który model widzi od razu.
     window_total = sum(day["max_minutes"] for day in days if day["available"] and not day["pause_reason"])
     runner["window_cap_min"] = window_total or None
@@ -263,6 +277,9 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "runner": runner,
         "journal": training.get("journal"),
         "user_note": user_note,
+        "hard_day_before": _hard_day_before(previous_plan, data.get("activities"), monday.date()),
+        "race_date": str((profile or {}).get("target_date") or "")[:10] or None,
+        "race_name": (profile or {}).get("target_race"),
         "snapshot_status": snapshot_status,
         "snapshot_timestamp": snapshot_timestamp or (data.get("timestamp") if isinstance(data, dict) else None),
     }
@@ -300,13 +317,14 @@ def _limit_training_days(workouts, runner) -> None:
 _HARD_KINDS = QUALITY_KINDS + ("long",)
 
 
-def _space_hard_days(workouts) -> None:
+def _space_hard_days(workouts, hard_day_before=None) -> None:
     """Dwa mocne dni z rzędu (akcent albo długi bieg): drugi z nich staje się spokojnym biegiem.
 
     Po akcencie i po długim biegu organizm potrzebuje dnia na regenerację — prompt to zaleca,
-    a ta funkcja pilnuje, gdy model się nie posłucha.
+    a ta funkcja pilnuje, gdy model się nie posłucha. ``hard_day_before``: data mocnego dnia tuż przed
+    planowanym tygodniem (np. niedzielny długi bieg), żeby poniedziałek nie był akcentem.
     """
-    previous_hard = None
+    previous_hard = hard_day_before
     for workout in workouts:
         try:
             day = _date.fromisoformat(str(workout.get("date") or ""))
@@ -373,6 +391,32 @@ def _limit_week_minutes(workouts, runner) -> None:
             workout["distance_km"] = round(workout["distance_km"] * after / before, 1)
         workout["duration_min"] = after
         workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
+    # Dolna granica 20 min i akcenty mogą zostawić tydzień ponad limitem: wtedy najkrótsze biegi spokojne
+    # stają się odpoczynkiem — limit tygodnia jest twardy, tak jak obiecuje prompt.
+    total = lambda: sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest")  # noqa: E731
+    while total() > cap:
+        easy = sorted((w for w in workouts if w["type"] in ("easy", "recovery") and w["duration_min"]),
+                      key=lambda w: w["duration_min"])
+        if not easy:
+            break
+        _make_rest(easy[0], f"Zmieniono na odpoczynek: limit czasu tygodnia ({cap} min).")
+    for workout in [w for w in workouts if w["type"] in QUALITY_KINDS + ("long",)]:
+        excess = total() - cap
+        if excess <= 0:
+            break
+        before = workout["duration_min"]
+        after = max(20, before - excess)
+        if after < before:
+            workout["duration_min"] = after
+            workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
+
+
+def _make_rest(workout, note) -> None:
+    workout.update(type="rest", name="Odpoczynek", duration_min=None, distance_km=None, hr_zone=None,
+                   hr_target=None, pace_target=None)
+    for key in ("repetitions", "work_seconds", "rest_seconds"):
+        workout.pop(key, None)
+    workout["notes"] = _append_note(workout["notes"], note)
 
 
 def longest_recent_run(activities) -> int | None:
@@ -470,6 +514,12 @@ def _normalize_day(day, workout, floors):
         entry["name"] = "Odpoczynek"
         entry["description"] = pause_reason or ("Ten dzień już minął." if day.get("past")
                                                 else "Dzień bez zadeklarowanej dostępności.")
+        # Dzień wolny z ćwiczeniami siłowymi od modelu (moduł prewencji): opis zostaje, rodzaj zawsze „rest”.
+        if not day.get("past") and workout is not None and _field(workout, "kind") == "rest":
+            described = _trim(_field(workout, "description"), _DESCRIPTION_LIMIT)
+            if described:
+                entry["name"] = _trim(_field(workout, "name"), _NAME_LIMIT) or "Odpoczynek"
+                entry["description"] = f"{pause_reason}. {described}" if pause_reason else described
     elif workout is None:
         entry["kind"] = "rest"
         entry["name"] = "Odpoczynek"
@@ -619,13 +669,27 @@ def normalize_plan(response, *, context) -> dict:
             "Zmieniono na spokojny bieg: na tym etapie bez mocnych akcentów (przebieżki są w porządku)." if beginner
             else f"Zmieniono na bieg łatwy ({_quality_limit_text(max_quality)})."))
 
+    race_date = context.get("race_date")
+    for workout in workouts:
+        if race_date and workout.get("date") == race_date:
+            # Dzień startu: zawody nie są treningiem planu i nie liczą się do limitów tygodnia.
+            _make_rest(workout, "Dzień startu — powodzenia. Zawody nie liczą się do limitów tygodnia.")
+            workout["name"] = f"Start: {context.get('race_name') or 'zawody'}"
+    if runner.get("decision_cause") == "pain":
+        for workout in workouts:
+            if workout["type"] == "long":
+                workout["type"] = "easy"
+                workout["notes"] = _append_note(workout["notes"], "Zmieniono na spokojny bieg: ból w dzienniku, "
+                                                                  "w tym tygodniu bez długiego biegu.")
+
     long_runs = [index for index, workout in enumerate(workouts) if workout["type"] == "long"]
     for index in long_runs[1:]:
         workouts[index]["type"] = "easy"
         workouts[index]["notes"] = _append_note(
             workouts[index]["notes"], "Zmieniono na bieg łatwy (limit 1 długiego biegu w tygodniu).")
 
-    _space_hard_days(workouts)
+    hard_before = context.get("hard_day_before")
+    _space_hard_days(workouts, _date.fromisoformat(hard_before) if hard_before else None)
 
     for index, workout in enumerate(workouts):
         if workout["type"] not in AEROBIC_KINDS:

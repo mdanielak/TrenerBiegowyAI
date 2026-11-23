@@ -17,7 +17,7 @@ from trainer.files import write_atomic
 # Szczyt dla poziomu „regularny”; dla innych poziomów nadpisuje go _PEAKS.
 _DISTANCES = {
     "5k": (5.0, "5 km", 30, 12, 1),
-    "10k": (10.0, "10 km", 36, 16, 1),
+    "10k": (10.0, "10 km", 36, 16, 2),  # taper 2 tygodnie, jak TAPER_WEEKS w services/week_decision.py
     "hm": (21.0975, "półmaraton", 42, 20, 2),
     "marathon": (42.195, "maraton", 56, 32, 3),
 }
@@ -63,6 +63,11 @@ def _weekly_volume(week: float, start_km: float, peak: int) -> int:
 
 _MONTHS = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
            "październik", "listopad", "grudzień")
+
+
+def _km_range(low, high) -> str:
+    """„12-16 km” albo „ok. 6 km”, gdy oba końce są równe."""
+    return f"{low}-{high} km" if high > low else f"ok. {high} km"
 
 
 def _minutes_note(low_km, high_km, pace) -> str:
@@ -242,12 +247,12 @@ def build_strategy(*, profile: dict, activities, today: date):
         "",
         f"## Periodyzacja: {monday.isoformat()}—{race.isoformat()}",
         "",
-        "| Faza | Daty robocze | Objętość i long run | Jeden akcent / warunek przejścia |",
+        "| Faza | Daty robocze | Objętość i long run | Akcenty / warunek przejścia |",
         "|---|---|---|---|",
         *rows,
         "",
         *([f"Kroki po drodze (zwykły tydzień): {steps}.", ""] if steps else []),
-        "Objętość jest zakresem, nie obowiązkiem. Po 2-3 tygodniach budowania zaplanuj lżejszy tydzień, "
+        "Objętość jest zakresem, nie obowiązkiem. Lżejszy tydzień aplikacja wstawia sama po trzech tygodniach wzrostu, "
         "a po chorobie, bólu lub przerwie wróć o co najmniej jeden krok fazy.",
         "",
         "## Reguły modyfikacji",
@@ -259,7 +264,7 @@ def build_strategy(*, profile: dict, activities, today: date):
         "## Kryteria gotowości do celu",
         "",
         f"Cel pozostaje warunkowy. Potrzebne są: stabilne tygodnie w docelowym zakresie, regularne long runy "
-        f"{long_range[0]}-{long_range[1]} km, brak narastającego bólu oraz kilka tygodni z rzędu z {runs} biegami/tydz.{test}",
+        f"{_km_range(*long_range)}, brak narastającego bólu oraz kilka tygodni z rzędu z {runs} biegami/tydz.{test}",
         "",
     ])
     from dataclasses import replace

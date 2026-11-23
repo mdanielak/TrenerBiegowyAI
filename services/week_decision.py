@@ -18,13 +18,18 @@ def _number(value) -> float | None:
 DECISION_LABELS = {
     "regeneracja": "regeneracja — bardzo lekki tydzień (około 60% zwykłego tygodnia), tylko spokojne krótkie biegi",
     "odpusc": "odpuść — wyraźnie lżejszy tydzień (około 75% zwykłego tygodnia z ostatniego czasu)",
-    "utrzymaj": "utrzymaj — podobna objętość jak ostatnio, bez dokładania",
-    "doloz": "dołóż — objętość może wzrosnąć o 5–10%",
+    "utrzymaj": "utrzymaj — podobna objętość jak ostatnio (aplikacja dopuszcza najwyżej ok. 10% więcej)",
+    "doloz": "dołóż — objętość może wzrosnąć o 5–10% (aplikacja dopuszcza najwyżej ok. 15%)",
     "odbuduj": "odbuduj — powrót do znanej objętości, tydzień może być do 25% dłuższy niż ostatni, "
                "ale nie dłuższy niż zwykły tydzień sprzed 5–12 tygodni",
 }
 # Dwa lekkie stopnie: bez zapasu na prośbę biegacza i bez „nie niżej niż ostatni tydzień”.
 LIGHT_DECISIONS = ("regeneracja", "odpusc")
+# Powody lekkiego tygodnia, które oznaczają zmęczenie albo regenerację: wtedy bez akcentów (prompt: „zero u zmęczonych”).
+# Taper i planowy tydzień cofnięcia to nie zmęczenie — tam jeden akcent zostaje.
+FATIGUE_CAUSES = ("pain", "rhr_high", "rhr_up", "struggling", "hrv_rhr", "after_race")
+# Długi bieg w lekkim tygodniu: część najdłuższego niedawnego biegu (zamiast wzrostu).
+LIGHT_LONG_RUN = {"regeneracja": 0.6, "odpusc": 0.75, "step_back": 0.8}
 # Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
 # i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
 # Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu), zależnie od dystansu:
@@ -35,7 +40,7 @@ TAPER_DEFAULT = TAPER_WEEKS["hm"]
 AFTER_RACE_DAYS = {"marathon": 14}
 CAUSE_LABELS = {
     "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; to planowa przerwa "
-                 "w budowaniu, nie zmęczenie: spokojne biegi, a jeśli limit akcentów pozwala, jeden krótszy, lżejszy akcent",
+                 "w budowaniu, nie zmęczenie: spokojne biegi i najwyżej jeden krótszy, lżejszy akcent",
     "taper": "odpuść przed startem — {taper}; mniej objętości, ale intensywność zostaje: "
              "krótki akcent w tempie startowym, bez nowych bodźców",
     "race_week": "tydzień startu — {taper}; krótkie spokojne biegi i jeden krótki trening "
@@ -70,8 +75,18 @@ LONG_RUN_MAX_MIN = 180
 
 
 def long_run_limit(runner, longest) -> int:
-    """Najdłuższy dozwolony długi bieg: +10% najdłuższego niedawnego (przy prośbie biegacza +15%), min. +5 min."""
+    """Najdłuższy dozwolony długi bieg: +10% najdłuższego niedawnego (przy prośbie biegacza +15%), min. +5 min.
+
+    W lekkim tygodniu długi bieg nie rośnie, tylko się skraca: w taperze do tej części najdłuższego biegu,
+    co objętość tygodnia, po tygodniu cofnięcia do 80%, w „odpuść” do 75%, w regeneracji do 60%.
+    """
     runner = runner or {}
+    if runner.get("taper_percent"):
+        return round(longest * runner["taper_percent"] / 100)
+    if runner.get("decision_cause") == "step_back":
+        return round(longest * LIGHT_LONG_RUN["step_back"])
+    if runner.get("decision") in LIGHT_DECISIONS:
+        return round(longest * LIGHT_LONG_RUN[runner["decision"]])
     asked = runner.get("user_request") and runner.get("decision") not in LIGHT_DECISIONS
     growth = LONG_RUN_REQUEST_GROWTH if asked else LONG_RUN_GROWTH
     limit = max(round(longest * growth), longest + LONG_RUN_MIN_STEP)
@@ -186,10 +201,10 @@ _CAUSE_TEXT = {
                  "żeby być świeżym.",
     "taper": "Coraz bliżej startu: objętość spada do {taper}, a intensywność zostaje — "
              "tak forma rośnie najlepiej.",
-    "before_taper": "Za tydzień zaczyna się zmniejszanie objętości przed startem — ten tydzień już bez dokładania.",
-    "short_history": "Zegarek ma dopiero kilka dni Twoich biegów — na razie bez dokładania, aż zobaczy pełne tygodnie.",
+    "before_taper": "Za tydzień zaczyna się zmniejszanie objętości przed startem — ten tydzień objętość jak ostatnio.",
+    "short_history": "Zegarek ma dopiero kilka dni Twoich biegów — na razie objętość jak dotąd, aż zobaczy pełne tygodnie.",
     "hrv_rhr": "HRV jest poniżej Twojego zakresu, a tętno spoczynkowe wyższe niż zwykle — organizm prosi o lżejszy tydzień.",
-    "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień bez dokładania.",
+    "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień objętość jak ostatnio, bez wzrostu.",
     "after_race": "Po starcie potrzebny jest lżejszy czas na regenerację (po maratonie dwa tygodnie).",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
 }

@@ -20,7 +20,7 @@ Przykładowy trening: `{"kind": "easy", "name": "Spokojne wprowadzenie 40 min", 
 ## Przykład 4 — akcent bez wyniku z zawodów
 Dane: poziom regularny, 4 biegi w tygodniu, cel półmaraton za 20 tygodni, DECYZJA TYGODNIA „dołóż”, brak wyników z zawodów i brak niedawnych akcentów z tempem.
 Decyzja: jeden akcent progowy prowadzony tętnem i oddechem, bez wymyślonego tempa (`pace_target` null, strefa części głównej w `hr_zone`). Odcinki z przerwami zapisujesz jako `intervals` (zegarek pokaże każdy odcinek osobno); `threshold` i `tempo` to jeden ciągły odcinek.
-Przykładowy trening: `{"kind": "intervals", "name": "Odcinki progowe 3 × 8 min", "duration_min": 50, "hr_zone": 4, "pace_target": null, "repetitions": 3, "work_seconds": 480, "rest_seconds": 120, "description": "15 min spokojnej rozgrzewki, 3 × 8 min „komfortowo trudno” (da się powiedzieć krótkie zdanie, wysiłek 7/10), między odcinkami 2 min truchtu, 10 min schłodzenia. Tempo dopasuj do odczucia — zegarek pilnuje strefy 4."}`
+Przykładowy trening: `{"kind": "intervals", "name": "Odcinki progowe 3 × 8 min", "duration_min": 50, "hr_zone": 4, "pace_target": null, "repetitions": 3, "work_seconds": 480, "rest_seconds": 120, "description": "10 min spokojnej rozgrzewki, 3 × 8 min „komfortowo trudno” (da się powiedzieć krótkie zdanie, wysiłek 7/10), między odcinkami 2 min truchtu, 10 min schłodzenia. Tempo dopasuj do odczucia — zegarek pilnuje strefy 4."}`
 
 ## Przykład 5 — tydzień cofnięcia po trzech wzrostach
 Dane: poziom regularny, cel 10 km za 12 tygodni, trzy ostatnie tygodnie rosła objętość, pomiary bez sygnałów zmęczenia; DECYZJA TYGODNIA „tydzień cofnięcia”.
