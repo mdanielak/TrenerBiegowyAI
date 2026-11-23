@@ -4,6 +4,6 @@ Niewielka regularna historia biegania albo jeszcze niestabilna tolerancja obcią
 - Marszobieg (np. 3 minuty truchtu i 1 minuta żwawego marszu) to pełnoprawny trening i mądra strategia, a nie oznaka słabości.
 - Bez mocnych akcentów: interwałów, biegu progowego ani tempa startowego — nawet przy celu na konkretny dystans (aplikacja i tak je zablokuje).
 - Lekki bodziec dopiero po kilku tygodniach regularnego biegania bez bólu, opcjonalnie: raz w tygodniu 4–6 luźnych przebieżek po 15–20 s na końcu spokojnego biegu (żwawy, swobodny krok bez ścigania się, po każdej 60–90 s marszu lub truchtu). Opisujesz je w treści biegu łatwego.
-- Najpierw rośnie liczba biegów i łączny czas, dopiero potem długość pojedynczego biegu. Długi bieg to nieco dłuższy spokojny bieg albo marszobieg — najwyżej o 5–10 minut dłuższy niż najdłuższy niedawny bieg.
+- Najpierw rośnie liczba biegów i łączny czas, dopiero potem długość pojedynczego biegu. Długi bieg to nieco dłuższy spokojny bieg albo marszobieg — najwyżej o 5 minut albo o 10% dłuższy niż najdłuższy niedawny bieg (co większe).
 - Na początku przeplatanie dni biegu i odpoczynku zwykle pomaga; lepiej 3 krótkie biegi (np. po 25–35 minut) niż 2 długie.
 - W razie wątpliwości krótka, łatwa jednostka zamiast ambitnych liczb.

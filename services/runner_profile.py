@@ -30,7 +30,9 @@ LIGHT_DECISIONS = ("regeneracja", "odpusc")
 # Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
 # i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
 TAPER_LIMIT = {"taper": 0.8, "race_week": 0.55}
-TAPER_LABELS = {
+CAUSE_LABELS = {
+    "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; to planowa przerwa "
+                 "w budowaniu, nie zmęczenie: spokojne biegi, a jeśli limit akcentów pozwala, jeden krótszy, lżejszy akcent",
     "taper": "odpuść przed startem — około 80% zwykłego tygodnia; mniej objętości, ale intensywność zostaje: "
              "krótki akcent w tempie startowym, bez nowych bodźców",
     "race_week": "tydzień startu — około połowy zwykłego tygodnia; krótkie spokojne biegi i jeden krótki trening "
@@ -40,7 +42,7 @@ TAPER_LABELS = {
 # Cel opisują DECISION_LABELS (utrzymaj = podobnie jak ostatnio, czyli 1,0); sufit to tylko zapas.
 WEEK_LIMIT = {"regeneracja": 0.6, "odpusc": 0.75, "utrzymaj": 1.1, "doloz": 1.15, "odbuduj": 1.15}
 # Gdy biegacz zostawił trenerowi wiadomość na tydzień (np. „wydłuż niedzielę”), sufit tygodnia rośnie o tyle
-# (a długi bieg może być o LONG_RUN_REQUEST_STEP_MIN dłuższy niż zwykle). Nie dotyczy „odpuść”
+# (a długi bieg może urosnąć o LONG_RUN_REQUEST_GROWTH zamiast LONG_RUN_GROWTH). Nie dotyczy „odpuść”
 # (ból, zmęczenie, wiele opuszczonych treningów).
 WEEK_REQUEST_LIMIT = 1.2
 # Tydzień nigdy nie przekracza tylu średnich z czterech tygodni: chroni przed skokiem obciążenia
@@ -63,8 +65,11 @@ HRV_WITH_RHR_BPM = 3
 HRV_FRESH_DAYS = 3
 EASY_TYPES = ("easy", "recovery", "long")
 # Długi bieg najwyżej tyle minut dłuższy niż najdłuższy niedawny bieg; łatwy nie dłuższy niż on.
-LONG_RUN_STEP_MIN = 10
-LONG_RUN_REQUEST_STEP_MIN = 15  # przy wiadomości od biegacza (nie dotyczy „odpuść”)
+# Długi bieg najwyżej o tyle dłuższy niż najdłuższy niedawny (BJSM 2025: ryzyko rośnie przy skoku ponad ok. 10%),
+# ale co najmniej o LONG_RUN_MIN_STEP minut, żeby krótkie biegi w ogóle mogły rosnąć.
+LONG_RUN_GROWTH = 1.10
+LONG_RUN_REQUEST_GROWTH = 1.15  # przy wiadomości od biegacza (nie dotyczy lekkich stopni)
+LONG_RUN_MIN_STEP = 5
 ADDRESS_FORMS = ("female", "male", "neutral")
 
 
@@ -136,11 +141,12 @@ def _returning(run_days: list[date], today: date) -> bool:
     return bool(before) and (min(recent) - max(before)).days >= RETURNING_GAP_DAYS
 
 
-def long_run_step(runner) -> int:
-    """O ile minut długi bieg może przekroczyć najdłuższy niedawny; przy wiadomości od biegacza o 5 więcej."""
+def long_run_limit(runner, longest) -> int:
+    """Najdłuższy dozwolony długi bieg: +10% najdłuższego niedawnego (przy prośbie biegacza +15%), min. +5 min."""
     runner = runner or {}
     asked = runner.get("user_request") and runner.get("decision") not in LIGHT_DECISIONS
-    return LONG_RUN_REQUEST_STEP_MIN if asked else LONG_RUN_STEP_MIN
+    growth = LONG_RUN_REQUEST_GROWTH if asked else LONG_RUN_GROWTH
+    return max(round(longest * growth), longest + LONG_RUN_MIN_STEP)
 
 
 def week_reference(week_minutes: list[float]) -> float | None:
@@ -265,6 +271,18 @@ def _window_stats(runs, monday: date, until: date):
     return len(window) / 4, km / 4, (round(max(durations)) if durations else None)
 
 
+def short_pause_days(runs, monday: date, window_days: int = WINDOW_DAYS) -> int:
+    """Ile dni okna przed ``monday`` zajęła krótka przerwa (SHORT_BREAK_DAYS–20 dni bez biegania); 0 bez przerwy."""
+    start = monday - timedelta(days=window_days)
+    days = sorted({_run_day(a) for a in runs if _run_day(a) < monday})
+    pause = 0
+    for before, after in zip(days, days[1:]):
+        gap = (after - before).days
+        if after >= start and SHORT_BREAK_DAYS <= gap < RETURNING_GAP_DAYS:
+            pause = max(pause, (after - max(before, start)).days)
+    return pause
+
+
 def _level_stats(runs, monday: date, until: date):
     """Dane do oceny poziomu z okna 28 dni, bez dni krótkiej przerwy (SHORT_BREAK_DAYS–20 dni bez biegania).
 
@@ -273,13 +291,7 @@ def _level_stats(runs, monday: date, until: date):
     a przerwa od 3 tygodni to powrót (moduł powrotu i ostrożny plan), jak dotąd.
     """
     rpw, km, longest = _window_stats(runs, monday, until)
-    start = monday - timedelta(days=WINDOW_DAYS)
-    days = sorted({_run_day(a) for a in runs if _run_day(a) < monday})
-    pause = 0
-    for before, after in zip(days, days[1:]):
-        gap = (after - before).days
-        if after >= start and SHORT_BREAK_DAYS <= gap < RETURNING_GAP_DAYS:
-            pause = max(pause, (after - max(before, start)).days)
+    pause = short_pause_days(runs, monday)
     if not pause:
         return rpw, km, longest
     weeks = max((WINDOW_DAYS - pause) / 7, 1)
@@ -442,6 +454,18 @@ def _hrv_low(hrv, today: date) -> tuple[bool, dict | None]:
                    "baseline_high": whole(_number(latest.get("baseline_high")))}
 
 
+def goal_distance(profile) -> str | None:
+    """Dystans celu: z pola kreatora, a przy starszym profilu (samo „półmaraton” w nazwie celu) — z nazwy."""
+    profile = profile or {}
+    if profile.get("target_distance"):
+        return profile["target_distance"]
+    if not profile.get("target_race"):
+        return None
+    from services.wizard import _distance_key  # leniwie: wizard importuje ten moduł
+    key = _distance_key(profile["target_race"])
+    return None if key == "other" else key
+
+
 def _race_days(target_date, today: date) -> int | None:
     """Ile dni do startu (ujemnie: dni po starcie); None bez daty celu."""
     try:
@@ -601,7 +625,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "shortened": shortened,
         "pain": bool(pain),
         "decision": decision,
-        "goal_distance": profile.get("target_distance"),
+        "goal_distance": goal_distance(profile),
         "frequency": _frequency(profile.get("training_frequency")),
         "weeks_to_race": weeks_to_race,
         "phase": phase,
@@ -713,11 +737,11 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     if not weekly:
         return lines
-    label = TAPER_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]
+    label = CAUSE_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]
     lines.append(f"- DECYZJA TYGODNIA: {label}")
     limits = []
     if runner["longest_min"]:
-        limits.append(f"długi bieg najwyżej {runner['longest_min'] + long_run_step(runner)} min, "
+        limits.append(f"długi bieg najwyżej {long_run_limit(runner, runner['longest_min'])} min, "
                       f"bieg łatwy i akcent najwyżej {runner['longest_min']} min")
     if runner.get("frequency"):
         count = runner["frequency"]

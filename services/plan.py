@@ -642,11 +642,11 @@ def normalize_plan(response, *, context) -> dict:
 
     # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie). Z profilem biegacza:
     # ta sama liczba, którą model dostał w LIMITACH APLIKACJI.
-    from services.runner_profile import long_run_step
+    from services.runner_profile import long_run_limit
     longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         # Akcent (z rozgrzewką i schłodzeniem) też nie dłuższy niż najdłuższy niedawny bieg.
-        limits = {"long": longest + long_run_step(runner), "easy": longest, "recovery": longest,
+        limits = {"long": long_run_limit(runner, longest), "easy": longest, "recovery": longest,
                   **{kind: longest for kind in QUALITY_KINDS}}
         for workout in workouts:
             limit, minutes = limits.get(workout["type"]), workout["duration_min"]

@@ -3,5 +3,5 @@ Długa, stabilna historia, dobra tolerancja objętości i wysiłków jakościowy
 - Jeden główny akcent pod cel i fazę przygotowań (bieg progowy, odcinki, długi bieg z fragmentem w tempie startowym). Przy dużej objętości i świeżości może dojść drugi, **lekki** bodziec — przebieżki, krótkie podbiegi, swobodny fartlek — o ile pozwala limit akcentów z aplikacji.
 - Większość czasu nadal spokojnie; bieg regeneracyjny dzień po akcencie wyraźnie wolniejszy i krótszy niż zwykły spokojny bieg.
 - Bloki pracy i lżejsze tygodnie układasz według reakcji organizmu, a nie mechanicznie co 4 tygodnie.
-- Długi bieg rozwijasz w granicach tolerowanej długości pojedynczej sesji (limit aplikacji: najdłuższy niedawny bieg + 10 minut).
+- Długi bieg rozwijasz w granicach tolerowanej długości pojedynczej sesji (limit aplikacji: najdłuższy niedawny bieg + 10%, co najmniej 5 minut).
 - Słabe samopoczucie i objawy mają pierwszeństwo przed etykietą „zaawansowany” i ambicją startową.

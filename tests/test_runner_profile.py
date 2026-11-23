@@ -5,7 +5,8 @@ from pathlib import Path
 
 from ai.prompts import coach_prompt, modules_for
 from services import plan as plan_service
-from services.runner_profile import (_history_level, _settle_level, build_runner_profile, level_message, profile_lines,
+from services.runner_profile import (_history_level, _settle_level, build_runner_profile, level_message, long_run_limit,
+                                     profile_lines,
                                      quality_sessions_limit, running_months)
 
 TODAY = date(2026, 11, 4)  # środa; poprzednie 4 tygodnie: 5.10–1.11
@@ -140,7 +141,7 @@ def test_the_model_is_told_the_same_limits_the_app_enforces():
     runner = build_runner_profile(activities=_tester(), today=TODAY,
                                   profile=_profile(running_since="under6", training_frequency="3 treningi w tygodniu"))
     lines = "\n".join(profile_lines(runner))
-    assert f"długi bieg najwyżej {runner['longest_min'] + 10} min" in lines
+    assert f"długi bieg najwyżej {long_run_limit(runner, runner['longest_min'])} min" in lines
     assert "najwyżej 3 treningi w tygodniu" in lines and f"najwyżej {runner['week_cap_min']} min" in lines
     assert "bez interwałów, biegu progowego i tempowego" in lines
     easing = build_runner_profile(activities=_tester(), today=TODAY, pain=True, profile=_profile(running_since="6to24"))

@@ -22,9 +22,9 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
   był dłuższy od najdłuższego biegu z ostatnich 30 dni. Powyżej ok. 10% ryzyko rosło, a powyżej 30% wyraźnie.
   Tygodniowe sumy i wskaźnik obciążenia ostre/przewlekłe (ACWR) słabo przewidywały urazy.
   Autor badania sugeruje, że ostrożniej byłoby nawet ok. 5%.
-- **Wniosek dla aplikacji:** limit długiego biegu liczy się od najdłuższego biegu z 28 dni. Dziś to +10 min
-  (+15 min na prośbę biegacza). Przy krótkich biegach to więcej niż 10%, np. 55 → 65 min = +18%.
-  Kandydat do zmiany: limit procentowy zamiast minutowego.
+- **Wniosek dla aplikacji:** limit długiego biegu liczy się od najdłuższego biegu z 28 dni: +10%
+  (na prośbę biegacza +15%, poza lekkimi stopniami), ale co najmniej +5 min, żeby krótkie biegi mogły rosnąć
+  (`services/runner_profile.py::long_run_limit`). Np. 67 → 74 min, a 30 → 35 min.
 
 ## 3. Tydzień cofnięcia i stabilizacja
 
@@ -33,6 +33,7 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
 - **Daniels (Daniels' Running Formula), cytowany przez trenerów:** podnosić objętość skokowo,
   a potem utrzymać ją przez 3–4 tygodnie, zanim przyjdzie kolejny wzrost.
 - **Wniosek dla aplikacji:** po trzech wzrostach z rzędu jest „odpuść” (cofnięcie), a potem „utrzymaj”.
+  Tydzień cofnięcia to planowa przerwa w budowaniu, nie zmęczenie: bez modułu regeneracji, jeden lżejszy akcent może zostać.
   Dzięki temu „dołóż” nie trwa w nieskończoność.
 
 ## 4. Taper przed startem
@@ -56,7 +57,8 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
 - **Wniosek dla aplikacji:**
   - przerwa 10–20 dni nie obniża poziomu (częstotliwość liczy się bez dni przerwy);
   - od 21 dni to „powrót”: ostrożny plan i poziom początkujący do odbudowy;
-  - „odbuduj” pozwala wracać do znanej objętości o najwyżej 25% na tydzień.
+  - „odbuduj” pozwala wracać do znanej objętości o najwyżej 25% na tydzień;
+  - punkt wyjścia strategii (średnie km z 28 dni) też pomija dni krótkiej przerwy.
 
 ## 6. Udział długiego biegu w tygodniu
 

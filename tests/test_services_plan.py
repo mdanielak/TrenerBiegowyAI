@@ -290,8 +290,8 @@ def test_long_run_grows_from_the_longest_recent_run_and_is_never_stretched_to_fi
         {"date": "2026-11-08", "kind": "long", "name": "Długi", "duration_min": 60, "distance_km": 8.0, "hr_zone": 2},
     ]}
     workouts = {w["day"]: w for w in plan_service.normalize_plan(response, context=_beginner_context([30, 38, 35]))["workouts"]}
-    assert workouts["sun"]["duration_min"] == 48  # 38 + 10, nie 60
-    assert workouts["sun"]["distance_km"] == 6.4 and "najdłuższy z ostatnich biegów trwał 38 min" in workouts["sun"]["notes"]
+    assert workouts["sun"]["duration_min"] == 43  # 38 + 10% to 42, ale krok co najmniej 5 min; nie 60
+    assert workouts["sun"]["distance_km"] == 5.7 and "najdłuższy z ostatnich biegów trwał 38 min" in workouts["sun"]["notes"]
     assert workouts["tue"]["duration_min"] == 38  # łatwy nie dłuższy niż najdłuższy bieg
     assert workouts["thu"]["duration_min"] == 30  # krótszego nie wydłużamy do okna dostępności
 

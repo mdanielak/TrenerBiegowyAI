@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from services import strategy as strategy_service
-from services.runner_profile import WINDOW_DAYS, _number, _run_day, _runs
+from services.runner_profile import WINDOW_DAYS, _number, _run_day, _runs, goal_distance, short_pause_days
 from trainer.files import write_atomic
 
 # dystans: (km, nazwa, szczytowy tydzień km, docelowy długi bieg km, tygodnie odpoczynku przed startem)
@@ -42,12 +42,19 @@ def _weekly_volume(week: float, start_km: float, peak: int) -> int:
 
 
 def recent_volume(activities, today: date) -> tuple[float | None, float | None]:
-    """Średnie kilometry na tydzień i najdłuższy bieg (km) z ostatnich 28 dni; None bez biegów."""
-    window = [a for a in _runs(activities) if today - timedelta(days=WINDOW_DAYS) <= _run_day(a) <= today]
+    """Średnie kilometry na tydzień i najdłuższy bieg (km) z ostatnich 28 dni; None bez biegów.
+
+    Dni krótkiej przerwy (10–20 dni bez biegania) nie liczą się do średniej: po wyjeździe punkt wyjścia
+    strategii to zwykłe bieganie, a nie średnia zaniżona pustymi tygodniami.
+    """
+    runs = _runs(activities)
+    window = [a for a in runs if today - timedelta(days=WINDOW_DAYS) <= _run_day(a) <= today]
     distances = [_number(a.get("distance_km")) or 0 for a in window]
     if not any(distances):
         return None, None
-    return sum(distances) / 4, max(distances)
+    pause = short_pause_days(runs, today + timedelta(days=1))
+    weeks = max((WINDOW_DAYS - pause) / 7, 1)
+    return sum(distances) / weeks, max(distances)
 
 
 def _seconds(text) -> int | None:
@@ -72,7 +79,7 @@ def _span(start: date, end: date) -> str:
 def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
     """Zbuduj strategię albo zgłoś ValueError z powodem zrozumiałym dla biegacza."""
     profile = profile or {}
-    distance = _DISTANCES.get(profile.get("target_distance"))
+    distance = _DISTANCES.get(goal_distance(profile))
     if distance is None:
         raise ValueError("Fazy przygotowań układam dla 5 km, 10 km, półmaratonu i maratonu. "
                          "Przy innym celu plan tygodnia działa bez strategii.")

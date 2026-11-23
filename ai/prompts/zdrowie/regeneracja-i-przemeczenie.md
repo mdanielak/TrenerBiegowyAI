@@ -1,5 +1,5 @@
 # Regeneracja i sygnały przemęczenia
-DECYZJA TYGODNIA to „regeneracja” albo „odpuść”: dane wskazują na zmęczenie (podwyższone tętno spoczynkowe, ból albo wiele opuszczonych i wyraźnie skróconych treningów), po trzech rosnących tygodniach albo w tygodniu startu lub zaraz po nim. Ten moduł ma pierwszeństwo przed poziomem i celem.
+DECYZJA TYGODNIA to „regeneracja” albo „odpuść”: dane wskazują na zmęczenie (podwyższone tętno spoczynkowe, niskie HRV, ból albo wiele opuszczonych i wyraźnie skróconych treningów) albo to tydzień zaraz po starcie. Ten moduł ma pierwszeństwo przed poziomem i celem.
 - Tydzień jest wyraźnie lżejszy: aplikacja przyjmie najwyżej około 75% („odpuść”) albo 60% („regeneracja”) czasu zwykłego tygodnia z ostatniego czasu (ostatni tydzień albo mediana z czterech, co większe). Przy „regeneracji” tylko krótkie spokojne biegi.
 - Bez interwałów, biegu progowego i długich wyczerpujących wybiegań; zamiast nich krótkie, spokojne biegi (Z1–Z2), marsz albo dodatkowy dzień wolny.
 - W podsumowaniu krótko i życzliwie wyjaśniasz, dlaczego plan jest lżejszy: forma rośnie podczas odpoczynku, a krok w tył przy pierwszych oznakach przemęczenia chroni przed wielotygodniową przerwą. Bez poczucia winy.

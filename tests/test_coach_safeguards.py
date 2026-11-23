@@ -309,11 +309,12 @@ def test_a_request_to_the_coach_raises_the_week_limit_by_20_percent_except_when_
     assert week_cap(week, "odpusc", request=True) == week_cap(week, "odpusc")  # zmęczenie nie jest do negocjacji
 
 
-def test_a_request_allows_a_slightly_longer_long_run_but_not_when_easing_off():
-    from services.runner_profile import long_run_step
-    assert long_run_step({"user_request": True, "decision": "utrzymaj"}) == 15
-    assert long_run_step({"user_request": True, "decision": "odpusc"}) == 10
-    assert long_run_step({"user_request": False, "decision": "utrzymaj"}) == 10
+def test_the_long_run_grows_by_about_ten_percent_with_a_five_minute_minimum():
+    from services.runner_profile import long_run_limit
+    plain = {"decision": "utrzymaj"}
+    assert (long_run_limit(plain, 30), long_run_limit(plain, 67), long_run_limit(plain, 120)) == (35, 74, 132)
+    assert long_run_limit({"user_request": True, "decision": "utrzymaj"}, 67) == 77  # prośba: +15%
+    assert long_run_limit({"user_request": True, "decision": "odpusc"}, 67) == 74  # lekki tydzień bez bonusu
 
 
 # --- Pięć stopni decyzji tygodnia ---------------------------------------------------------------
@@ -409,3 +410,33 @@ def test_easy_runs_at_the_top_of_zone_two_are_flagged_for_the_coach_without_chan
     lines = "\n".join(profile_lines(runner))
     assert runner["runs_near_z2_top"] == runner["easy_runs_with_hr"] and runner["runs_above_z2"] == 0
     assert "przy samej górnej granicy strefy 2" in lines
+
+
+def test_a_goal_written_only_as_a_name_still_reaches_the_coach():
+    from ai.prompts import modules_for
+    from services.runner_profile import goal_distance
+    assert goal_distance({"target_race": "półmaraton"}) == "hm"
+    assert goal_distance({"target_race": "Bieg po zdrowie"}) is None
+    assert goal_distance({"target_distance": "10k", "target_race": "półmaraton"}) == "10k"
+    runner = build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(target_race="półmaraton"),
+                                  today=TODAY, previous_plan=_done_last_week())
+    assert "cel/polmaraton" in modules_for(runner)
+
+
+def test_a_planned_step_back_week_is_not_described_as_fatigue():
+    from ai.prompts import modules_for
+    runner = build_runner_profile(activities=_weeks([100, 108, 117, 126]), profile=_profile(), today=TODAY,
+                                  previous_plan=_done_last_week())
+    assert runner["decision_cause"] == "step_back"
+    assert "zdrowie/regeneracja-i-przemeczenie" not in modules_for(runner)
+    assert "tydzień cofnięcia" in "\n".join(profile_lines(runner))
+
+
+def test_the_strategy_starts_from_regular_running_not_from_a_short_pause():
+    from services.strategy_builder import recent_volume
+    regular = [_run(d, 50) for d in (2, 4, 6, 9, 11, 13)]  # 6 biegów po 5 km w ostatnich dwóch tygodniach
+    for run in regular:
+        run["distance_km"] = 5.0
+    paused_runs = regular + [dict(_run(27, 50), distance_km=5.0)]  # potem 14 dni przerwy wcześniej
+    weekly, _ = recent_volume(paused_runs, TODAY)
+    assert weekly > 35 / 4  # średnia nie dzieli przez puste tygodnie przerwy
