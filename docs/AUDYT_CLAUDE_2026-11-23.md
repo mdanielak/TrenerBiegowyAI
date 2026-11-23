@@ -147,3 +147,61 @@ Dodatkowo:
 - Liczenie gotowości dnia i rekomendacja dzienna nie były audytowane szczegółowo.
 - Oceny opierają się na symulacji reguł aplikacji, nie na planach wygenerowanych przez prawdziwy model AI —
   warto ułożyć po jednym planie dla każdej grupy (np. w `testowanie.sh` z prawdziwym kluczem) i przejrzeć je okiem trenera.
+
+---
+
+## Weryfikacja na prawdziwym modelu AI
+
+Żeby oceny nie opierały się tylko na symulacji reguł, ułożyłem prawdziwym modelem (dostawca i model z ustawień aplikacji)
+plan tygodnia dla czterech zmyślonych osób. Bez danych użytkownika: profil, dostępność, dziennik, wiadomość
+tygodnia i strategia były syntetyczne; prywatne zasady trenera wyłączone. Pełne przejście przez aplikację:
+`build_plan_context` → prompt systemowy ze strategią osoby → model → `normalize_plan`.
+
+### Kryteria oceny planu (po 1 punkcie)
+
+1. Mieści się w limitach aplikacji (tydzień, długi bieg, liczba treningów).
+2. Liczba akcentów pasuje do poziomu.
+3. Mocne dni rozdzielone, po długim biegu i akcencie dzień lżejszy.
+4. Intensywność opisana oddechem i odczuciem oraz strefą; bez zmyślonego tempa.
+5. Długi bieg rośnie ostrożnie i ma rozsądny udział w tygodniu.
+6. Treść pasuje do celu i fazy (5 km początkujący, półmaraton w bazie, maraton w bazie i w taperze).
+7. Jest wariant awaryjny na zmęczenie albo brak czasu.
+8. Prosty język bez żargonu i angielskich kodów.
+9. `summary` wyjaśnia decyzję tygodnia.
+10. Zegarek dostanie kompletny trening (akcent ma cel: tempo albo strefę).
+
+### Wyniki
+
+| Osoba | Decyzja aplikacji | Plan modelu | Punkty |
+|---|---|---|---|
+| A — początkująca 5 km | utrzymaj, limit 72 min, 0 akcentów | 20 + 20 + 25 min w Z2, rozgrzewka, „swobodna rozmowa”, wariant 15 min; razem 65 min | **9/10** — jedna literówka modelu („z tępa”) |
+| B — półmaraton | utrzymaj, limit 242 min, 1 akcent | łatwy 45, odcinki 4 × 4 min w Z4 bez tempa, łatwy 45, długi 80; razem 220 min | **10/10** |
+| C — maraton, baza | utrzymaj, limit 501 min, do 2 akcentów | regeneracja po długim, odcinki 3 × 10 min Z4, łatwe z przebieżkami, sprawność, długi 150 min; razem 435 min | **10/10** |
+| C2 — maraton, taper (start za 13 dni) | odpuść/taper 70%, limit 318 min | dzień wolny po ostatnim długim, 4 × 6 min w tempie maratońskim (Z3), regeneracja, bez długiego biegu; razem 260 min (57%) | **9/10** — zszedł niżej niż 70%, co nadal mieści się w 41–60% z badań, ale prompt mógłby wyraźniej podać cel tygodnia |
+
+Przy pierwszym uruchomieniu odpowiedź modelu dla tapera raz została ucięta limitem długości. Aplikacja w takim przypadku
+pyta drugi raz (`generate_week_plan`), drugie uruchomienie przeszło za pierwszym razem.
+
+Przy okazji poprawiono: cel w kontekście planu był czytany z profilu na dysku, a nie z profilu przekazanego do
+`build_plan_context`. W aplikacji to ten sam plik, ale dwa źródła profilu to ryzyko rozjazdu, więc cel bierze się
+teraz z jednego miejsca.
+
+### Ocena gotowości dnia (dotąd nieaudytowana)
+
+- Tętno spoczynkowe, sen i stres są oceniane wobec normy tej osoby z 28 dni, HRV wobec zakresu z zegarka.
+  Brak pomiaru to „brak danych”, a nie zła ocena. Tak samo dobrze dla początkującej i dla maratończyka.
+- Wczorajszy trening liczy się przez efekt treningowy Garmina (względny dla osoby) i stałe progi czasu: 75 i 90 minut.
+  **Drobna uwaga:** u maratończyka 75-minutowy spokojny bieg obniża gotowość następnego dnia o punkt.
+  Do rozważenia: progi czasu względem najdłuższego niedawnego biegu.
+
+### Ocena końcowa
+
+| Obszar | Ocena | Na czym oparta |
+|---|---|---|
+| Prompty | **9/10** | Brak sprzeczności z kodem w przeglądzie; prawdziwy model trzyma się limitów, akcentów bez tempa i tapera |
+| Kod | **8/10** | 1129 testów, czysty pyflakes, decyzja tygodnia wydzielona; minusy: strategia przez Markdown, stałe progi czasu w gotowości |
+| Początkujący, 5 km | **9/10** | Plan modelu 9/10 według kryteriów |
+| Średnio zaawansowany | **9/10** | Plan modelu 10/10 według kryteriów |
+| Zaawansowany, maraton | **9/10** | Plany modelu 10/10 (baza) i 9/10 (taper) |
+
+Kryteria i ich wagi to propozycja autora audytu, nie przyjęty wcześniej standard projektu.

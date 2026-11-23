@@ -183,7 +183,7 @@ def _week_note(monday) -> str:
 def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_start=None,
                         snapshot_status=None, snapshot_timestamp=None) -> dict:
     """Zbuduj kontekst planu: profil, dostępność, przerwy, obciążenie i gotowość."""
-    from ai.context import _compute_weekly_load, build_training_context
+    from ai.context import _compute_weekly_load, _goal_from_profile, build_training_context
     from trainer.preferences import get_active_pause, get_weekly_availability
 
     current = as_datetime(today) or datetime.now()
@@ -251,7 +251,8 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "max_quality_sessions": int(preferences.get("max_quality_sessions_per_week", 1) or 0),
         "hr_zone_floors": (profile or {}).get("hr_zone_floors"),
         "profile": profile or {},
-        "goal": training.get("goal") or {},
+        # Cel z tego samego profilu, z którego liczony jest profil biegacza (a nie drugi odczyt z dysku).
+        "goal": _goal_from_profile(profile) if profile else (training.get("goal") or {}),
         "recent_activities": training.get("recent_activities") or [],
         "weekly_load": training.get("weekly_load") or {},
         "previous_weekly_load": previous_week,

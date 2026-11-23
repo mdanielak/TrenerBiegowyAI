@@ -47,10 +47,13 @@ def _load_runner_profile(local_path=RUNNER_PROFILE_LOCAL, example_path=RUNNER_PR
 
 def _goal_from_profile(profile):
     """Build the goal view from profile fields without duplicate constants."""
+    profile = profile or {}
+    target = profile.get("target_hm") or " ".join(
+        part for part in (profile.get("target_race"), profile.get("target_time")) if part)
     return {
-        "target": profile["target_hm"],
-        "deadline": profile["target_date"],
-        "current_record": profile["current_hm_record"],
+        "target": target or None,
+        "deadline": profile.get("target_date"),
+        "current_record": profile.get("current_hm_record"),
     }
 
 
