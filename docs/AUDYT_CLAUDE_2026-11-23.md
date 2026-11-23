@@ -205,3 +205,18 @@ teraz z jednego miejsca.
 | Zaawansowany, maraton | **9/10** | Plany modelu 10/10 (baza) i 9/10 (taper) |
 
 Kryteria i ich wagi to propozycja autora audytu, nie przyjęty wcześniej standard projektu.
+
+
+---
+
+## Poprawki po decyzji użytkownika (kryteria przyjęte, minusy kodu do poprawy)
+
+Użytkownik przyjął 10 kryteriów dopasowania jako miarę celu i poprosił o poprawienie obu minusów kodu.
+
+| Minus | Poprawka |
+|---|---|
+| Strategia zapisywana jako Markdown i czytana wyrażeniami regularnymi | Generator tworzy strategię jednocześnie jako tekst i strukturę (`build_strategy` → `Strategy`); obok `strategia.md` zapisuje `strategia.json`, a aplikacja czyta strukturę (`load_strategy`). Tekst czytany jest tylko przy strategii pisanej ręcznie albo edytowanej po wygenerowaniu. Test pilnuje, żeby struktura była identyczna z tym, co mówi tekst (5 km, półmaraton, maraton). |
+| Stałe progi czasu (75 i 90 min) w ocenie gotowości | Progi liczone względem najdłuższego biegu tej osoby z 4 tygodni (3/4 najdłuższego i sam najdłuższy), nie niżej niż 75 i 90 min. Maratończyk: 75 min spokojnie to lekki dzień, długi bieg 150 min — mocny. Początkująca: bez zmian. |
+
+Po poprawkach: 1134 testy, czysty pyflakes. **Kod: 8/10** — oba wskazane minusy usunięte; zostają rzeczy kosmetyczne
+(np. `services/readiness.py` ok. 500 linii, ale spójny tematycznie).

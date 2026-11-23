@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from api.views.goal import _goal_view
 from services.goal import GoalReport
-from services.strategy_builder import build_strategy_markdown, save_strategy
+from services.strategy_builder import build_strategy as compose_strategy, save_strategy
 
 _ERRORS = {
     # Brak strategii to zwykły stan (strategia jest opcjonalna), a nie błąd strony.
@@ -53,8 +53,9 @@ def get_goal_router(*, goal_report_provider: Callable[[], GoalReport], templates
             profile = {}
         data = getattr(snapshot_provider(), "data", None) if snapshot_provider is not None else None
         try:
-            save_strategy(build_strategy_markdown(profile=profile, activities=(data or {}).get("activities"),
-                                                  today=date.today()))
+            text, structured = compose_strategy(profile=profile, activities=(data or {}).get("activities"),
+                                                today=date.today())
+            save_strategy(text, structured=structured)
         except ValueError as error:
             return page(request, {"error_message": str(error), "error_hint": None, "active_nav": "goal",
                                   "saved_goal": {key: profile.get(key) or "" for key in

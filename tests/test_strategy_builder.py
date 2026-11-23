@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from services.strategy import parse_strategy
-from services.strategy_builder import build_strategy_markdown, save_strategy
+from services.strategy_builder import build_strategy, build_strategy_markdown, save_strategy
 from tests.test_api_plan import _app
 
 TODAY = date(2026, 11, 11)  # środa
@@ -101,3 +101,30 @@ def test_the_parser_reads_a_flat_phase_written_as_about():
     assert _range(_KM.search("ok. 42 km")) == (42, 42)
     assert _range(_LONG.search("long ok. 20 km")) == (20, 20)
     assert _range(_KM.search("zwykle 17-42 km")) == (17, 42)
+
+
+@pytest.mark.parametrize("profile", [
+    PROFILE,
+    {**PROFILE, "target_distance": "5k", "target_time": ""},
+    {**PROFILE, "target_distance": "marathon", "target_time": "3:30:00", "target_date": "2027-10-10"},
+])
+def test_the_structure_equals_what_the_text_says(profile):
+    text, structured = build_strategy(profile=profile, activities=_runs(), today=TODAY)
+    assert structured == parse_strategy(text)  # jedna strategia, dwie postaci: tekst dla człowieka, JSON dla aplikacji
+
+
+def test_the_app_reads_the_structure_and_falls_back_to_text_after_a_manual_edit(tmp_path):
+    import os
+    from services.strategy import load_strategy, structured_path
+    text, structured = build_strategy(profile=PROFILE, activities=_runs(), today=TODAY)
+    path = save_strategy(text, path=tmp_path / "strategia.md", structured=structured)
+    assert structured_path(path).is_file() and load_strategy(path) == structured
+    # Ręczna edycja tabeli: tekst nowszy niż struktura — wygrywa tekst.
+    edited = text.replace("| Baza |", "| Baza wydłużona |")
+    path.write_text(edited, encoding="utf-8")
+    later = structured_path(path).stat().st_mtime + 5
+    os.utime(path, (later, later))
+    assert load_strategy(path).phases[0].name == "Baza wydłużona"
+    # Zapis bez struktury (np. tekst z innego źródła) usuwa nieaktualny JSON.
+    save_strategy(edited, path=path)
+    assert not structured_path(path).exists()

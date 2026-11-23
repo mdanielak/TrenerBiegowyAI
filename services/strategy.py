@@ -6,8 +6,9 @@ czego nie da się odczytać, tego nie ma (None), a brak pliku nie jest błędem.
 """
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
 
@@ -111,11 +112,51 @@ def parse_strategy(text: str) -> Strategy:
     )
 
 
-def load_strategy(path=None) -> Strategy | None:
-    """Strategia z pliku albo None, gdy pliku nie ma lub nie zawiera faz."""
+def structured_path(path: Path) -> Path:
+    """Plik JSON ze strukturą strategii zapisany obok tekstu (np. ``strategia.json`` obok ``strategia.md``)."""
+    return path.with_suffix(".json")
+
+
+def strategy_to_json(strategy: Strategy) -> str:
+    return json.dumps(asdict(strategy), ensure_ascii=False, indent=2, default=str) + "\n"
+
+
+def _pair(value) -> tuple[int, int] | None:
+    return (int(value[0]), int(value[1])) if isinstance(value, (list, tuple)) and len(value) == 2 else None
+
+
+def strategy_from_json(text: str) -> Strategy:
+    """Struktura zapisana przez generator strategii; ValueError, gdy plik jest uszkodzony."""
+    data = json.loads(text)
     try:
-        text = (path or STRATEGY_PATH).read_text(encoding="utf-8")
+        phases = tuple(Phase(str(item["name"]), date.fromisoformat(item["start"]), date.fromisoformat(item["end"]),
+                             _pair(item.get("km")), _pair(item.get("long_km"))) for item in data["phases"])
+        return Strategy(title=str(data.get("title") or ""), phases=phases,
+                        long_run_target=_pair(data.get("long_run_target")),
+                        test_10k_seconds=_pair(data.get("test_10k_seconds")),
+                        runs_per_week=_pair(data.get("runs_per_week")))
+    except (KeyError, TypeError) as error:
+        raise ValueError("Uszkodzony plik struktury strategii") from error
+
+
+def load_strategy(path=None) -> Strategy | None:
+    """Strategia z pliku albo None, gdy pliku nie ma lub nie zawiera faz.
+
+    Strategia z generatora ma obok strukturę w JSON — czytamy ją, o ile tekst nie był potem edytowany ręcznie
+    (wtedy tekst jest nowszy i wygrywa tolerancyjny odczyt Markdownu).
+    """
+    path = path or STRATEGY_PATH
+    try:
+        text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
         return None
+    sidecar = structured_path(path)
+    try:
+        if sidecar.stat().st_mtime >= path.stat().st_mtime:
+            strategy = strategy_from_json(sidecar.read_text(encoding="utf-8"))
+            if strategy.phases:
+                return strategy
+    except (OSError, UnicodeError, ValueError):
+        pass  # brak albo uszkodzona struktura: odczyt z tekstu
     strategy = parse_strategy(text)
     return strategy if strategy.phases else None

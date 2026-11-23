@@ -74,18 +74,48 @@ _LOAD_MODERATE = {"te": 3.5, "ate": 1.5, "minutes": 75}
 _BODY_METRICS = ("rhr", "hrv", "sleep", "stress")
 
 
-def _activity_load(activity) -> str:
+def _value(activity, key):
+    number = activity.get(key)
+    return number if isinstance(number, (int, float)) and not isinstance(number, bool) else 0
+
+
+def load_minutes(longest=None) -> tuple[int, int]:
+    """Progi czasu (średnio mocny, mocny) dla tej osoby: 75 i 90 minut, a przy dłuższym bieganiu
+    3/4 najdłuższego niedawnego biegu i sam najdłuższy bieg — 75 minut spokojnie to dla maratończyka zwykły bieg."""
+    longest = longest or 0
+    return max(_LOAD_MODERATE["minutes"], round(longest * 0.75)), max(_LOAD_HARD["minutes"], round(longest))
+
+
+def _activity_load(activity, longest=None) -> str:
     """„hard”, „moderate” albo „light” dla jednej aktywności."""
-    def value(key):
-        number = activity.get(key)
-        return number if isinstance(number, (int, float)) and not isinstance(number, bool) else 0
-    minutes = value("duration_min")
-    if value("te") >= _LOAD_HARD["te"] or value("ate") >= _LOAD_HARD["ate"] or minutes >= _LOAD_HARD["minutes"]:
+    moderate_minutes, hard_minutes = load_minutes(longest)
+    minutes = _value(activity, "duration_min")
+    if _value(activity, "te") >= _LOAD_HARD["te"] or _value(activity, "ate") >= _LOAD_HARD["ate"] or minutes >= hard_minutes:
         return "hard"
-    if (value("te") >= _LOAD_MODERATE["te"] or value("ate") >= _LOAD_MODERATE["ate"]
-            or minutes >= _LOAD_MODERATE["minutes"]):
+    if (_value(activity, "te") >= _LOAD_MODERATE["te"] or _value(activity, "ate") >= _LOAD_MODERATE["ate"]
+            or minutes >= moderate_minutes):
         return "moderate"
     return "light"
+
+
+def longest_before(activities, day: str, days: int = 28) -> float | None:
+    """Najdłuższy bieg (min) z ``days`` dni przed ``day`` — podstawa progów czasu tej osoby."""
+    try:
+        end = datetime.strptime(day, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
+    start = (end - timedelta(days=days)).strftime('%Y-%m-%d')
+    durations = [_value(a, "duration_min") for a in activities or []
+                 if isinstance(a, dict) and str(a.get("type") or "").startswith("running")
+                 and start <= str(a.get("date", ""))[:10] < day]
+    return max(durations) if durations else None
+
+
+def _previous_day(day: str) -> str | None:
+    try:
+        return (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
 
 
 def yesterday_load(activities, day: str) -> str | None:
@@ -94,7 +124,8 @@ def yesterday_load(activities, day: str) -> str | None:
         previous = (datetime.strptime(day, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
     except (TypeError, ValueError):
         return None
-    loads = [_activity_load(a) for a in activities or []
+    longest = longest_before(activities, previous)
+    loads = [_activity_load(a, longest) for a in activities or []
              if isinstance(a, dict) and str(a.get("date", ""))[:10] == previous]
     for level in ("hard", "moderate", "light"):
         if level in loads:
@@ -262,9 +293,10 @@ def compute_readiness_breakdown(data, *, norms=None, rhr_baseline=None, activiti
     load = yesterday_load(activities, day) if activities is not None and day else None
     body_metrics = [name for name in available_metrics if name in _BODY_METRICS]
     if load is not None and body_metrics:
+        moderate_minutes, hard_minutes = load_minutes(longest_before(activities, _previous_day(day)))
         scoring['load'] = ("2 pkt — wczoraj odpoczynek albo lekki trening; 1 pkt — średnio mocny trening "
-                           "(np. ponad 75 minut albo wyraźny efekt treningowy w zegarku); 0 pkt — mocny trening "
-                           "(akcent z szybkimi odcinkami albo ponad 90 minut).")
+                           f"(np. od {moderate_minutes} minut albo wyraźny efekt treningowy w zegarku); "
+                           f"0 pkt — mocny trening (akcent z szybkimi odcinkami albo od {hard_minutes} minut).")
         if load == "hard":
             measured('load', 'Load', "FAIL", 0, "Wczoraj był mocny trening — dziś organizm się regeneruje")
         elif load == "moderate":

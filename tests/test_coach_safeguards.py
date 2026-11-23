@@ -482,3 +482,16 @@ def test_a_new_watch_still_gets_a_week_limit_from_the_days_it_has_seen():
     runner = build_runner_profile(activities=runs, today=TODAY, profile=_profile())
     assert runner["short_history"] and runner["week_cap_min"] == 330
     assert runner["decision"] != "doloz"
+
+
+def test_yesterday_load_is_judged_against_the_runners_own_longest_run():
+    from services.readiness import yesterday_load
+    day = "2026-11-16"
+    def runs(longest, yesterday):
+        history = [{"date": f"2026-11-{d:02d} 07:00", "type": "running", "duration_min": longest} for d in (2, 9)]
+        return history + [{"date": "2026-11-15 07:00", "type": "running", "duration_min": yesterday}]
+    assert yesterday_load(runs(150, 75), day) == "light"      # maratończyk: 75 min spokojnie to zwykły bieg
+    assert yesterday_load(runs(150, 120), day) == "moderate"
+    assert yesterday_load(runs(150, 150), day) == "hard"      # długi bieg
+    assert yesterday_load(runs(30, 80), day) == "moderate"    # początkująca: progi jak dotąd (75 i 90 min)
+    assert yesterday_load(runs(30, 95), day) == "hard"

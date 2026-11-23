@@ -132,7 +132,17 @@ def _span(start: date, end: date) -> str:
 
 
 def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
-    """Zbuduj strategię albo zgłoś ValueError z powodem zrozumiałym dla biegacza."""
+    """Zbuduj strategię (sam tekst) albo zgłoś ValueError z powodem zrozumiałym dla biegacza."""
+    return build_strategy(profile=profile, activities=activities, today=today)[0]
+
+
+def build_strategy(*, profile: dict, activities, today: date):
+    """Strategia jako (Markdown dla człowieka, ``Strategy`` dla aplikacji) — obie postaci z tych samych liczb.
+
+    Aplikacja czyta strukturę (zapisaną obok jako JSON), więc nie zależy od tego, jak wygląda tabela w tekście.
+    """
+    from services.strategy import Phase, Strategy
+
     profile = profile or {}
     distance = _DISTANCES.get(goal_distance(profile))
     if distance is None:
@@ -171,7 +181,7 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
     frequency = next((int(ch) for ch in str(profile.get("training_frequency") or "") if ch.isdigit()), 4)
     runs = f"{max(frequency - 1, 1)}-{frequency}"
 
-    rows, long_range = [], (long_start, long_start + 2)
+    rows, phases, long_range = [], [], (long_start, long_start + 2)
     for name, hint, start, end in stages:
         # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
         # więc długa faza bazy zaczynała się „od szczytu”, choć biegacz jest dziś daleko niżej.
@@ -185,12 +195,14 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
         longs = (f"long {long_range[0]}-{long_range[1]} km" if long_range[1] > long_range[0]
                  else f"long ok. {long_range[1]} km")
+        phases.append(Phase(name, start, end, (low, top), long_range))
         hint = hint.format(runs=runs, build=build_hint, specific=specific_hint)
         rows.append(f"| {name} | {_span(start, end)} | {volume}{_minutes_note(low, top, run_pace)}, "
                     f"{longs}{_minutes_note(long_range[0], long_range[1], run_pace)} | {hint} |")
     taper_long = (max(long_range[1] - 6, 4), max(long_range[1] - 4, 6))
     steps = _monthly_steps(monday, taper_start, start_km, peak)
     taper_hint = "krótkie spokojne biegi, bez nowych bodźców" if level == "poczatkujacy" else _TAPER[1]
+    phases.append(Phase(_TAPER[0], taper_start, race, None, taper_long))
     rows.append(f"| {_TAPER[0]} | {_span(taper_start, race)} | redukcja objętości, "
                 f"long maks. {taper_long[0]}-{taper_long[1]} km | {taper_hint} |")
 
@@ -198,15 +210,18 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
     target_seconds = _seconds(target)
     title = " ".join(part for part in (label.capitalize(), target) if part) + f" — {race.year}"
     pace = f" (~{_clock(target_seconds / kilometres)}/km)" if target_seconds else ""
-    test = ""
+    test, test_seconds = "", None
     if target_seconds and kilometres > 10:
         # Wzór Riegla: czas rośnie z dystansem do potęgi 1,06.
         ten = target_seconds * (10 / kilometres) ** 1.06
         test = f" Potwierdzeniem powinien być test 10 km około **{_clock(ten - 30)}-{_clock(ten + 30)}**."
+        test_seconds = (_seconds(_clock(ten - 30)), _seconds(_clock(ten + 30)))
+    structured = Strategy(title="", phases=tuple(phases), long_run_target=long_range, test_10k_seconds=test_seconds,
+                          runs_per_week=(max(frequency - 1, 1), frequency))
     basis = (f"ostatnie 4 tygodnie to średnio {str(round(weekly_km, 1)).replace('.', ',')} km tygodniowo, "
              f"najdłuższy bieg {str(round(longest_km, 1)).replace('.', ',')} km" if weekly_km
              else "zegarek nie ma jeszcze biegów z ostatnich 4 tygodni, więc punkt wyjścia jest ostrożny")
-    return "\n".join([
+    text = "\n".join([
         f"# {title}",
         "",
         f"**Strategia ułożona automatycznie {today.isoformat()} z celu zapisanego w kreatorze i ostatnich biegów.** "
@@ -247,13 +262,24 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
         f"{long_range[0]}-{long_range[1]} km, brak narastającego bólu oraz kilka tygodni z rzędu z {runs} biegami/tydz.{test}",
         "",
     ])
+    from dataclasses import replace
+    return text, replace(structured, title=title)
 
 
-def save_strategy(text: str, *, path: Path | None = None, now: datetime | None = None) -> Path:
-    """Zapisz strategię; dotychczasowa (np. pisana ręcznie) zostaje obok jako kopia, nigdy nie znika."""
+def save_strategy(text: str, *, path: Path | None = None, now: datetime | None = None, structured=None) -> Path:
+    """Zapisz strategię; dotychczasowa (np. pisana ręcznie) zostaje obok jako kopia, nigdy nie znika.
+
+    ``structured`` (``Strategy`` z ``build_strategy``) trafia obok jako JSON: aplikacja czyta go zamiast tabeli
+    z tekstu. Bez niego dawny JSON jest usuwany, żeby nie opisywał innej strategii niż tekst.
+    """
     path = path or strategy_service.STRATEGY_PATH
     if path.exists():
         stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
         path.replace(path.with_name(f"{path.stem}-poprzednia-{stamp}.md"))
     write_atomic(path, text)
+    sidecar = strategy_service.structured_path(path)
+    if structured is not None:
+        write_atomic(sidecar, strategy_service.strategy_to_json(structured))
+    else:
+        sidecar.unlink(missing_ok=True)
     return path
