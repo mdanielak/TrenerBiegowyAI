@@ -118,23 +118,23 @@ def save_variant(plan, plans_dir=None, *, now=None) -> Path:
     return target
 
 
-def _variant_path(monday, name, plans_dir=None) -> Path:
-    """Ścieżka wersji z nazwy z formularza; odrzuca wszystko poza katalogiem wersji tygodnia."""
+def _variant_path(monday, name, plans_dir=None, folder=VARIANTS_DIR) -> Path:
+    """Ścieżka wersji z nazwy z formularza; odrzuca wszystko poza katalogiem wersji (lub archiwum) tygodnia."""
     if not isinstance(name, str) or not _VARIANT_NAME.match(name):
         raise ValueError("Nieznana wersja planu.")
     canonical = plan_files.plan_path(monday, plans_dir)
     if not name.startswith(f"{canonical.stem}."):
         raise ValueError("Ta wersja nie dotyczy wybranego tygodnia.")
-    path = canonical.parent / VARIANTS_DIR / name
+    path = canonical.parent / folder / name
     if not path.is_file():
         raise ValueError("Ta wersja planu już nie istnieje.")
     return path
 
 
-def list_variants(monday, plans_dir=None) -> list[tuple[str, dict]]:
+def list_variants(monday, plans_dir=None, folder_name=VARIANTS_DIR) -> list[tuple[str, dict]]:
     """Wersje planu dla tygodnia, najnowsza pierwsza."""
     canonical = plan_files.plan_path(monday, plans_dir)
-    folder = canonical.parent / VARIANTS_DIR
+    folder = canonical.parent / folder_name
     variants = []
     for path in sorted(folder.glob(f"{canonical.stem}.*.json"), reverse=True) if folder.is_dir() else []:
         try:
@@ -162,3 +162,22 @@ def archive_variant(monday, name, plans_dir=None, *, now=None) -> Path:
     """Odłóż wersję do archiwum bez zmiany aktywnego planu."""
     path = _variant_path(monday, name, plans_dir)
     return _move_to(path, path.parent.parent / ARCHIVE_DIR, _stamp(now))
+
+
+def list_archived(monday, plans_dir=None) -> list[tuple[str, dict]]:
+    """Wcześniejsze, zastąpione plany tygodnia z archiwum, najnowszy pierwszy."""
+    return list_variants(monday, plans_dir, folder_name=ARCHIVE_DIR)
+
+
+def restore_archived(monday, name, plans_dir=None, *, now=None) -> dict:
+    """Przywróć plan z archiwum; obecny plan tygodnia sam trafia do archiwum (można wrócić drugi raz)."""
+    from services.plan import save_plan
+
+    path = _variant_path(monday, name, plans_dir, folder=ARCHIVE_DIR)
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    just_archived = archive_week(monday, plans_dir, now=now)
+    save_plan(plan, plans_dir=plans_dir)
+    if path not in just_archived and path.is_file():  # ta treść jest teraz aktywna, więc nie zostaje drugi raz w archiwum
+        path.unlink()
+        path.with_suffix(".csv").unlink(missing_ok=True)
+    return plan

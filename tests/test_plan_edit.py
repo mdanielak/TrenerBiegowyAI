@@ -25,11 +25,19 @@ def _day(date):
     return next(w for w in plan["workouts"] if w["date"] == date)
 
 
-def test_shorten_cuts_a_quarter_and_keeps_the_name_in_step(plans_dir):
-    edit_plan_workout(week_start=WEEK, day="2026-10-03", action="shorten", today=TODAY)
+def test_resize_sets_the_typed_length_and_keeps_the_name_in_step(plans_dir):
+    edit_plan_workout(week_start=WEEK, day="2026-10-03", action="resize", minutes_new="70", today=TODAY)
     day = _day("2026-10-03")
     assert (day["duration_min"], day["name"], day["type"]) == (70, "Długi bieg 70 min", "long")
-    assert "Skrócono z 90 do 70 min" in day["notes"]
+    assert "Zmieniono długość z 90 na 70 min" in day["notes"]
+
+
+def test_resize_can_also_lengthen_and_refuses_nonsense(plans_dir):
+    edit_plan_workout(week_start=WEEK, day="2026-10-03", action="resize", minutes_new=100, today=TODAY)
+    assert _day("2026-10-03")["duration_min"] == 100
+    for bad in ("", "abc", "5", "999", "100"):
+        with pytest.raises(ValueError):
+            edit_plan_workout(week_start=WEEK, day="2026-10-03", action="resize", minutes_new=bad, today=TODAY)
 
 
 def test_easier_turns_a_long_run_into_an_easy_one(plans_dir):
@@ -75,7 +83,7 @@ def test_move_refuses_a_pause_day_and_the_past(plans_dir):
     assert _day("2026-10-03")["name"] == "Długi bieg 90 min"
 
 
-@pytest.mark.parametrize(("date", "action"), [("2026-09-28", "shorten"), ("2026-10-02", "easier"),
+@pytest.mark.parametrize(("date", "action"), [("2026-09-28", "resize"), ("2026-10-02", "easier"),
                                               ("2026-10-03", "explode")])
 def test_past_days_easy_runs_and_unknown_actions_are_refused(plans_dir, date, action):
     with pytest.raises(ValueError):
@@ -87,18 +95,18 @@ def test_garmin_error_leaves_the_plan_unchanged(plans_dir):
         raise RuntimeError("Garmin nie odpowiada")
 
     with pytest.raises(RuntimeError):
-        edit_plan_workout(week_start=WEEK, day="2026-10-02", action="shorten", today=TODAY, workout_deleter=deleter)
+        edit_plan_workout(week_start=WEEK, day="2026-10-02", action="resize", minutes_new="30", today=TODAY, workout_deleter=deleter)
     assert (_day("2026-10-02")["duration_min"], _day("2026-10-02")["garmin_workout_id"]) == (40, 77)
 
 
 def test_page_offers_the_changes_and_the_form_applies_them(tmp_path, plans_dir):
     with TestClient(_app(tmp_path, plan=_future_plan())) as client:
         page = client.get(f"/plan?week={WEEK}").text
-        assert "Zmień ten trening" in page and "Skróć o ćwierć" in page and "Zamień na spokojny bieg" in page
+        assert "Zmień ten trening" in page and "Zmień długość na" in page and "Zamień na spokojny bieg" in page
         assert client.post("/actions/plan/edit", data={"week_start": WEEK, "date": "2026-10-03",
-                                                       "action": "shorten"}).status_code == 403
+                                                       "action": "resize"}).status_code == 403
         response = client.post("/actions/plan/edit", follow_redirects=False, headers=ORIGIN, data={
             "csrf_token": _csrf(client, f"/plan?week={WEEK}"), "week_start": WEEK, "date": "2026-10-03",
-            "action": "shorten"})
+            "action": "resize", "minutes": "70"})
     assert response.status_code == 303 and response.headers["location"] == f"/plan?week={WEEK}"
     assert _day("2026-10-03")["duration_min"] == 70

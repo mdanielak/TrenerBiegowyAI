@@ -178,6 +178,7 @@ def create_app(
     sync_operation: Callable[[], None] = synchronize_data,
     profile_provider: Callable[[], dict] = load_profile,
     review_operation: Callable[..., dict] | None = None,
+    week_review_operation: Callable[..., dict] | None = None,
     review_loader: Callable[..., Optional[dict]] = load_review,
     job_store: JobStore | None = None,
     lock_directory=None,
@@ -384,6 +385,7 @@ def create_app(
     app.include_router(
         get_plans_router(
             plan_provider=plan_provider,
+            review_loader=review_loader,
             profile_provider=profile_provider,
             ai_settings_provider=ai_settings_provider or (lambda: ai_settings_view(ai_env_path)),
             availability_provider=availability_provider,
@@ -421,6 +423,7 @@ def create_app(
             scheduled_job_ids=scheduled_job_ids,
             sync_operation=sync_operation,
             review_operation=review_operation,
+            week_review_operation=week_review_operation,
             report_provider=report_provider,
             profile_provider=profile_provider,
             lock_directory=lock_directory,
@@ -433,6 +436,7 @@ def create_app(
             now_provider=now_provider,
             plan_provider=plan_provider,
             registry_provider=registry_provider,
+            review_loader=review_loader,
         )
     )
 

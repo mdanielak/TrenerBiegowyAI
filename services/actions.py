@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from services.jobs import (
     AI_CONNECTION_MESSAGE,
     AI_FORMAT_DAILY_MESSAGE,
     AI_FORMAT_MESSAGE,
     AI_FORMAT_REVIEW_MESSAGE,
+    AI_FORMAT_WEEK_REVIEW_MESSAGE,
     AI_MODEL_MESSAGE,
     AI_RATE_MESSAGE,
     AI_REQUEST_MESSAGE,
@@ -21,6 +22,7 @@ from services.jobs import (
     REVIEW_NO_WORKOUT_MESSAGE,
     REVIEW_STALE_MESSAGE,
     SNAPSHOT_MISSING_MESSAGE,
+    WEEK_REVIEW_NO_DATA_MESSAGE,
     AI_PAYMENT_MESSAGE,
     AI_REJECTED_MESSAGE,
     GARMIN_LOGIN_REQUIRED_MESSAGE,
@@ -86,7 +88,7 @@ def _ai_failure_message(exc, *, operation: str = "plan") -> str | None:
 
     logger.error("Background job failed: %s", type(exc).__name__, exc_info=exc)
     if isinstance(exc, AIResponseError):
-        return {"review": AI_FORMAT_REVIEW_MESSAGE,
+        return {"review": AI_FORMAT_REVIEW_MESSAGE, "week_review": AI_FORMAT_WEEK_REVIEW_MESSAGE,
                 "recommendation": AI_FORMAT_DAILY_MESSAGE}.get(operation, AI_FORMAT_MESSAGE)
     kind = getattr(exc, "kind", None)
     if kind == "timeout":
@@ -179,6 +181,90 @@ def run_review_job(*, store, job_id, review_key, operation, lock_directory=None)
         return store.mark_failed(job_id, message=str(exc))
     except Exception as exc:
         message = _ai_failure_message(exc, operation="review")
+        return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
+    return store.mark_succeeded(job_id)
+
+
+def week_review_key(week_start) -> str:
+    """Klucz zapisanej oceny tygodnia w tym samym magazynie, co oceny treningów."""
+    from services.plan_files import week_bounds
+    return "week:" + week_bounds(as_datetime(week_start) or datetime.now())[0].date().isoformat()
+
+
+def review_week(*, week_start, today=None, snapshot_reader=None, profile_loader=None, provider_factory=None,
+                save=None) -> dict:
+    """Policz podsumowanie tygodnia lokalnie, pobierz komentarz AI i zapisz go razem z oceną treningów."""
+    from ai.week_review import build_week_message, get_week_comment
+    from ai.workout_review import runner_text
+    from services import plan as plan_service
+    from services.ai_notes import note_for_week
+    from services.plan_files import week_bounds
+    from services.runner_profile import address_form
+    from services.week_summary import summarize_week
+
+    current = as_datetime(today) or datetime.now()
+    monday = week_bounds(as_datetime(week_start) or current)[0]
+    stored = plan_service.load_week_plan(monday)
+    if stored is None:
+        raise ValueError(PLAN_NO_PLAN_MESSAGE)
+    if snapshot_reader is None:
+        from services.data_extract import SnapshotStatus, read_snapshot_status
+        snapshot = read_snapshot_status()
+        if snapshot.status is SnapshotStatus.MISSING:
+            raise ValueError(SNAPSHOT_MISSING_MESSAGE)
+        data = snapshot.data
+    else:
+        data = snapshot_reader()
+    if profile_loader is None:
+        from trainer.profile_store import load_profile
+        profile_loader = load_profile
+    if save is None:
+        from services.workout_reviews import save_review
+        save = save_review
+
+    profile = profile_loader()
+    summary, runner = summarize_week(stored, data, current, lambda: profile)
+    if not summary:
+        raise UserMessageError(WEEK_REVIEW_NO_DATA_MESSAGE)
+
+    from trainer import config
+    if not config.AI_DATA_EXPORT_ENABLED or not config.AI_API_KEY:
+        raise ValueError(REVIEW_DISABLED_MESSAGE)
+
+    sunday = monday + timedelta(days=6)
+    week_runs = [a for a in (data or {}).get("activities") or []
+                 if isinstance(a, dict) and str(a.get("type") or "").startswith("running")
+                 and monday.date().isoformat() <= str(a.get("date") or "")[:10] <= sunday.date().isoformat()]
+    try:
+        note = note_for_week(monday)
+    except OSError:
+        note = ""
+    message = build_week_message(plan=stored, summary=summary, week_runs=week_runs, runner=runner, note=note,
+                                 profile_text=runner_text(profile))
+    if provider_factory is None:
+        from ai.openai_compatible import OpenAICompatibleProvider
+        provider = OpenAICompatibleProvider(config.AI_BASE_URL, config.AI_API_KEY, config.AI_MODEL)
+    else:
+        provider = provider_factory()
+    comment = get_week_comment(provider, message=message, address_form=address_form(profile), runner=runner)
+    save(review_key=week_review_key(monday), score={}, comment=comment.komentarz)
+    return {"comment": comment.komentarz}
+
+
+def run_week_review_job(*, store, job_id, week_start, operation, lock_directory=None):
+    """Wykonaj ocenę tygodnia pod blokadą i zapisz stan zadania."""
+    store.mark_running(job_id)
+    try:
+        with acquire_lock(name="review", directory=lock_directory):
+            operation(week_start=week_start)
+    except LockBusyError:
+        return store.mark_failed(job_id, message=REVIEW_BUSY_MESSAGE)
+    except UserMessageError as exc:
+        return store.mark_failed(job_id, message=str(exc), safe=True)
+    except ValueError as exc:
+        return store.mark_failed(job_id, message=str(exc))
+    except Exception as exc:
+        message = _ai_failure_message(exc, operation="week_review")
         return store.mark_failed(job_id, message=message) if message else store.mark_failed(job_id)
     return store.mark_succeeded(job_id)
 
@@ -411,9 +497,9 @@ def remove_plan_workout(*, week_start, day, from_garmin=False, workout_deleter=N
     return workouts[index]
 
 
-EDIT_ACTIONS = ("move", "shorten", "easier")
-_SHORTEN_FACTOR = 0.75
+EDIT_ACTIONS = ("move", "resize", "easier")
 _SHORTEST_RUN_MIN = 20
+_LONGEST_RUN_MIN = 240
 
 
 def _fit_day_window(workout, availability) -> None:
@@ -431,9 +517,9 @@ def _fit_day_window(workout, availability) -> None:
     workout["notes"] = _append_note(workout.get("notes"), f"Skrócono do {limit} min (limit dostępności w tym dniu).")
 
 
-def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=None, today=None,
-                      profile_loader=None) -> dict:
-    """Zmień jeden trening planu: przenieś na inny dzień, skróć albo zamień na spokojny bieg.
+def edit_plan_workout(*, week_start, day, action, target=None, minutes_new=None, workout_deleter=None,
+                      today=None, profile_loader=None) -> dict:
+    """Zmień jeden trening planu: przenieś na inny dzień, ustaw długość albo zamień na spokojny bieg.
 
     Bezpieczniki jak przy planie AI: minione dni zostają nietknięte, na dzień przerwy nic nie trafia,
     a okno dostępności dnia tylko skraca. Trening wysłany na zegarek znika z niego przed zapisem planu,
@@ -468,12 +554,17 @@ def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=N
         if get_active_pause(target):
             raise UserMessageError("W tym dniu trwa przerwa treningowa.")
         affected.append(workouts[other_index])
-    elif action == "shorten":
+    elif action == "resize":
         if kind not in plan_service.AEROBIC_KINDS or not minutes:
-            raise UserMessageError("Skrócić można tylko bieg spokojny albo długi. Mocny trening zamień na spokojny bieg.")
-        shorter = max(_SHORTEST_RUN_MIN, int(round(minutes * _SHORTEN_FACTOR / 5) * 5))
-        if shorter >= minutes:
-            raise UserMessageError(f"Ten trening jest już krótki ({minutes} min).")
+            raise UserMessageError("Długość można zmienić tylko w biegu spokojnym albo długim. Mocny trening zamień na spokojny bieg.")
+        try:
+            new_minutes = int(str(minutes_new).strip())
+        except (TypeError, ValueError):
+            raise UserMessageError("Wpisz długość treningu w minutach, np. 40.") from None
+        if not _SHORTEST_RUN_MIN <= new_minutes <= _LONGEST_RUN_MIN:
+            raise UserMessageError(f"Długość treningu to od {_SHORTEST_RUN_MIN} do {_LONGEST_RUN_MIN} minut.")
+        if new_minutes == minutes:
+            raise UserMessageError(f"Ten trening już trwa {minutes} min.")
     elif kind in ("easy", "recovery"):
         raise UserMessageError("To już jest spokojny bieg.")
 
@@ -493,12 +584,13 @@ def edit_plan_workout(*, week_start, day, action, target=None, workout_deleter=N
         _fit_day_window(workouts[index], availability)
         _fit_day_window(workouts[other_index], availability)
         changed = workouts[other_index]
-    elif action == "shorten":
+    elif action == "resize":
         if workout.get("distance_km"):
-            workout["distance_km"] = round(workout["distance_km"] * shorter / minutes, 1)
-        workout["name"] = str(workout.get("name") or "").replace(f"{minutes} min", f"{shorter} min")
-        workout["duration_min"] = shorter
-        workout["notes"] = plan_service._append_note(workout.get("notes"), f"Skrócono z {minutes} do {shorter} min na Twoją prośbę.")
+            workout["distance_km"] = round(workout["distance_km"] * new_minutes / minutes, 1)
+        workout["name"] = str(workout.get("name") or "").replace(f"{minutes} min", f"{new_minutes} min")
+        workout["duration_min"] = new_minutes
+        workout["notes"] = plan_service._append_note(
+            workout.get("notes"), f"Zmieniono długość z {minutes} na {new_minutes} min na Twoją prośbę.")
         changed = workout
     else:
         if profile_loader is None:

@@ -2,8 +2,9 @@
 """Paski stanu zadań w tle i odstępy między kolejnymi uruchomieniami."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
+from api.views.common import _MONTHS_GENITIVE
 from services.jobs import JobStore
 from services.sync_progress import plan_progress_view, progress_view
 
@@ -51,6 +52,16 @@ def _sync_banner(store: JobStore, now: datetime) -> dict[str, str | bool | None]
     return {"message": None, "details_url": None, "refresh": False, "disabled": False}
 
 
+def _week_label(week_start: str | None) -> str:
+    """„na tydzień 16 listopada – 22 listopada”; bez daty zadania zostaje samo „na ten tydzień”."""
+    try:
+        monday = date.fromisoformat(week_start or "")
+    except ValueError:
+        return "na ten tydzień"
+    first, last = monday, monday + timedelta(days=6)
+    return f"na tydzień {first.day} {_MONTHS_GENITIVE[first.month - 1]} – {last.day} {_MONTHS_GENITIVE[last.month - 1]}"
+
+
 def _plan_banner(store: JobStore, now: datetime, operation: str, messages: dict) -> dict:
     """Wylicz stan paska planu wyłącznie z najnowszego zadania danej operacji."""
     all_jobs = store.list_jobs().jobs
@@ -61,7 +72,9 @@ def _plan_banner(store: JobStore, now: datetime, operation: str, messages: dict)
     if job.status in {"accepted", "running"}:
         progress = (plan_progress_view(all_jobs, job, now.astimezone(timezone.utc))
                     if operation == "plan" and job.status == "running" else None)
-        return {"message": messages.get(job.status) or messages.get("running"), "details_url": None,
+        message = messages.get(job.status) or messages.get("running")
+        return {"message": message.replace("{tydzien}", _week_label(job.week_start)) if message else message,
+                "details_url": None,
                 "refresh": True, "disabled": True, "progress": progress}
     completed_at = _job_timestamp(job.finished_at or job.created_at)
     current = now.astimezone(timezone.utc)

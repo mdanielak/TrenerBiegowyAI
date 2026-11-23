@@ -13,19 +13,20 @@ from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan import previous_week_load
 from services.readiness import readiness_for_day
 from services.plan_files import week_bounds
-from services.week_summary import build_week_summary
+from services.actions import week_review_key
+from services.week_summary import summarize_week
 from services import plan_conflicts
 from services.ai_notes import WEEK_NOTE_LIMIT, note_for_week
 from trainer import preferences
 from api.views.common import _WEEK_WARNING_LABELS, _format_date
 from api.views.jobs import _plan_banner
-from api.views.plan import _conflict_view, _format_generated_at, _plan_load_chart, _plan_view, _variant_views
+from api.views.plan import _conflict_view, _format_generated_at, _archive_views, _plan_load_chart, _plan_view, _variant_views
 
 logger = logging.getLogger(__name__)
 
 PLAN_MESSAGES = {
     "accepted": "Plan czeka w kolejce, np. na koniec synchronizacji z Garminem. Strona odświeży się sama.",
-    "running": "Trener układa plan. Strona odświeży się sama, gdy będzie gotowy.",
+    "running": "Trener układa plan {tydzien}.\nStrona odświeży się sama, gdy będzie gotowy.",
     "failed": "Nie udało się ułożyć planu. Spróbuj ponownie.",
     "succeeded": "Plan tygodnia jest ułożony.",
 }
@@ -44,6 +45,8 @@ PLAN_EDIT_MESSAGES = {
     "failed": "Nie udało się zmienić treningu, bo nie dało się go usunąć z zegarka. Plan został bez zmian.",
     "succeeded": "Trening zmieniony i zdjęty z zegarka. Wyślij plan ponownie przyciskiem „Wyślij do Garmina”.",
 }
+WEEK_COOKIE = "plan_week"
+WEEK_COOKIE_MAX_AGE = 3 * 24 * 3600  # po kilku dniach plan sam wraca do bieżącego tygodnia
 _EMPTY_BANNER = {"message": None, "details_url": None, "refresh": False, "disabled": False}
 
 
@@ -59,23 +62,7 @@ def _week_summary(stored, data, today, profile_provider) -> dict | None:
     """Plan a wykonanie tygodnia; propozycja na kolejny tydzień z tego samego profilu, co układanie planu."""
     if not stored or not isinstance(data, dict):
         return None
-    runner = None
-    try:
-        from ai.context import build_training_context
-        from services.plan import _plan_trends
-        from services.runner_profile import build_runner_profile
-
-        training = build_training_context(data, plan=None, today=today)
-        runner = build_runner_profile(
-            activities=data.get("activities"), profile=profile_provider(), today=today.date(),
-            rhr_trend=((_plan_trends(data, today.date()) or {}).get("metrics") or {}).get("rhr"),
-            previous_plan=stored, pain=bool((training.get("journal") or {}).get("pain_days")))
-    except Exception:  # noqa: BLE001 - bez propozycji strona planu nadal pokazuje liczby
-        logger.warning("Could not build the weekly proposal")
-    try:
-        return build_week_summary(stored, data.get("activities"), today=today.date(), runner=runner)
-    except (KeyError, TypeError, ValueError):
-        return None
+    return summarize_week(stored, data, today, profile_provider)[0]
 
 
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
@@ -140,6 +127,8 @@ def get_plans_router(
     snapshot_provider: Callable[[], object] = read_snapshot_status,
     registry_provider: Callable[[], list] | None = None,
     variants_provider: Callable[[datetime], list] = plan_conflicts.list_variants,
+    archive_provider: Callable[[datetime], list] = plan_conflicts.list_archived,
+    review_loader: Callable[..., dict | None] | None = None,
     ai_badge_provider: Callable[[], dict] | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -149,6 +138,9 @@ def get_plans_router(
         now = now_provider()
         today = now.astimezone() if now.tzinfo is not None else now
         requested = request.query_params.get("week")
+        if not requested:
+            # Wejście z menu bez tygodnia: wracamy do tygodnia, który był otwarty ostatnio.
+            requested = request.cookies.get(WEEK_COOKIE)
         try:
             anchor = datetime.fromisoformat(requested[:10]) if requested else today
         except ValueError:
@@ -217,6 +209,10 @@ def get_plans_router(
             variants = _variant_views(stored, variants_provider(monday))
         except OSError:
             variants = []
+        try:
+            previous_plans = _archive_views(archive_provider(monday), now)
+        except OSError:
+            previous_plans = []
 
         # Zmiana i usunięcie treningu dzielą jedno miejsce na stronie: pokazujemy to, co się dzieje teraz.
         edit_banner = _plan_banner(store, now, "plan_edit", PLAN_EDIT_MESSAGES)
@@ -243,13 +239,21 @@ def get_plans_router(
             conflict=conflict,
             variants=variants,
         )
+        context["previous_plans"] = previous_plans
         context["week_summary"] = _week_summary(stored, data, today, profile_provider)
+        context["week_comment"] = None
+        if context["week_summary"] and review_loader is not None:
+            try:
+                saved = review_loader(review_key=week_review_key(monday))
+                context["week_comment"] = (saved or {}).get("comment")
+            except (OSError, ValueError):
+                pass
         try:
             context["week_note"] = note_for_week(monday)
         except OSError:
             context["week_note"] = ""
         context["note_saved"] = request.query_params.get("note") == "saved"
-        return attach_csrf(
+        response = attach_csrf(
             templates.TemplateResponse(
                 request=request,
                 name="plan.html",
@@ -258,5 +262,11 @@ def get_plans_router(
             ),
             token,
         )
+        if monday.date() == week_bounds(today)[0].date():
+            response.delete_cookie(WEEK_COOKIE)  # bieżący tydzień to ustawienie domyślne, nie coś do pamiętania
+        else:
+            response.set_cookie(WEEK_COOKIE, monday.date().isoformat(), max_age=WEEK_COOKIE_MAX_AGE,
+                                httponly=True, samesite="lax")
+        return response
 
     return router

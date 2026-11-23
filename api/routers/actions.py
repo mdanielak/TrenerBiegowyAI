@@ -10,7 +10,7 @@ from functools import partial
 from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from services.actions import (
@@ -19,11 +19,14 @@ from services.actions import (
     generate_week_plan,
     push_plan_to_garmin,
     remove_plan_workout,
+    review_week,
     review_workout,
     run_plan_job,
     run_plan_push_job,
     run_recommendation_job,
     run_review_job,
+    run_week_review_job,
+    week_review_key,
     run_sync_job,
 )
 from services.jobs import (
@@ -66,6 +69,8 @@ def get_actions_router(
     now_provider: Callable[[], datetime] | None = None,
     plan_provider: Callable[[str], dict | None] | None = None,
     registry_provider: Callable[[], list] | None = None,
+    review_loader: Callable[..., dict | None] | None = None,
+    week_review_operation: Callable[..., dict] | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -162,7 +167,8 @@ def get_actions_router(
             profile_loader=profile_provider,
         )
 
-    def start_job(request: Request, operation: str, arguments: dict, runner, *, cooldown=None, prepare=None):
+    def start_job(request: Request, operation: str, arguments: dict, runner, *, cooldown=None, prepare=None,
+                  week_start=None):
         """Załóż zadanie i puść je w tle; None, gdy takie już trwa albo trzeba jeszcze poczekać.
 
         `runner(job_id)` wykonuje pracę; `prepare(job)` działa przed startem nowego zadania
@@ -170,7 +176,7 @@ def get_actions_router(
         """
         try:
             with acquire_lock(name="jobs", directory=lock_directory):
-                job = store.submit(operation, arguments, cooldown=cooldown)
+                job = store.submit(operation, arguments, cooldown=cooldown, week_start=week_start)
                 fresh = job.status == "accepted" and job.id not in scheduled_job_ids
                 if fresh:
                     scheduled_job_ids.add(job.id)
@@ -261,13 +267,90 @@ def get_actions_router(
         csrf_token: str = Form(default=""),
         review_key: str = Form(default=""),
     ):
+        # Strona zgłasza się z nagłówkiem fetch i odbiera JSON (pasek ładowania, odpowiedź bez odświeżania);
+        # zwykły formularz bez JavaScriptu dostaje przekierowanie jak dawniej.
+        wants_json = request.headers.get("x-requested-with") == "fetch"
         if not csrf_valid(request, csrf_token) or not review_key:
+            if wants_json:
+                return JSONResponse({"state": "failed", "message": CSRF_ERROR_MESSAGE}, status_code=403)
             return today_error(request)
-        start_job(
+        job = start_job(
             request, "review", {"review_key": review_key}, cooldown=REVIEW_COOLDOWN,
             runner=lambda job_id: run_review_job(store=store, job_id=job_id, review_key=review_key,
                                                  operation=run_review, lock_directory=lock_directory))
+        if wants_json:
+            return JSONResponse({"state": "running" if job else "busy"})
         return RedirectResponse(url="/", status_code=303)
+
+    @router.get("/actions/review/status")
+    def review_status(key: str = ""):
+        """Stan ostatniej oceny treningu: trwa, gotowa (z komentarzem) albo nieudana (z własnym komunikatem)."""
+        headers = {"Cache-Control": "no-store"}
+        review = None
+        if key and review_loader is not None:
+            try:
+                review = review_loader(review_key=key)
+            except (OSError, ValueError):
+                review = None
+        if review and review.get("comment"):
+            return JSONResponse({"state": "done", "comment": review["comment"]}, headers=headers)
+        jobs = [job for job in store.list_jobs().jobs if job.operation == "review"]
+        job = jobs[0] if jobs else None
+        if job is None:
+            return JSONResponse({"state": "idle"}, headers=headers)
+        if job.status in {"accepted", "running"}:
+            return JSONResponse({"state": "running"}, headers=headers)
+        if job.status == "failed":
+            return JSONResponse({"state": "failed", "message": job.error_message or "Nie udało się ocenić treningu."},
+                                headers=headers)
+        return JSONResponse({"state": "idle"}, headers=headers)
+
+    def run_week_review(*, week_start: str):
+        """Oceń tydzień na tych samych danych i profilu, co strona Plan."""
+        if week_review_operation is not None:
+            return week_review_operation(week_start=week_start)
+        return review_week(week_start=week_start)
+
+    @router.post("/actions/week-review")
+    def submit_week_review(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+    ):
+        wants_json = request.headers.get("x-requested-with") == "fetch"
+        if not csrf_valid(request, csrf_token):
+            if wants_json:
+                return JSONResponse({"state": "failed", "message": CSRF_ERROR_MESSAGE}, status_code=403)
+            return plan_error(request)
+        monday = week_monday(week_start).date().isoformat()
+        job = start_job(
+            request, "week_review", {"week_start": monday}, cooldown=REVIEW_COOLDOWN, week_start=monday,
+            runner=lambda job_id: run_week_review_job(store=store, job_id=job_id, week_start=monday,
+                                                      operation=run_week_review, lock_directory=lock_directory))
+        if wants_json:
+            return JSONResponse({"state": "running" if job else "busy"})
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
+
+    @router.get("/actions/week-review/status")
+    def week_review_status(week: str = ""):
+        """Stan oceny tygodnia: trwa, gotowa (z komentarzem) albo nieudana (z własnym komunikatem)."""
+        headers = {"Cache-Control": "no-store"}
+        jobs = [job for job in store.list_jobs().jobs if job.operation == "week_review"]
+        job = jobs[0] if jobs else None
+        if job is not None and job.status in {"accepted", "running"}:
+            return JSONResponse({"state": "running"}, headers=headers)
+        if job is not None and job.status == "failed":
+            return JSONResponse({"state": "failed", "message": job.error_message or "Nie udało się ocenić tygodnia."},
+                                headers=headers)
+        review = None
+        if review_loader is not None:
+            try:
+                review = review_loader(review_key=week_review_key(week_monday(week)))
+            except (OSError, ValueError):
+                review = None
+        if review and review.get("comment"):
+            return JSONResponse({"state": "done", "comment": review["comment"]}, headers=headers)
+        return JSONResponse({"state": "idle"}, headers=headers)
 
     @router.post("/actions/plan")
     def submit_plan(
@@ -297,8 +380,9 @@ def get_actions_router(
         start_job(
             request, "plan", {"week_start": week_start, "on_conflict": decision}, cooldown=PLAN_COOLDOWN,
             runner=lambda job_id: run_plan_job(store=store, job_id=job_id, operation=run_plan, week_start=week_start,
-                                               lock_directory=lock_directory, on_conflict=decision))
-        return RedirectResponse(url="/plan", status_code=303)
+                                               lock_directory=lock_directory, on_conflict=decision),
+            week_start=week_monday(week_start).date().isoformat())
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
 
     @router.post("/actions/plan/push")
     def submit_plan_push(
@@ -356,18 +440,21 @@ def get_actions_router(
         date: str = Form(default=""),
         action: str = Form(default=""),
         target: str = Form(default=""),
+        minutes: str = Form(default=""),
     ):
-        """Przenieś, skróć albo złagodź jeden trening; gdy jest na zegarku — w tle, bo to logowanie do Garmina."""
+        """Przenieś, ustaw długość albo złagodź jeden trening; gdy jest na zegarku — w tle, bo to logowanie do Garmina."""
         if not csrf_valid(request, csrf_token):
             return plan_error(request)
         monday = week_monday(week_start)
-        operation = partial(edit_plan_workout, day=date, action=action, target=target or None, today=today())
+        operation = partial(edit_plan_workout, day=date, action=action, target=target or None,
+                            minutes_new=minutes or None, today=today())
         touched = {date, target} if action == "move" else {date}
         on_watch = any(w.get("garmin_workout_id") for w in (stored_plan(week_start) or {}).get("workouts") or []
                        if w.get("date") in touched)
         if on_watch:
             start_job(
-                request, "plan_edit", {"week_start": week_start, "date": date, "action": action, "target": target},
+                request, "plan_edit", {"week_start": week_start, "date": date, "action": action, "target": target,
+                               "minutes": minutes},
                 runner=lambda job_id: run_plan_push_job(store=store, job_id=job_id, operation=operation,
                                                         week_start=monday.date().isoformat(),
                                                         lock_directory=lock_directory))
@@ -401,6 +488,26 @@ def get_actions_router(
                     plan_conflicts.archive_variant(monday, variant)
                 else:
                     raise ValueError("Nieznana decyzja.")
+        except LockBusyError:
+            pass
+        except ValueError as error:
+            return plan_error(request, str(error), status_code=400, anchor=monday)
+        return RedirectResponse(url=plan_url(week_start), status_code=303)
+
+    @router.post("/actions/plan/restore")
+    def plan_restore(
+        request: Request,
+        csrf_token: str = Form(default=""),
+        week_start: str = Form(default=""),
+        archived: str = Form(default=""),
+    ):
+        """Przywróć wcześniejszy plan tygodnia; obecny trafia do archiwum, więc można wrócić jeszcze raz."""
+        if not csrf_valid(request, csrf_token):
+            return plan_error(request)
+        monday = week_monday(week_start)
+        try:
+            with acquire_lock(name="plan", directory=lock_directory):
+                plan_conflicts.restore_archived(monday, archived)
         except LockBusyError:
             pass
         except ValueError as error:

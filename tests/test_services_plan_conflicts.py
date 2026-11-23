@@ -337,3 +337,54 @@ def test_the_wait_is_told_before_asking_about_overwriting(tmp_path):
 def test_the_wait_after_a_plan_is_30_seconds():
     from api.views.jobs import PLAN_COOLDOWN
     assert PLAN_COOLDOWN == timedelta(seconds=30)
+
+
+def test_overwritten_plan_can_be_restored_and_swapped_back():
+    save_plan(_plan(name="Stary"))
+    plan_conflicts.archive_week(MONDAY, now=datetime(2026, 10, 28, 12))
+    save_plan(_plan(name="Nowy"))
+
+    [(name, old)] = plan_conflicts.list_archived(MONDAY)
+    assert old["workouts"][0]["name"] == "Stary"
+
+    plan_conflicts.restore_archived(MONDAY, name, now=datetime(2026, 10, 29, 9))
+
+    assert plan_files.load_plan(MONDAY)["workouts"][0]["name"] == "Stary"
+    # Nowy plan nie przepadł: czeka w archiwum, a przywrócony nie zostaje tam drugi raz.
+    [(again, other)] = plan_conflicts.list_archived(MONDAY)
+    assert other["workouts"][0]["name"] == "Nowy"
+    plan_conflicts.restore_archived(MONDAY, again, now=datetime(2026, 10, 29, 9, 5))
+    assert plan_files.load_plan(MONDAY)["workouts"][0]["name"] == "Nowy"
+
+
+@pytest.mark.parametrize("name", ["../26-1.json", "26-1.json", "x", "26-1.20260101-000000.json"])
+def test_restore_validates_the_archive_name(name):
+    save_plan(_plan())
+    with pytest.raises(ValueError):
+        plan_conflicts.restore_archived(MONDAY, name)
+
+
+def test_previous_plans_card_and_restore_action(tmp_path):
+    save_plan(_plan(name="Stary"))
+    plan_conflicts.archive_week(MONDAY, now=datetime(2026, 10, 28, 12))
+    save_plan(_plan(name="Nowy"))
+    client = _client(tmp_path, plan=plan_files.load_plan(MONDAY))
+
+    page = client.get("/plan?week=2026-10-26").text
+    assert 'data-dialog="wczesniejsze-plany"' in page and "Przywróć ten plan" in page
+
+    response = _post(client, "/actions/plan/restore", archived="26-1.20261028-120000.json")
+
+    assert response.status_code == 303
+    assert plan_files.load_plan(MONDAY)["workouts"][0]["name"] == "Stary"
+
+
+def test_running_banner_names_the_week(tmp_path):
+    store = JobStore(tmp_path / "jobs")
+    job = store.submit("plan", {"week_start": "2026-10-26"}, week_start="2026-10-26")
+    store.mark_running(job.id)
+    client = _client(tmp_path, plan=_plan(), jobs=store)
+
+    page = client.get("/plan?week=2026-10-26").text
+
+    assert "Trener układa plan na tydzień 26 października – 1 listopada." in page

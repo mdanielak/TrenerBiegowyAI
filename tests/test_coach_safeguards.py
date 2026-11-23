@@ -38,7 +38,7 @@ def test_one_big_week_a_month_ago_does_not_inflate_the_limit():
     runner = build_runner_profile(activities=_weeks([240, 150, 150, 150]), profile=_profile(), today=TODAY,
                                   previous_plan=_done_last_week())
     assert runner["decision"] == "doloz" and runner["week_reference_min"] == 150
-    assert runner["week_cap_min"] == 165  # +10% wobec zwykłego tygodnia, a nie wobec 240
+    assert runner["week_cap_min"] == 172  # +15% wobec zwykłego tygodnia (150), a nie wobec 240
 
 
 def test_an_easier_week_is_really_easier_than_the_last_one():
@@ -49,7 +49,7 @@ def test_an_easier_week_is_really_easier_than_the_last_one():
 
 def test_steady_progress_is_not_cut_back():
     assert week_reference([120, 130, 140, 150]) == 150
-    assert week_cap([120, 130, 140, 150], "doloz") == 165
+    assert week_cap([120, 130, 140, 150], "doloz") == 172
 
 
 def test_right_after_a_spike_the_week_stays_below_it():
@@ -109,7 +109,7 @@ def test_an_irregular_past_is_not_an_earlier_volume():
     earlier = {4: 90, 6: 90, 9: 90}  # trzy tygodnie z ośmiu
     runner = build_runner_profile(activities=_history({**earlier, 3: 40, 2: 40, 1: 40, 0: 40}),
                                   profile=_profile(), today=TODAY)
-    assert runner["earlier_week_min"] is None and runner["week_cap_min"] == 40
+    assert runner["earlier_week_min"] is None and runner["week_cap_min"] == 44
 
 
 def test_an_easier_week_stays_easier_even_with_a_bigger_past():
@@ -300,3 +300,17 @@ def test_without_activities_the_score_is_unchanged_and_training_never_replaces_b
     nothing = compute_readiness_breakdown({}, activities=[], day="2026-11-16")
     assert nothing["level"] == "no_data" and nothing["score"] == 0
     assert all(d["metric"] != "Load" for d in nothing["details"])
+
+
+def test_a_request_to_the_coach_raises_the_week_limit_by_20_percent_except_when_easing_off():
+    week = [120, 125, 125, 125]
+    assert week_cap(week, "utrzymaj") == 138  # 125 × 1,1
+    assert week_cap(week, "utrzymaj", request=True) == 165  # sufit o 20% wyżej
+    assert week_cap(week, "odpusc", request=True) == week_cap(week, "odpusc")  # zmęczenie nie jest do negocjacji
+
+
+def test_a_request_allows_a_slightly_longer_long_run_but_not_when_easing_off():
+    from services.runner_profile import long_run_step
+    assert long_run_step({"user_request": True, "decision": "utrzymaj"}) == 15
+    assert long_run_step({"user_request": True, "decision": "odpusc"}) == 10
+    assert long_run_step({"user_request": False, "decision": "utrzymaj"}) == 10

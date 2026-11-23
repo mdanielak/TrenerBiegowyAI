@@ -96,9 +96,9 @@ def test_beginners_get_no_hard_sessions_and_the_week_respects_the_volume_limit()
     workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
     tuesday, thursday, sunday = workouts[1], workouts[3], workouts[6]
     assert tuesday["type"] == "easy" and "bez mocnych akcentów" in tuesday["notes"]
-    limit = round(runner["max_week_minutes"] * 1.0)  # decyzja „utrzymaj” bez poprzedniego planu
+    limit = round(runner["max_week_minutes"] * 1.1)  # decyzja „utrzymaj” bez poprzedniego planu
     assert sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest") <= limit
-    assert "limit czasu tygodnia" in sunday["notes"] and thursday["duration_min"] >= 20
+    assert "Skrócono do" in sunday["notes"] and thursday["duration_min"] >= 20
 
 
 def test_the_week_keeps_the_chosen_number_of_runs_and_trims_proportionally():
@@ -112,7 +112,7 @@ def test_the_week_keeps_the_chosen_number_of_runs_and_trims_proportionally():
     assert len(runs) == 3 and "wybrano 3 treningi w tygodniu" in workouts[0]["notes"]
     long_run = next(w for w in runs if w["type"] == "long")
     assert long_run["duration_min"] == max(w["duration_min"] for w in runs)  # długi zostaje najdłuższy
-    assert sum(w["duration_min"] for w in runs) <= runner["max_week_minutes"]
+    assert sum(w["duration_min"] for w in runs) <= runner["week_cap_min"]
 
 
 def test_each_ai_call_gets_its_mode_and_examples_only_go_to_the_weekly_plan():

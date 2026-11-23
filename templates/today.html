@@ -230,15 +230,23 @@
                 </div>
               </div>
             {% elif workout.review_key and workout.execution.happened %}
-              <div class="spread">
-                <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
-                <form method="post" action="/actions/review">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                  <input type="hidden" name="review_key" value="{{ workout.review_key }}">
-                  <button type="submit" class="btn-secondary">
-                    {{ ico.bulb(18) }}<span>Oceń mój trening</span>
-                  </button>
-                </form>
+              {# Z JavaScriptem: pasek ładowania i komentarz bez odświeżania strony; bez niego zwykły formularz. #}
+              <div class="review-box" data-review-box data-status-url="/actions/review/status?key={{ workout.review_key|urlencode }}">
+                <div class="spread">
+                  <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
+                  <form method="post" action="/actions/review" data-review-form>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="review_key" value="{{ workout.review_key }}">
+                    <button type="submit" class="btn-secondary">
+                      {{ ico.bulb(18) }}<span>Oceń mój ostatni trening</span>
+                    </button>
+                  </form>
+                </div>
+                <div class="sync-progress" data-review-loading role="status" hidden>
+                  <progress aria-label="Trener ocenia trening"></progress>
+                  <p class="mid">Trener ocenia trening. To zwykle trwa kilkanaście sekund, strona się nie odświeży.</p>
+                </div>
+                <p class="mid review-error" data-review-error role="alert" hidden></p>
               </div>
             {% endif %}
 

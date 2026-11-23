@@ -31,6 +31,7 @@ GARMIN_LOGIN_REQUIRED_MESSAGE = "Wysyłka planu do Garmina wymaga działającego
 AI_PAYMENT_MESSAGE = "Brak środków na koncie u dostawcy AI. Doładuj konto albo zmień dostawcę w Ustawienia → AI."
 AI_FORMAT_MESSAGE = "Trener AI nie zdążył poprawnie dokończyć planu. Spróbuj ponownie za chwilę."
 AI_FORMAT_REVIEW_MESSAGE = "Trener AI nie zdążył poprawnie skomentować treningu. Spróbuj ponownie za chwilą."
+AI_FORMAT_WEEK_REVIEW_MESSAGE = "Trener AI nie zdążył poprawnie ocenić tygodnia. Spróbuj ponownie za chwilę."
 AI_FORMAT_DAILY_MESSAGE = "Trener AI nie zdążył poprawnie odpowiedzieć. Spróbuj ponownie za chwilą."
 AI_REJECTED_MESSAGE = "Dostawca AI odrzucił klucz albo nie ma do niego dostępu. Sprawdź klucz w Ustawienia → AI."
 AI_REQUEST_MESSAGE = "Dostawca AI odrzucił zapytanie. Sprawdź nazwę modelu i klucz w Ustawienia → AI."
@@ -49,6 +50,7 @@ REVIEW_BUSY_MESSAGE = "Ocena już trwa. Spróbuj ponownie za chwilę."
 REVIEW_DISABLED_MESSAGE = "Ocena treningu wymaga włączenia wysyłania danych do AI."
 REVIEW_NO_WORKOUT_MESSAGE = "Brak zaplanowanego treningu na dziś."
 REVIEW_STALE_MESSAGE = "Ocena dotyczy innego treningu. Odśwież stronę."
+WEEK_REVIEW_NO_DATA_MESSAGE = "Nie ma jeszcze czego oceniać: w tym tygodniu nie minął żaden zaplanowany trening."
 WEEK_NOTE_FULL_MESSAGE = "Wiadomość tygodnia jest pełna — skróć ją na stronie Plan i wyślij ponownie."
 _ALLOWED_FAILURE_MESSAGES = frozenset({
     SNAPSHOT_MISSING_MESSAGE,
@@ -58,6 +60,7 @@ _ALLOWED_FAILURE_MESSAGES = frozenset({
     REVIEW_DISABLED_MESSAGE,
     REVIEW_NO_WORKOUT_MESSAGE,
     REVIEW_STALE_MESSAGE,
+    WEEK_REVIEW_NO_DATA_MESSAGE,
     WEEK_NOTE_FULL_MESSAGE,
     _GENERIC_FAILURE,
     "Operacja już trwa. Spróbuj ponownie za chwilę.",
@@ -68,6 +71,7 @@ _ALLOWED_FAILURE_MESSAGES = frozenset({
     AI_REJECTED_MESSAGE,
     AI_FORMAT_MESSAGE,
     AI_FORMAT_REVIEW_MESSAGE,
+    AI_FORMAT_WEEK_REVIEW_MESSAGE,
     AI_FORMAT_DAILY_MESSAGE,
     AI_REQUEST_MESSAGE,
     AI_MODEL_MESSAGE,
@@ -114,6 +118,8 @@ class JobRecord:
     started_at: str | None = None
     finished_at: str | None = None
     error_message: str | None = None
+    # Poniedziałek tygodnia, którego dotyczy zadanie (YYYY-MM-DD); pasek stanu pokazuje go biegaczowi.
+    week_start: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,7 +163,7 @@ class JobStore:
         self.directory = Path(directory) if directory is not None else SETTINGS.local_dir / "jobs"
 
     def submit(self, operation: str, arguments, *, cooldown: timedelta | None = None,
-               now: datetime | None = None) -> JobRecord:
+               now: datetime | None = None, week_start: str | None = None) -> JobRecord:
         """Utwórz zadanie lub zwróć identyczne aktywne zadanie.
 
         Zapis kończy się przed zwróceniem rekordu, więc wywołujący może bezpiecznie
@@ -185,7 +191,7 @@ class JobStore:
 
         record = JobRecord(
             id=secrets.token_urlsafe(24), operation=operation, arguments_hash=arguments_hash,
-            status="accepted", created_at=_utc_iso(now),
+            status="accepted", created_at=_utc_iso(now), week_start=week_start,
         )
         self._write(record)
         return record
@@ -272,7 +278,7 @@ class JobStore:
             id=job.id, operation=job.operation, arguments_hash=job.arguments_hash, status=status,
             created_at=job.created_at, started_at=timestamp if status == "running" else job.started_at,
             finished_at=timestamp if status in {"succeeded", "failed", "unknown"} else job.finished_at,
-            error_message=error_message if status == "failed" else None,
+            error_message=error_message if status == "failed" else None, week_start=job.week_start,
         )
         self._write(updated)
         return updated
@@ -283,7 +289,9 @@ class JobStore:
 
     def _read(self, path: Path) -> JobRecord:
         data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or set(data) != set(JobRecord.__dataclass_fields__):
+        fields = set(JobRecord.__dataclass_fields__)
+        # Starsze zapisy nie mają pola week_start; resztę pól wymagamy w całości.
+        if not isinstance(data, dict) or not (fields - {"week_start"} <= set(data) <= fields):
             raise ValueError("Nieprawidłowy rekord zadania.")
         record = JobRecord(**data)
         if (not _SAFE_JOB_ID.fullmatch(record.id) or not _SAFE_OPERATION.fullmatch(record.operation)

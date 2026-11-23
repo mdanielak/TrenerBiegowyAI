@@ -194,3 +194,72 @@ document.querySelectorAll('form.coach-form').forEach(form => {
   form.querySelectorAll('input[name="scope"]').forEach(input => input.addEventListener('change', apply));
   apply();
 });
+
+
+// „Oceń mój ostatni trening” i „Oceń mój tydzień biegowy”: pasek ładowania i komentarz trenera pojawia się w tym samym miejscu, bez odświeżania strony.
+document.querySelectorAll('[data-review-box]').forEach(box => {
+  const form = box.querySelector('[data-review-form]');
+  const row = form.closest('.spread');
+  const loading = box.querySelector('[data-review-loading]');
+  const error = box.querySelector('[data-review-error]');
+  const statusUrl = box.dataset.statusUrl;
+  const result = box.querySelector('[data-review-result]');
+  const label = box.querySelector('[data-review-label]');
+  const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  function showError(message) {
+    loading.hidden = true;
+    row.hidden = false;
+    form.querySelector('button').disabled = false;
+    error.textContent = message;
+    error.hidden = false;
+  }
+
+  function showComment(text) {
+    if (result) {  // ocena tygodnia: komentarz zostaje nad przyciskiem, który można użyć ponownie
+      result.querySelector('.suggestion-text').textContent = text;
+      result.hidden = false;
+      loading.hidden = true;
+      row.hidden = false;
+      form.querySelector('button').disabled = false;
+      if (label?.dataset.againLabel) label.textContent = label.dataset.againLabel;
+      return;
+    }
+    const wrapper = document.createElement('div');
+    wrapper.className = 'suggestion';
+    const inner = document.createElement('div');
+    const title = document.createElement('p');
+    title.className = 'suggestion-title';
+    title.textContent = 'Komentarz trenera';
+    const body = document.createElement('p');
+    body.className = 'suggestion-text';
+    body.textContent = text;
+    inner.append(title, body);
+    wrapper.append(inner);
+    box.replaceWith(wrapper);
+  }
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    error.hidden = true;
+    form.querySelector('button').disabled = true;
+    row.hidden = true;
+    loading.hidden = false;
+    try {
+      const sent = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
+      const first = await sent.json();
+      if (first.state === 'failed') return showError(first.message || 'Nie udało się ocenić treningu.');
+      // Zadanie w tle trwa zwykle kilkanaście sekund; pytamy o wynik co 2 s, najdłużej przez 4 minuty.
+      for (let attempt = 0; attempt < 120; attempt++) {
+        await pause(2000);
+        const status = await (await fetch(statusUrl, {cache: 'no-store'})).json();
+        if (status.state === 'done') return showComment(status.comment);
+        if (status.state === 'failed') return showError(status.message || 'Nie udało się ocenić treningu.');
+        if (status.state === 'idle' && first.state === 'busy') return showError('Poczekaj chwilę i spróbuj ponownie.');
+      }
+      showError('Ocena trwa dłużej niż zwykle. Odśwież stronę za chwilę, komentarz może już tam być.');
+    } catch {
+      showError('Nie udało się połączyć z aplikacją. Spróbuj ponownie.');
+    }
+  });
+});

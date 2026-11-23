@@ -279,6 +279,17 @@ def _variant_views(current, variants) -> list[dict]:
     return views
 
 
+def _archive_views(archived, now, limit=3) -> list[dict]:
+    """Wcześniejsze plany tygodnia (zastąpione nowym), dzień po dniu; tylko kilka najnowszych."""
+    views = []
+    for name, plan in (archived or [])[:limit]:
+        rows = [{"weekday": _WEEKDAYS_SHORT[_plan_day_index(workout.get("day"))], "label": _workout_label(workout)}
+                for workout in plan.get("workouts") or []]
+        views.append({"name": name, "focus": plan.get("focus"), "rows": rows,
+                      "generated_at": _format_generated_at(plan.get("generated_at"), now)})
+    return views
+
+
 def _workout_label(workout) -> str:
     kind = workout.get("type") or "rest"
     if kind == "rest":

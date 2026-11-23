@@ -375,13 +375,25 @@
                           </label>
                           <button type="submit" name="action" value="move" class="btn-secondary">Przenieś</button>
                         </form>
+                        {% if plan_day.kind in ('easy', 'recovery', 'long') and plan_day.duration_min %}
                         <form method="post" action="/actions/plan/edit" class="row">
                           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                           <input type="hidden" name="week_start" value="{{ week_start }}">
                           <input type="hidden" name="date" value="{{ plan_day.date }}">
-                          {% if plan_day.kind in ('easy', 'recovery', 'long') and plan_day.duration_min %}<button type="submit" name="action" value="shorten" class="btn-secondary">Skróć o ćwierć</button>{% endif %}
-                          {% if plan_day.kind not in ('easy', 'recovery') %}<button type="submit" name="action" value="easier" class="btn-secondary">Zamień na spokojny bieg</button>{% endif %}
+                          <label class="field inline">Zmień długość na
+                            <input class="text-input mini" type="number" name="minutes" inputmode="numeric" min="20" max="240" step="1" value="{{ plan_day.duration_min|int }}" required> min
+                          </label>
+                          <button type="submit" name="action" value="resize" class="btn-secondary">Zmień</button>
                         </form>
+                        {% endif %}
+                        {% if plan_day.kind not in ('easy', 'recovery') %}
+                        <form method="post" action="/actions/plan/edit" class="row">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                          <input type="hidden" name="week_start" value="{{ week_start }}">
+                          <input type="hidden" name="date" value="{{ plan_day.date }}">
+                          <button type="submit" name="action" value="easier" class="btn-secondary">Zamień na spokojny bieg</button>
+                        </form>
+                        {% endif %}
                       </div>
                     {% endif %}
                   </div>
@@ -399,7 +411,7 @@
       <div class="card-head">
         <h2><img class="asset head-icon" src="/assets/07_ui_icons/tile_confidence.png" width="28" height="28" alt=""><span>{% if week_summary.over %}Jak poszedł ten tydzień{% else %}Jak idzie ten tydzień{% endif %}</span></h2>
       </div>
-      <p><strong>Wykonano {{ week_summary.done }} z {{ week_summary.due }} {{ week_summary.due|plural('zaplanowanego treningu', 'zaplanowanych treningów', 'zaplanowanych treningów') }}{% if not week_summary.over %} do wczoraj{% endif %}</strong>{% if week_summary.planned_min %} — {{ week_summary.done_min|num }} z {{ week_summary.planned_min|num }} min{% endif %}.
+      <p><strong>Wykonano {{ week_summary.done }} z {{ week_summary.due }} {{ week_summary.due|plural('zaplanowanego treningu', 'zaplanowanych treningów', 'zaplanowanych treningów') }}{% if not week_summary.over %} do tego momentu{% endif %}</strong>{% if week_summary.planned_min %} — {{ week_summary.done_min|num }} z {{ week_summary.planned_min|num }} min{% endif %}.
         {% if week_summary.runs %}Zegarek zapisał w tym tygodniu {{ week_summary.runs }} {{ week_summary.runs|plural('bieg', 'biegi', 'biegów') }}, razem {{ week_summary.km|num }} km.{% endif %}</p>
       {% if week_summary.missed %}<p class="mid">Bez biegu z zegarka: {{ week_summary.missed|join('; ') }}.</p>{% endif %}
       {% if week_summary.shortened %}<p class="mid">Wyraźnie krótsze niż w planie: {{ week_summary.shortened }}.</p>{% endif %}
@@ -411,6 +423,32 @@
           </div>
         </div>
         <p><a class="btn btn-secondary" href="/plan?week={{ next_week }}">Przejdź do kolejnego tygodnia</a></p>
+      {% endif %}
+      {% if ai_ready %}
+        {# Z JavaScriptem: pasek ładowania i komentarz bez odświeżania strony; bez niego zwykły formularz. #}
+        <div class="review-box" data-review-box data-status-url="/actions/week-review/status?week={{ week_start }}">
+          <div class="suggestion" data-review-result{% if not week_comment %} hidden{% endif %}>
+            <div>
+              <p class="suggestion-title">Komentarz trenera do tygodnia</p>
+              <p class="suggestion-text">{{ week_comment or "" }}</p>
+            </div>
+          </div>
+          <div class="spread">
+            <p class="mid">Komentarz napisze AI na podstawie liczb powyżej i zapisze go na tym komputerze.</p>
+            <form method="post" action="/actions/week-review" data-review-form>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="week_start" value="{{ week_start }}">
+              <button type="submit" class="btn-secondary">
+                {{ ico.bulb(18) }}<span data-review-label data-again-label="Oceń tydzień ponownie">{% if week_comment %}Oceń tydzień ponownie{% else %}Oceń mój tydzień biegowy{% endif %}</span>
+              </button>
+            </form>
+          </div>
+          <div class="sync-progress" data-review-loading role="status" hidden>
+            <progress aria-label="Trener ocenia tydzień"></progress>
+            <p class="mid">Trener ocenia tydzień. To zwykle trwa kilkanaście sekund, strona się nie odświeży.</p>
+          </div>
+          <p class="mid review-error" data-review-error role="alert" hidden></p>
+        </div>
       {% endif %}
     </section>
     {% endif %}
@@ -516,6 +554,44 @@
 
 
 
+  {% endif %}
+
+  {% if previous_plans %}
+    <div class="row previous-plans-open">
+      <button type="button" class="secondary" data-dialog="wczesniejsze-plany" aria-haspopup="dialog">Wcześniejsze plany tego tygodnia</button>
+    </div>
+    <dialog class="workout-dialog" id="wczesniejsze-plany" aria-labelledby="wczesniejsze-plany-tytul">
+      <div class="workout-dialog-body">
+        <div class="workout-dialog-head">
+          <div>
+            <h3 id="wczesniejsze-plany-tytul">Wcześniejsze plany tego tygodnia</h3>
+            <p class="mid">Gdy układasz plan od nowa, poprzedni nie ginie. Możesz do niego wrócić.</p>
+          </div>
+          <form method="dialog"><button class="secondary btn-icon" aria-label="Zamknij">{{ ico.x(18) }}</button></form>
+        </div>
+        {% for old in previous_plans %}
+          <section class="previous-plan">
+            <h4>{% if old.generated_at %}Ułożony {{ old.generated_at }}{% else %}Wcześniejszy plan{% endif %}</h4>
+            {% if old.focus %}<p>{{ old.focus }}</p>{% endif %}
+            <div class="list">
+              {% for row in old.rows %}
+                <div class="list-item">
+                  <span class="zone-chip lead">{{ row.weekday }}</span>
+                  <span class="item-body"><span class="item-title">{{ row.label }}</span></span>
+                </div>
+              {% endfor %}
+            </div>
+            <form method="post" action="/actions/plan/restore" class="row confirm-actions">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="week_start" value="{{ week_start }}">
+              <input type="hidden" name="archived" value="{{ old.name }}">
+              <button type="submit">Przywróć ten plan</button>
+            </form>
+          </section>
+        {% endfor %}
+        <p class="tile-foot">Po przywróceniu obecny plan trafi do tej listy. Treningi już wysłane zostają na zegarku, wyślij plan ponownie, jeśli chcesz go zaktualizować.</p>
+      </div>
+    </dialog>
   {% endif %}
 
   <footer>To nie jest porada medyczna. Decyzja o treningu należy do Ciebie.</footer>

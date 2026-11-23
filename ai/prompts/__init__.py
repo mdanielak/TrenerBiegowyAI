@@ -18,7 +18,8 @@ CORE = ("core/01-bezpieczenstwo", "core/02-dane-i-niepewnosc", "core/03-gotowosc
 GOAL_MODULES = {"5k": "cel/5km", "10k": "cel/10km", "hm": "cel/polmaraton", "marathon": "cel/maraton",
                 "fitness": "cel/kondycja"}
 LEVELS = ("poczatkujacy", "regularny", "zaawansowany")
-MODES = {"plan": "tryby/plan-tygodnia", "dzien": "tryby/komentarz-dnia", "trening": "tryby/analiza-treningu"}
+MODES = {"plan": "tryby/plan-tygodnia", "dzien": "tryby/komentarz-dnia", "trening": "tryby/analiza-treningu",
+         "tydzien": "tryby/ocena-tygodnia"}
 LANGUAGE = {"male": "jezyk/meski", "female": "jezyk/zenski", "neutral": "jezyk/neutralny"}
 
 
@@ -51,7 +52,7 @@ def modules_for(runner: dict | None) -> list[str]:
 
 def coach_prompt(runner: dict | None = None, *, mode: str | None = None, address_form: str | None = None,
                  private_path: Path = PRIVATE_RULES) -> str:
-    """Prompt systemowy trenera dla trybu 'plan', 'dzien' albo 'trening'.
+    """Prompt systemowy trenera dla trybu 'plan', 'dzien', 'trening' albo 'tydzien'.
 
     Forma zwracania się: z argumentu, z profilu biegacza albo bez form płciowych.
     """

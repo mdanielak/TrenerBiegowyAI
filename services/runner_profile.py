@@ -24,8 +24,13 @@ DECISION_LABELS = {
 }
 COMEBACK_LABEL = ("powrót do znanej objętości — tydzień może być do 25% dłuższy niż ostatni, "
                   "ale nie dłuższy niż zwykły tydzień sprzed 5–12 tygodni")
-# Mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
-WEEK_LIMIT = {"odpusc": 0.75, "utrzymaj": 1.0, "doloz": 1.1}
+# Twardy sufit, nie cel: mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
+# Cel opisują DECISION_LABELS (utrzymaj = podobnie jak ostatnio, czyli 1,0); sufit to tylko zapas.
+WEEK_LIMIT = {"odpusc": 0.75, "utrzymaj": 1.1, "doloz": 1.15}
+# Gdy biegacz zostawił trenerowi wiadomość na tydzień (np. „wydłuż niedzielę”), sufit tygodnia rośnie o tyle
+# (a długi bieg może być o LONG_RUN_REQUEST_STEP_MIN dłuższy niż zwykle). Nie dotyczy „odpuść”
+# (ból, zmęczenie, wiele opuszczonych treningów).
+WEEK_REQUEST_LIMIT = 1.2
 # Tydzień nigdy nie przekracza tylu średnich z czterech tygodni: chroni przed skokiem obciążenia
 # zaraz po wyjątkowo dużym tygodniu.
 WEEK_SPIKE_LIMIT = 1.3
@@ -41,6 +46,7 @@ HARD_ANAEROBIC_EFFECT = 2.0
 EASY_TYPES = ("easy", "recovery", "long")
 # Długi bieg najwyżej tyle minut dłuższy niż najdłuższy niedawny bieg; łatwy nie dłuższy niż on.
 LONG_RUN_STEP_MIN = 10
+LONG_RUN_REQUEST_STEP_MIN = 15  # przy wiadomości od biegacza (nie dotyczy „odpuść”)
 ADDRESS_FORMS = ("female", "male", "neutral")
 
 
@@ -109,6 +115,13 @@ def _returning(run_days: list[date], today: date) -> bool:
     return bool(before) and (min(recent) - max(before)).days >= 21
 
 
+def long_run_step(runner) -> int:
+    """O ile minut długi bieg może przekroczyć najdłuższy niedawny; przy wiadomości od biegacza o 5 więcej."""
+    runner = runner or {}
+    asked = runner.get("user_request") and runner.get("decision") != "odpusc"
+    return LONG_RUN_REQUEST_STEP_MIN if asked else LONG_RUN_STEP_MIN
+
+
 def week_reference(week_minutes: list[float]) -> float | None:
     """Zwykły tydzień z ostatnich czterech (od najstarszego do ostatniego) — podstawa limitu tygodnia.
 
@@ -136,7 +149,7 @@ def earlier_week(week_minutes: list[float]) -> float | None:
 
 
 def week_cap(week_minutes: list[float], decision: str, earlier: float | None = None,
-             comeback: bool = False) -> int | None:
+             comeback: bool = False, request: bool = False) -> int | None:
     """Limit minut planowanego tygodnia: zwykły tydzień razy mnożnik decyzji, bez skoku ponad średnią.
 
     Poza „odpuść” limit nie schodzi poniżej ostatniego tygodnia, o ile ten mieści się w znanym obciążeniu
@@ -155,6 +168,8 @@ def week_cap(week_minutes: list[float], decision: str, earlier: float | None = N
         cap = max(cap, min(last, known * WEEK_SPIKE_LIMIT))
         if comeback and earlier and earlier > cap:
             cap = min(earlier, max(cap, last * COMEBACK_STEP))
+        if request:
+            cap *= WEEK_REQUEST_LIMIT  # prośba biegacza: o 20% ponad zwykły sufit (nie dotyczy „odpuść”)
     return round(cap)
 
 
@@ -172,11 +187,14 @@ def _planned_easy_runs(previous_plan, activities) -> list:
 def _adherence(previous_plan, activities, today: date):
     """Ile treningów z poprzedniego tygodnia wykonano i ile z nich było wyraźnie krótszych.
 
-    Liczą się tylko dni, które już minęły: plan na przyszły tydzień układany w niedzielę ocenia
+    Liczą się dni, które już minęły, i dzisiejszy trening, jeśli jest już zrobiony: plan na przyszły tydzień układany w niedzielę ocenia
     bieżący tydzień bez dni, które dopiero nadejdą.
     """
     planned = [w for w in (previous_plan or {}).get("workouts") or []
-               if isinstance(w, dict) and w.get("type") != "rest" and str(w.get("date") or "") < today.isoformat()]
+               if isinstance(w, dict) and w.get("type") != "rest"
+               and (str(w.get("date") or "") < today.isoformat()
+                    or (str(w.get("date") or "") == today.isoformat()
+                        and find_activity_for_workout(workout=w, activities=activities)[0] is not None))]
     if not planned:
         return None, 0, 0
     done = shortened = 0
@@ -336,9 +354,10 @@ def level_message(runner: dict) -> str | None:
 
 
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
-                         pain=False) -> dict:
+                         pain=False, user_request=False) -> dict:
     """Profil do promptu i do bezpieczników planu.
 
+    ``user_request``: biegacz zostawił trenerowi wiadomość na ten tydzień; limit tygodnia rośnie do WEEK_REQUEST_LIMIT.
     ``rhr_trend``: {"recent": średnia 7 dni, "average": średnia 12 tygodni} tętna spoczynkowego.
     ``previous_plan``: plan poprzedniego tygodnia (do policzenia wykonania).
     """
@@ -416,8 +435,9 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     # z planu i nie przy zbyt mocnych spokojnych biegach („utrzymaj” bez danych o planie albo „dołóż”).
     comeback_ok = bool(earlier) and not returning and (
         decision == "doloz" or (decision == "utrzymaj" and adherence is None and not hr_too_high))
-    cap = week_cap(week_minutes, decision, earlier, comeback=comeback_ok) if not short_history else None
-    comeback = bool(cap) and cap > (week_cap(week_minutes, decision, earlier) or 0)
+    cap = (week_cap(week_minutes, decision, earlier, comeback=comeback_ok, request=user_request)
+           if not short_history else None)
+    comeback = bool(cap) and cap > (week_cap(week_minutes, decision, earlier, request=user_request) or 0)
     reference = week_reference(week_minutes)
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
@@ -437,6 +457,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "week_reference_min": round(reference) if reference else None,
         "earlier_week_min": round(earlier) if earlier else None,
         "comeback": comeback,
+        "user_request": bool(user_request),
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
@@ -540,7 +561,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     lines.append(f"- DECYZJA TYGODNIA: {COMEBACK_LABEL if runner.get('comeback') else DECISION_LABELS[runner['decision']]}")
     limits = []
     if runner["longest_min"]:
-        limits.append(f"długi bieg najwyżej {runner['longest_min'] + LONG_RUN_STEP_MIN} min, "
+        limits.append(f"długi bieg najwyżej {runner['longest_min'] + long_run_step(runner)} min, "
                       f"bieg łatwy i akcent najwyżej {runner['longest_min']} min")
     if runner.get("frequency"):
         count = runner["frequency"]

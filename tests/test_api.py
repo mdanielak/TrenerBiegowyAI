@@ -916,7 +916,7 @@ def test_dashboard_workout_section_reports_execution_and_local_score():
 def test_dashboard_workout_section_offers_review_when_comment_is_missing():
     with _workout_client(execution=_execution()) as client:
         response = client.get("/")
-    assert "Oceń mój trening" in response.text
+    assert "Oceń mój ostatni trening" in response.text
     assert 'action="/actions/review"' in response.text
     assert 'name="review_key" value="2026-10-02:1716765035"' in response.text
 
@@ -929,7 +929,7 @@ def test_dashboard_workout_section_shows_saved_comment_without_button():
         response = client.get("/")
     assert "Komentarz trenera" in response.text
     assert "Utrzymaj ten spokój do niedzieli." in response.text
-    assert "Oceń mój trening" not in response.text
+    assert "Oceń mój ostatni trening" not in response.text
 
 
 def test_dashboard_workout_section_escapes_saved_comment():
@@ -949,7 +949,7 @@ def test_dashboard_workout_section_waits_for_sync_before_the_training():
     assert "nie ma dziś aktywności" not in response.text
     assert "Brak wykonania" not in response.text
     assert "Zgodność z planem" not in response.text
-    assert "Oceń mój trening" not in response.text
+    assert "Oceń mój ostatni trening" not in response.text
 
 
 def test_dashboard_workout_section_warns_about_heuristic_match():
@@ -962,7 +962,7 @@ def test_dashboard_workout_section_without_plan_is_empty():
     with _workout_client(execution=None, planned=None) as client:
         response = client.get("/")
     assert "Na dziś nie ma zapisanego treningu." in response.text
-    assert "Oceń mój trening" not in response.text
+    assert "Oceń mój ostatni trening" not in response.text
 
 
 def test_dashboard_workout_section_skips_score_without_profile():
@@ -1035,6 +1035,67 @@ def test_review_action_failure_does_not_render_exception_text(tmp_path):
                     headers={"Origin": "http://testserver"}, follow_redirects=False)
         page = client.get("/")
     assert "klucz-api-w-tresci-bledu" not in page.text
+
+
+def _wait_review_status(client, key):
+    """Zadanie działa w tle: czekamy, aż stan przestanie być „trwa”."""
+    import time
+    for _ in range(100):
+        response = client.get(f"/actions/review/status?key={key}")
+        if response.json()["state"] != "running":
+            break
+        time.sleep(0.05)
+    return response
+
+
+def test_review_button_answers_json_for_the_page_and_status_reports_the_comment(tmp_path):
+    saved = {}
+
+    def operation(*, review_key):
+        saved[review_key] = "Cztery zdania. Drugie. Trzecie. Czwarte."
+
+    store = JobStore(tmp_path / "jobs")
+    report = _report(planned=_PLANNED, execution=_execution())
+    app = create_app(report_provider=lambda: report, profile_provider=lambda: _profile(),
+                     review_loader=lambda *, review_key: {"comment": saved[review_key]} if review_key in saved else None,
+                     review_operation=operation, job_store=store, lock_directory=tmp_path / "locks")
+    key = "2026-10-02:1716765035"
+    with TestClient(app) as client:
+        page = client.get("/").text
+        assert "data-review-form" in page and "data-review-loading" in page
+        token = _csrf(client)
+        sent = client.post("/actions/review", data={"csrf_token": token, "review_key": key},
+                           headers={"Origin": "http://testserver", "X-Requested-With": "fetch"},
+                           follow_redirects=False)
+        assert sent.status_code == 200 and sent.json()["state"] in {"running", "busy"}
+        status = _wait_review_status(client, key).json()
+    assert status == {"state": "done", "comment": "Cztery zdania. Drugie. Trzecie. Czwarte."}
+
+
+def test_review_status_shows_only_our_own_message_when_the_job_failed(tmp_path):
+    def boom(*, review_key):
+        raise RuntimeError("klucz-api-w-tresci-bledu")
+
+    store = JobStore(tmp_path / "jobs")
+    report = _report(planned=_PLANNED, execution=_execution())
+    app = create_app(report_provider=lambda: report, profile_provider=lambda: _profile(),
+                     review_loader=lambda **kwargs: None, review_operation=boom,
+                     job_store=store, lock_directory=tmp_path / "locks")
+    key = "2026-10-02:1716765035"
+    with TestClient(app) as client:
+        token = _csrf(client)
+        client.post("/actions/review", data={"csrf_token": token, "review_key": key},
+                    headers={"Origin": "http://testserver", "X-Requested-With": "fetch"})
+        status = _wait_review_status(client, key)
+    assert status.json()["state"] == "failed" and "klucz-api" not in status.text
+
+
+def test_review_json_request_with_bad_csrf_gets_json_not_a_page(tmp_path):
+    with TestClient(_review_app(tmp_path, lambda *, review_key: None)) as client:
+        _csrf(client)
+        response = client.post("/actions/review", data={"csrf_token": "zly", "review_key": "k"},
+                               headers={"Origin": "http://testserver", "X-Requested-With": "fetch"})
+    assert response.status_code == 403 and response.json()["state"] == "failed"
 
 
 def test_asset_route_serves_allowed_png_with_cache_header():

@@ -232,10 +232,12 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
     except (OSError, ValueError):
         previous_plan = None
     from services.runner_profile import build_runner_profile
+    user_note = _week_note(monday)
     runner = build_runner_profile(
         activities=data.get("activities"), profile=profile, today=current.date(),
         rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
-        pain=bool((training.get("journal") or {}).get("pain_days")))
+        pain=bool((training.get("journal") or {}).get("pain_days")),
+        user_request=bool(user_note))
 
     return {
         "week_start": monday.date().isoformat(),
@@ -254,7 +256,7 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "trends": trends,
         "runner": runner,
         "journal": training.get("journal"),
-        "user_note": _week_note(monday),
+        "user_note": user_note,
         "snapshot_status": snapshot_status,
         "snapshot_timestamp": snapshot_timestamp or (data.get("timestamp") if isinstance(data, dict) else None),
     }
@@ -609,11 +611,11 @@ def normalize_plan(response, *, context) -> dict:
 
     # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie). Z profilem biegacza:
     # ta sama liczba, którą model dostał w LIMITACH APLIKACJI.
-    from services.runner_profile import LONG_RUN_STEP_MIN
+    from services.runner_profile import long_run_step
     longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         # Akcent (z rozgrzewką i schłodzeniem) też nie dłuższy niż najdłuższy niedawny bieg.
-        limits = {"long": longest + LONG_RUN_STEP_MIN, "easy": longest, "recovery": longest,
+        limits = {"long": longest + long_run_step(runner), "easy": longest, "recovery": longest,
                   **{kind: longest for kind in QUALITY_KINDS}}
         for workout in workouts:
             limit, minutes = limits.get(workout["type"]), workout["duration_min"]

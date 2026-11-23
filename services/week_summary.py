@@ -32,8 +32,12 @@ def build_week_summary(plan, activities, *, today: date, runner=None) -> dict | 
     except ValueError:
         return None
     activities = [a for a in activities or [] if isinstance(a, dict)]
+    # Dzisiejszy trening liczy się tylko wtedy, gdy już jest zrobiony; do końca dnia nie jest „opuszczony”.
     due = [w for w in plan.get("workouts") or []
-           if isinstance(w, dict) and w.get("type") != "rest" and str(w.get("date") or "") < today.isoformat()]
+           if isinstance(w, dict) and w.get("type") != "rest"
+           and (str(w.get("date") or "") < today.isoformat()
+                or (str(w.get("date") or "") == today.isoformat()
+                    and find_activity_for_workout(workout=w, activities=activities)[0] is not None))]
     if not due:
         return None
 
@@ -73,3 +77,32 @@ def build_week_summary(plan, activities, *, today: date, runner=None) -> dict | 
         "runs": len(week_runs),
         "proposal": proposal,
     }
+
+
+def summarize_week(stored, data, today, profile_provider) -> tuple[dict | None, dict | None]:
+    """Podsumowanie tygodnia i profil biegacza, z którego liczy się propozycja na kolejny tydzień.
+
+    Ten sam profil dostaje trener przy układaniu planu, więc strona Plan i ocena tygodnia mówią to samo.
+    Bez profilu (błąd odczytu danych) podsumowanie zostaje bez propozycji, same liczby nadal są.
+    """
+    import logging
+
+    if not stored or not isinstance(data, dict):
+        return None, None
+    runner = None
+    try:
+        from ai.context import build_training_context
+        from services.plan import _plan_trends
+        from services.runner_profile import build_runner_profile
+
+        training = build_training_context(data, plan=None, today=today)
+        runner = build_runner_profile(
+            activities=data.get("activities"), profile=profile_provider(), today=today.date(),
+            rhr_trend=((_plan_trends(data, today.date()) or {}).get("metrics") or {}).get("rhr"),
+            previous_plan=stored, pain=bool((training.get("journal") or {}).get("pain_days")))
+    except Exception:  # noqa: BLE001 - bez propozycji strona planu nadal pokazuje liczby
+        logging.getLogger(__name__).warning("Could not build the weekly proposal")
+    try:
+        return build_week_summary(stored, data.get("activities"), today=today.date(), runner=runner), runner
+    except (KeyError, TypeError, ValueError):
+        return None, runner

@@ -52,3 +52,13 @@ def test_provider_exception_is_not_suppressed():
         def chat(self, *args, **kwargs): raise RuntimeError("provider failed")
     with pytest.raises(RuntimeError, match="provider failed"):
         get_workout_comment(Provider(), **data())
+
+
+def test_system_prompt_names_the_json_field():
+    class Provider:
+        def chat(self, system, *args, **kwargs):
+            self.system = system
+            return WorkoutComment(komentarz="A. B.")
+    provider = Provider()
+    get_workout_comment(provider, **data())
+    assert '{"komentarz":' in provider.system

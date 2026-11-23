@@ -19,7 +19,7 @@ RUNS = [
 
 
 def test_nothing_to_summarise_before_the_first_workout_passes():
-    assert build_week_summary(PLAN, RUNS, today=date(2026, 9, 28)) is None
+    assert build_week_summary(PLAN, [], today=date(2026, 9, 28)) is None  # dzisiejszy, jeszcze niezrobiony
     assert build_week_summary(None, RUNS, today=date(2026, 10, 1)) is None
 
 
@@ -45,3 +45,11 @@ def test_reason_follows_the_decision_rules():
     assert "60%" in decision_reason({"decision": "odpusc", "adherence": 0.5})
     assert "przerwie" in decision_reason({"decision": "utrzymaj", "adherence": 1.0, "returning": True})
     assert "Plan wykonany" in decision_reason({"decision": "doloz", "adherence": 1.0})
+
+
+def test_a_workout_done_today_is_counted_but_one_not_done_yet_is_not_missed():
+    runs = [*RUNS, {"date": "2026-10-04T08:00:00", "type": "running", "duration_min": 92, "distance_km": 12.0}]
+    done_today = build_week_summary(PLAN, runs, today=date(2026, 10, 4))
+    assert (done_today["due"], done_today["done"]) == (4, 3) and done_today["missed"] == ["środa — Tempo 3×8 min"]
+    not_yet = build_week_summary(PLAN, RUNS, today=date(2026, 10, 4))
+    assert not_yet["due"] == 3 and "niedziela — Długi bieg 90 min" not in not_yet["missed"]

@@ -140,6 +140,7 @@ def _app(tmp_path, *, plan=None, report=None, ai_ready=True, plan_operation=None
         snapshot_provider = lambda: SnapshotReadResult(status=SnapshotStatus.FRESH, data={})
     # Profil można podmienić z zewnątrz — inaczej przekazanie go w kwargs kolidowałoby
     # z profilem domyślnym poniżej.
+    kwargs.setdefault("review_loader", lambda **review_kwargs: None)
     kwargs.setdefault("profile_provider",
                       lambda: {"name": "Ala", "hr_zone_floors": {"z1": 96, "z2": 122},
                                "target_race": "półmaraton", "target_date": "2027-10-17"})
@@ -148,7 +149,6 @@ def _app(tmp_path, *, plan=None, report=None, ai_ready=True, plan_operation=None
         plan_provider=lambda monday: plan,
         ai_settings_provider=lambda: {"key_present": ai_ready, "export_enabled": ai_ready},
         availability_provider=lambda: {"mon": {"available": True, "min_minutes": 35, "max_minutes": 45}},
-        review_loader=lambda **review_kwargs: None,
         recommendation_loader=recommendation_loader or (lambda **loader_kwargs: None),
         job_store=JobStore(tmp_path / "jobs"),
         lock_directory=tmp_path / "locks",
@@ -275,9 +275,10 @@ def test_plan_action_queues_a_background_job(tmp_path):
                                headers={"Origin": "http://testserver"}, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/plan"
+    assert response.headers["location"] == "/plan?week=2026-09-28"
     jobs = JobStore(tmp_path / "jobs").list_jobs().jobs
     assert [job.operation for job in jobs] == ["plan"]
+    assert jobs[0].week_start == "2026-09-28"
     assert calls == [{"week_start": "2026-09-28"}]
 
 
@@ -512,3 +513,11 @@ def test_follow_ups_hide_repeated_verdict_and_older_turns_fold(tmp_path):
     # Ten sam werdykt i uzasadnienie co w poprzedniej odpowiedzi nie są powtarzane.
     assert page.count('class="coach-verdict"') == 1 and page.count('class="coach-why"') == 1
     assert visible.index("pytanie 3") < visible.index("pytanie 4") and "Ctrl+Enter" in page
+
+
+def test_plan_page_remembers_the_week_opened_last(tmp_path):
+    with TestClient(_app(tmp_path)) as client:
+        client.get("/plan?week=2026-09-14")
+        assert "14 września 2026" in client.get("/plan").text  # z menu, bez ?week
+        client.get("/plan?week=2026-09-28")  # bieżący tydzień zdejmuje zapamiętanie
+        assert "14 września 2026" not in client.get("/plan").text
