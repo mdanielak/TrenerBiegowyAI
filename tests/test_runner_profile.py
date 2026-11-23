@@ -5,7 +5,8 @@ from pathlib import Path
 
 from ai.prompts import coach_prompt, modules_for
 from services import plan as plan_service
-from services.runner_profile import (_history_level, _settle_level, build_runner_profile, level_message, long_run_limit,
+from services.week_decision import long_run_limit
+from services.runner_profile import (_history_level, _settle_level, build_runner_profile, level_message,
                                      profile_lines,
                                      quality_sessions_limit, running_months)
 

@@ -2,7 +2,7 @@
 """Podsumowanie tygodnia: plan a wykonanie i propozycja na kolejny tydzień."""
 from datetime import date
 
-from services.runner_profile import decision_reason
+from services.week_decision import decision_reason
 from services.week_summary import build_week_summary
 
 PLAN = {"start_date": "2026-09-28", "workouts": [

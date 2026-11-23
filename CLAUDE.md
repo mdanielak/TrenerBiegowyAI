@@ -39,7 +39,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - `api/` — FastAPI: `main.py` (`create_app` z wstrzykiwanymi dostawcami), `routers/` (strony i akcje), `views/` (dane dla szablonów).
 - `templates/`, `static/` — Jinja i CSS (tokeny kolorów w `static/css/styles.css`, zasady w `DESIGN.md`), `static/js/interface.js`.
 - `services/` — logika: `today.py`, `plan.py` (normalizacja planu AI i **bezpieczniki**), `runner_profile.py`
-  (profil biegacza, decyzja tygodnia, limity), `actions.py` (zadania w tle: synchronizacja, plan, wysyłka, usuwanie),
+  (profil biegacza: poziom, dane do promptu), `week_decision.py` (decyzja tygodnia, limity, taper), `actions.py` (zadania w tle: synchronizacja, plan, wysyłka, usuwanie),
   `jobs.py` (stan zadań w `local/jobs`), `wizard.py` (kreator celu), `strategy.py` (opcjonalna strategia z `training-plans/long-term/strategia.md`),
   `strategy_builder.py` (fazy przygotowań liczone z celu i ostatnich biegów), `week_summary.py` (plan a wykonanie tygodnia),
   `update_check.py` (sprawdzenie, czy jest nowsze wydanie na GitHubie).
@@ -56,7 +56,7 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
   Liczba mocnych treningów w tygodniu (0, 1 albo 2) ma jedno źródło:
   `services/runner_profile.py::quality_sessions_limit` — korzystają z niej i prompt, i kod.
 - Okno dostępności dnia tylko skraca trening, nigdy go nie wydłuża.
-- Limit tygodnia: `services/runner_profile.py::week_cap` (zwykły tydzień, nie największy). Mocne dni nie stoją obok siebie: `services/plan.py::_space_hard_days`.
+- Limit tygodnia: `services/week_decision.py::week_cap` (zwykły tydzień, nie największy). Mocne dni nie stoją obok siebie: `services/plan.py::_space_hard_days`.
 - Komunikat napisany przez aplikację (`services/jobs.py::UserMessageError`) trafia do zadania i na ekran;
   wyjątek z biblioteki nigdy. Surowe błędy dostawców AI zostają w logu na tym komputerze, nigdy w interfejsie.
 - Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z", tag `vX.Y.Z`,

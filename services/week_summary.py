@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from services.activity_matching import find_activity_for_workout
-from services.runner_profile import decision_reason
+from services.week_decision import decision_reason
 
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
 _PROPOSALS = {

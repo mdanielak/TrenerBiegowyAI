@@ -583,7 +583,7 @@ def _quality_limit_text(limit: int) -> str:
 
 
 def _decision_reason(runner) -> str:
-    from services.runner_profile import decision_reason
+    from services.week_decision import decision_reason
     return decision_reason(runner)
 
 
@@ -644,7 +644,7 @@ def normalize_plan(response, *, context) -> dict:
 
     # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie). Z profilem biegacza:
     # ta sama liczba, którą model dostał w LIMITACH APLIKACJI.
-    from services.runner_profile import long_run_limit
+    from services.week_decision import long_run_limit
     longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         # Akcent (z rozgrzewką i schłodzeniem) też nie dłuższy niż najdłuższy niedawny bieg.

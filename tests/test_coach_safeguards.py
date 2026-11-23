@@ -6,7 +6,8 @@ import pytest
 
 from services import plan as plan_service
 from services.readiness import compute_readiness_breakdown, yesterday_load
-from services.runner_profile import build_runner_profile, profile_lines, week_cap, week_reference
+from services.runner_profile import build_runner_profile, profile_lines
+from services.week_decision import week_cap, week_reference
 
 TODAY = date(2026, 11, 16)  # poniedziałek; ostatni pełny tydzień: 9–15.11
 FLOORS = {"z1": 98, "z2": 120, "z3": 150, "z4": 160, "z5": 172}
@@ -314,7 +315,7 @@ def test_a_request_to_the_coach_raises_the_week_limit_by_20_percent_except_when_
 
 
 def test_the_long_run_grows_by_about_ten_percent_with_a_five_minute_minimum():
-    from services.runner_profile import long_run_limit
+    from services.week_decision import long_run_limit
     plain = {"decision": "utrzymaj"}
     assert (long_run_limit(plain, 30), long_run_limit(plain, 67), long_run_limit(plain, 120)) == (35, 74, 132)
     assert long_run_limit({"user_request": True, "decision": "utrzymaj"}, 67) == 77  # prośba: +15%

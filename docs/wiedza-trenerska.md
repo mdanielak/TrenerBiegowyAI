@@ -1,7 +1,7 @@
 # Wiedza trenerska: źródła reguł aplikacji
 
-Streszczenia badań i praktyki trenerskiej, na których opierają się liczby w `services/runner_profile.py`
-i `services/plan.py`. Dokument dla ludzi; do promptu nie trafia (aktualne prompty są w `ai/prompts/`).
+Streszczenia badań i praktyki trenerskiej, na których opierają się liczby w `services/week_decision.py`,
+`services/runner_profile.py`, `services/strategy_builder.py` i `services/plan.py`. Dokument dla ludzi; do promptu nie trafia (aktualne prompty są w `ai/prompts/`).
 
 Uwaga o pewności (stan na listopad 2026): większość pozycji sprawdzono przez artykuły i streszczenia (PubMed, blogi trenerskie),
 nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryginału.
@@ -43,8 +43,17 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
   Sama redukcja intensywności nie poprawiała wyniku.
 - **Przegląd systematyczny 2023 (sportowcy wytrzymałościowi):** potwierdza 41–60% przy tej samej intensywności i częstotliwości,
   w taperze trwającym do 21 dni.
-- **Wniosek dla aplikacji:** tydzień przed startem około 80% zwykłego tygodnia, tydzień startu około 55%.
-  Krótkie szybkie fragmenty zostają, a moduł regeneracji (który zakazuje akcentów) w taperze się nie włącza.
+- **Wniosek dla aplikacji:** taper zależy od dystansu (`TAPER_WEEKS`):
+
+  | Dystans | Tygodnie przed startem (część zwykłego tygodnia) |
+  |---|---|
+  | 5 km | tydzień startu ok. 75% |
+  | 10 km | 85%, tydzień startu 65% |
+  | półmaraton | 80%, tydzień startu 55% |
+  | maraton | 85%, 70%, tydzień startu 50% |
+
+  Tydzień przed taperem jest bez wzrostu. Intensywność zostaje, a moduł regeneracji (który zakazuje akcentów)
+  w taperze się nie włącza. Po maratonie: tydzień regeneracji i tydzień lżejszy; po krótszych startach jeden lżejszy tydzień.
 
 ## 5. Przerwa w bieganiu i utrata formy
 
@@ -71,7 +80,17 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
   - kod pilnuje, żeby długi bieg nie był dłuższy niż pozostałe biegi razem
     (`services/plan.py::_limit_long_run_share`, od 3 biegów w tygodniu).
 
-## 7. Intensywność spokojnych biegów
+## 7. Strategia przygotowań
+
+- Średni wzrost tygodnia w strategii to ok. 3% (`_WEEKLY_GROWTH`): tyle dają decyzje tygodnia („dołóż” +5–10%
+  i co czwarty tydzień cofnięcia), czyli ok. 12–15% w miesiącu.
+- Szczyt objętości i długiego biegu zależy od dystansu **i poziomu** (`_PEAKS`): początkująca osoba przed 5 km
+  dochodzi do ok. 20 km tygodniowo i 6 km długiego biegu, zaawansowany maratończyk do ok. 80 km i 34 km.
+- Akcenty w strategii zgodne z limitem aplikacji: początkujący bez akcentów, regularny jeden
+  (drugi tylko przy 4+ biegach w tygodniu), zaawansowany główny akcent i ewentualnie drugi lekki bodziec.
+- Kilometry strategii mają obok minuty przy tempie biegacza, bo limity tygodnia są w minutach.
+
+## 8. Intensywność spokojnych biegów
 
 - Większość czasu w strefie łatwej. Typowy rozkład to ok. 80% biegania spokojnie i 20% intensywnie.
   Przy wolnym bieganiu najczęstszy błąd to „szara strefa” w okolicy Z3.
@@ -81,7 +100,7 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
   - gdy co najmniej połowa spokojnych biegów ma średnie tętno w górnych 3 bpm Z2, model dostaje polecenie,
     żeby przypomnieć o wolniejszym tempie (bez zmiany decyzji tygodnia).
 
-## 8. HRV i tętno spoczynkowe
+## 9. HRV i tętno spoczynkowe
 
 - Zasada aplikacji: pojedyncza metryka nie nadpisuje planu. HRV z zegarka bywa zaszumione (alkohol, późny posiłek,
   stres), więc liczy się tygodniowa średnia wobec zakresu tej osoby, a nie jedna noc.
