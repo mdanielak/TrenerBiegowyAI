@@ -344,3 +344,18 @@ def test_a_two_week_pause_does_not_turn_a_regular_runner_into_a_beginner():
     long_pause = build_runner_profile(activities=_runs([33, 35, 38, 40, 42, 45, 47, 49, 52], 50) + _runs([9, 6, 4], 40),
                                       profile=_profile(), today=TODAY)
     assert long_pause["returning"] and long_pause["level"] == "poczatkujacy"
+
+
+
+def test_the_long_run_is_never_longer_than_all_other_runs_together():
+    runner = build_runner_profile(activities=_runs(range(3, 31, 2), 60), today=TODAY, profile=_profile(running_since="over24"))
+    runner["longest_min"] = 120  # bez limitu z historii: sprawdzamy sam udział w tygodniu
+    response = {"workouts": [
+        {"date": "2026-11-03", "kind": "easy", "name": "Łatwy", "duration_min": 30, "hr_zone": 2},
+        {"date": "2026-11-05", "kind": "easy", "name": "Łatwy", "duration_min": 30, "hr_zone": 2},
+        {"date": "2026-11-08", "kind": "long", "name": "Długi", "duration_min": 90, "hr_zone": 2},
+    ]}
+    runner["week_cap_min"] = None
+    workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
+    long_run = next(w for w in workouts if w["type"] == "long")
+    assert long_run["duration_min"] == 60 and "połowę czasu tygodnia" in long_run["notes"]

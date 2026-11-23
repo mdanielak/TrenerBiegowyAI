@@ -379,3 +379,33 @@ def test_a_request_does_not_lift_the_light_steps_and_stays_below_the_known_volum
     rebuilding = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY,
                                       user_request=True)
     assert rebuilding["week_cap_min"] <= rebuilding["earlier_week_min"]
+
+
+
+# --- Punkty 3–5 oceny trenerskiej ----------------------------------------------------------------
+
+def _hrv(weekly, low=60, status="BALANCED", days_ago=0):
+    return [{"date": str(TODAY - timedelta(days=days_ago)), "weekly_avg": weekly, "last_night": weekly,
+             "baseline_low": low, "baseline_high": 75, "status": status}]
+
+
+def test_low_hrv_blocks_adding_and_with_a_higher_resting_rate_lightens_the_week():
+    def runner(hrv, up=0):
+        return build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(), today=TODAY,
+                                    previous_plan=_done_last_week(), hrv=hrv,
+                                    rhr_trend={"recent": 50 + up, "average": 50})
+    assert runner(_hrv(66))["decision"] == "doloz"
+    low = runner(_hrv(55))
+    assert (low["decision"], low["decision_cause"]) == ("utrzymaj", "hrv_low")
+    assert "HRV: średnia z tygodnia 55 ms" in "\n".join(profile_lines(low))
+    assert runner(_hrv(55), up=3)["decision"] == "odpusc"
+    assert runner(_hrv(55, days_ago=10))["decision"] == "doloz"  # stary pomiar nic nie mówi o dziś
+
+
+def test_easy_runs_at_the_top_of_zone_two_are_flagged_for_the_coach_without_changing_the_week():
+    floors_z3 = FLOORS["z3"]
+    runs = [_run(day, 40, hr=floors_z3 - 2) for day in (1, 3, 5, 8, 10, 12)]
+    runner = build_runner_profile(activities=runs, profile=_profile(), today=TODAY)
+    lines = "\n".join(profile_lines(runner))
+    assert runner["runs_near_z2_top"] == runner["easy_runs_with_hr"] and runner["runs_above_z2"] == 0
+    assert "przy samej górnej granicy strefy 2" in lines

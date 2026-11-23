@@ -237,7 +237,7 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         activities=data.get("activities"), profile=profile, today=current.date(),
         rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
         pain=bool((training.get("journal") or {}).get("pain_days")),
-        user_request=bool(user_note))
+        user_request=bool(user_note), hrv=data.get("hrv"))
     # Dni, w których biegacz ma czas: ich okna to naturalny sufit tygodnia, który model widzi od razu.
     window_total = sum(day["max_minutes"] for day in days if day["available"] and not day["pause_reason"])
     runner["window_cap_min"] = window_total or None
@@ -321,6 +321,29 @@ def _space_hard_days(workouts) -> None:
                 "Zmieniono na spokojny bieg: dzień po akcencie albo długim biegu organizm potrzebuje regeneracji."))
             continue
         previous_hard = day
+
+
+def _limit_long_run_share(workouts) -> None:
+    """Długi bieg nie dłuższy niż wszystkie pozostałe biegi tygodnia razem (najwyżej połowa tygodnia).
+
+    Przy 3–4 biegach w tygodniu długi bieg naturalnie zbiera 35–45% czasu; ponad połowę uznaje się za za dużo.
+    Przy dwóch biegach reguła nie działa (wtedy byłyby równe), więc obowiązuje od trzech biegów.
+    """
+    runs = [w for w in workouts if w["type"] != "rest" and w["duration_min"]]
+    long_runs = [w for w in runs if w["type"] == "long"]
+    if len(runs) < 3 or not long_runs:
+        return
+    long_run = long_runs[0]
+    others = [w["duration_min"] for w in runs if w is not long_run]
+    limit = max(sum(others), max(others))
+    if long_run["duration_min"] <= limit:
+        return
+    before = long_run["duration_min"]
+    if long_run["distance_km"]:
+        long_run["distance_km"] = round(long_run["distance_km"] * limit / before, 1)
+    long_run["duration_min"] = limit
+    long_run["notes"] = _append_note(long_run["notes"], (
+        f"Skrócono do {limit} min: długi bieg nie powinien zajmować więcej niż połowę czasu tygodnia."))
 
 
 def _limit_week_minutes(workouts, runner) -> None:
@@ -636,6 +659,7 @@ def normalize_plan(response, *, context) -> dict:
                                       f"{longest} min, a długość rośnie stopniowo.")
 
     _limit_training_days(workouts, runner)
+    _limit_long_run_share(workouts)
     _limit_week_minutes(workouts, runner)
 
     start_date = _field(response, "start_date") or context.get("week_start")

@@ -55,6 +55,12 @@ EARLIER_MIN_WEEKS = 6  # z 8: dopiero regularne bieganie to wcześniejsza objęt
 EXPERIENCED_SHORT_RUN_MIN = 30
 # Garmin: efekt beztlenowy od 2,0 to trening z mocnymi odcinkami, nie bieg spokojny.
 HARD_ANAEROBIC_EFFECT = 2.0
+# Spokojny bieg ze średnim tętnem tyle bpm pod Z3 lub bliżej: „górna granica Z2”, sygnał dla trenera (bez zmiany decyzji).
+Z2_TOP_MARGIN = 3
+# HRV: tygodniowa średnia z zegarka poniżej zakresu tej osoby. Sama nie zmienia tygodnia na lżejszy (pojedyncza metryka),
+# tylko blokuje dokładanie; razem z tętnem spoczynkowym wyższym o tyle bpm — lżejszy tydzień.
+HRV_WITH_RHR_BPM = 3
+HRV_FRESH_DAYS = 3
 EASY_TYPES = ("easy", "recovery", "long")
 # Długi bieg najwyżej tyle minut dłuższy niż najdłuższy niedawny bieg; łatwy nie dłuższy niż on.
 LONG_RUN_STEP_MIN = 10
@@ -416,6 +422,26 @@ def _after_light_week(week_minutes: list[float]) -> bool:
     return week_minutes[-2] >= week_minutes[-3] * STEP_BACK_GROWTH and week_minutes[-1] <= 0.85 * week_minutes[-2]
 
 
+def _hrv_low(hrv, today: date) -> tuple[bool, dict | None]:
+    """Czy tygodniowa średnia HRV jest poniżej zakresu bazowego (albo Garmin ocenia ją jako niską)."""
+    entries = [e for e in hrv or [] if isinstance(e, dict) and e.get("date")]
+    if not entries:
+        return False, None
+    latest = max(entries, key=lambda e: str(e["date"]))
+    try:
+        age = (today - date.fromisoformat(str(latest["date"])[:10])).days
+    except ValueError:
+        return False, None
+    if age > HRV_FRESH_DAYS:
+        return False, None
+    weekly, low = _number(latest.get("weekly_avg")), _number(latest.get("baseline_low"))
+    status = str(latest.get("status") or "").upper()
+    below = (weekly is not None and low is not None and weekly < low) or status in ("LOW", "POOR")
+    whole = lambda number: round(number) if number is not None else None  # noqa: E731 - ms bez części dziesiętnej
+    return below, {"weekly_avg": whole(weekly), "baseline_low": whole(low),
+                   "baseline_high": whole(_number(latest.get("baseline_high")))}
+
+
 def _race_days(target_date, today: date) -> int | None:
     """Ile dni do startu (ujemnie: dni po starcie); None bez daty celu."""
     try:
@@ -425,7 +451,7 @@ def _race_days(target_date, today: date) -> int | None:
 
 
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
-                         pain=False, user_request=False) -> dict:
+                         pain=False, user_request=False, hrv=None) -> dict:
     """Profil do promptu i do bezpieczników planu.
 
     ``user_request``: biegacz zostawił trenerowi wiadomość na ten tydzień; limit tygodnia rośnie do WEEK_REQUEST_LIMIT.
@@ -477,6 +503,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
                  or [a for a in last_two_weeks if (_number(a.get("ate")) or 0) < HARD_ANAEROBIC_EFFECT])
     with_hr = [a for a in easy_runs if _number(a.get("avg_hr"))]
     too_hard = sum(1 for a in with_hr if z3 and _number(a.get("avg_hr")) >= z3)
+    near_top = sum(1 for a in with_hr if z3 and z3 - Z2_TOP_MARGIN <= _number(a.get("avg_hr")) < z3)
     rhr_recent = _number((rhr_trend or {}).get("recent"))
     rhr_normal = _number((rhr_trend or {}).get("average"))
     rhr_up = round(rhr_recent - rhr_normal) if rhr_recent is not None and rhr_normal is not None else None
@@ -488,6 +515,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     struggling = adherence is not None and adherence < 0.6 and shortened > 0
     hr_too_high = len(with_hr) >= 2 and too_hard * 2 >= len(with_hr)
     week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
+    hrv_low, hrv_values = _hrv_low(hrv, today)
     race_days = _race_days(profile.get("target_date"), today)
     taper = race_days is not None and 0 <= race_days < 21
     if pain:
@@ -498,6 +526,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         decision, cause = "odpusc", "rhr_up"
     elif struggling:
         decision, cause = "odpusc", "struggling"
+    elif hrv_low and rhr_up is not None and rhr_up >= HRV_WITH_RHR_BPM:
+        decision, cause = "odpusc", "hrv_rhr"
     elif race_days is not None and 0 <= race_days < 7:
         decision, cause = "odpusc", "race_week"
     elif race_days is not None and 7 <= race_days < 14:
@@ -508,6 +538,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         decision, cause = "odpusc", "step_back"
     elif adherence is None or adherence < 0.9 or returning or hr_too_high:
         decision, cause = "utrzymaj", "low_adherence"
+    elif hrv_low:
+        decision, cause = "utrzymaj", "hrv_low"
     elif taper:
         decision, cause = "utrzymaj", "before_taper"
     elif not short_history and _after_light_week(week_minutes):
@@ -559,6 +591,9 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
+        "runs_near_z2_top": near_top,
+        "hrv_low": hrv_low,
+        "hrv": hrv_values,
         "rhr_up": rhr_up,
         "vo2max": _number(profile.get("vo2max_running")),
         "adherence": adherence,
@@ -599,6 +634,8 @@ _CAUSE_TEXT = {
     "race_week": "To tydzień startu: o około połowę mniej biegania, krótkie żywe odcinki zostają, żeby być świeżym.",
     "taper": "Za tydzień start: objętość spada o około 20%, a intensywność zostaje — tak forma rośnie najlepiej.",
     "before_taper": "Do startu zostały trzy tygodnie: objętość już nie rośnie.",
+    "hrv_rhr": "HRV jest poniżej Twojego zakresu, a tętno spoczynkowe wyższe niż zwykle — organizm prosi o lżejszy tydzień.",
+    "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień bez dokładania.",
     "after_race": "Po starcie potrzebny jest lekki tydzień na regenerację.",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
 }
@@ -649,6 +686,14 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     if runner["easy_runs_with_hr"]:
         lines.append(f"- tętno na spokojnych biegach (bez akcentów): {runner['runs_above_z2']} z "
                      f"{runner['easy_runs_with_hr']} biegów ze średnim tętnem powyżej strefy 2")
+        if runner.get("runs_near_z2_top", 0) * 2 >= runner["easy_runs_with_hr"]:
+            lines.append(f"- {runner['runs_near_z2_top']} z {runner['easy_runs_with_hr']} spokojnych biegów przy samej "
+                         "górnej granicy strefy 2: w opisach biegów łatwych przypomnij o wolniejszym tempie "
+                         "i swobodnej rozmowie, żeby nie wejść w szarą strefę")
+    if runner.get("hrv_low") and runner.get("hrv"):
+        values = runner["hrv"]
+        lines.append(f"- HRV: średnia z tygodnia {value(values.get('weekly_avg'), ' ms')}, poniżej zakresu tej osoby "
+                     f"(od {value(values.get('baseline_low'), ' ms')}) — sygnał zmęczenia, bez dokładania")
     if runner["rhr_up"] is not None:
         lines.append(f"- tętno spoczynkowe: {runner['rhr_up']:+d} bpm wobec normy z 12 tygodni")
     if runner["adherence"] is not None:

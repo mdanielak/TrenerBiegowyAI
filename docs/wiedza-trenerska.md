@@ -3,7 +3,7 @@
 Streszczenia badań i praktyki trenerskiej, na których opierają się liczby w `services/runner_profile.py`
 i `services/plan.py`. Dokument dla ludzi; do promptu nie trafia (aktualne prompty są w `ai/prompts/`).
 
-Uwaga o pewności: większość pozycji sprawdzono przez artykuły i streszczenia (PubMed, blogi trenerskie),
+Uwaga o pewności (stan na listopad 2026): większość pozycji sprawdzono przez artykuły i streszczenia (PubMed, blogi trenerskie),
 nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryginału.
 
 ## 1. Tempo wzrostu objętości tygodnia („zasada 10%”)
@@ -58,14 +58,35 @@ nie w pełnych tekstach książek. Przy zmianie progów warto sięgnąć do oryg
   - od 21 dni to „powrót”: ostrożny plan i poziom początkujący do odbudowy;
   - „odbuduj” pozwala wracać do znanej objętości o najwyżej 25% na tydzień.
 
-## 6. Intensywność spokojnych biegów
+## 6. Udział długiego biegu w tygodniu
+
+- **Daniels (cytowany przez trenerów):** długi bieg najwyżej 25–30% tygodniowej objętości. Inne źródła podają 20–30%.
+- **Wyjątek przy rzadkim bieganiu:** przy 3–4 biegach tygodniowo reguła się nie sprawdza. Jako punkt wyjścia podaje się
+  25–40%, a u początkujących długi bieg bywa jeszcze większą częścią tygodnia.
+- **Górna granica:** długi bieg regularnie większy niż połowa tygodnia uznaje się za zbyt duży.
+- **Wniosek dla aplikacji:**
+  - prompt podaje udział zależny od liczby biegów (5+: 25–30%, 4: ok. 35%, 3: 40–45%);
+  - kod pilnuje, żeby długi bieg nie był dłuższy niż pozostałe biegi razem
+    (`services/plan.py::_limit_long_run_share`, od 3 biegów w tygodniu).
+
+## 7. Intensywność spokojnych biegów
 
 - Większość czasu w strefie łatwej. Typowy rozkład to ok. 80% biegania spokojnie i 20% intensywnie.
   Przy wolnym bieganiu najczęstszy błąd to „szara strefa” w okolicy Z3.
 - **Wniosek dla aplikacji:**
   - gdy połowa spokojnych biegów ma średnie tętno w Z3 lub wyżej, decyzja to „utrzymaj”;
   - prompt pilnuje, żeby łatwe biegi nie wchodziły w szarą strefę;
-  - kandydat do zmiany: sygnał już przy średniej w górnych 3 bpm Z2.
+  - gdy co najmniej połowa spokojnych biegów ma średnie tętno w górnych 3 bpm Z2, model dostaje polecenie,
+    żeby przypomnieć o wolniejszym tempie (bez zmiany decyzji tygodnia).
+
+## 8. HRV i tętno spoczynkowe
+
+- Zasada aplikacji: pojedyncza metryka nie nadpisuje planu. HRV z zegarka bywa zaszumione (alkohol, późny posiłek,
+  stres), więc liczy się tygodniowa średnia wobec zakresu tej osoby, a nie jedna noc.
+- **Wniosek dla aplikacji:**
+  - średnia HRV z tygodnia poniżej zakresu (albo status Garmina „niski”) blokuje „dołóż” (zostaje „utrzymaj”);
+  - razem z tętnem spoczynkowym wyższym o co najmniej 3 bpm daje „odpuść”;
+  - pomiar starszy niż 3 dni jest pomijany.
 
 ## Linki
 
