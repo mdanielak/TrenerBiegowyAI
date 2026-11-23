@@ -563,3 +563,62 @@ def test_race_day_is_a_start_and_does_not_count_toward_the_limits():
     response = {"workouts": [{"date": "2026-11-22", "kind": "long", "name": "Maraton", "duration_min": 210, "hr_zone": 3}]}
     sunday = plan_service.normalize_plan(response, context=context)["workouts"][6]
     assert sunday["type"] == "rest" and sunday["name"] == "Start: maraton" and sunday["duration_min"] is None
+
+
+# --- Ponowna recenzja (straznik-limitow): pozostałe luki ------------------------------------------------
+
+def test_in_a_light_week_an_easy_run_cannot_be_longer_than_the_long_run_limit():
+    from services.week_decision import easy_run_limit, long_run_limit
+    pain = build_runner_profile(activities=_weeks([200, 200, 200, 200]), profile=_profile(), today=TODAY,
+                                previous_plan=_done_last_week(), pain=True)
+    assert easy_run_limit(pain, 80) == long_run_limit(pain, 80) == 48
+    lines = "\n".join(profile_lines(pain))
+    assert "bieg łatwy i akcent najwyżej" in lines
+    after = {"decision": "regeneracja", "decision_cause": "after_race"}
+    assert easy_run_limit(after, 150) == 45  # tydzień po maratonie: krótko
+
+
+def test_the_hard_week_limit_shortens_before_it_removes_runs():
+    runner = _regular()
+    runner["week_cap_min"] = 150
+    response = {"workouts": [
+        {"date": "2026-11-16", "kind": "easy", "name": "Łatwy", "duration_min": 30, "hr_zone": 2},
+        {"date": "2026-11-17", "kind": "easy", "name": "Łatwy", "duration_min": 25, "hr_zone": 2},
+        {"date": "2026-11-18", "kind": "tempo", "name": "Tempo", "duration_min": 45, "hr_zone": 3, "pace_target": "4:45-4:50"},
+        {"date": "2026-11-19", "kind": "easy", "name": "Łatwy", "duration_min": 25, "hr_zone": 2},
+        {"date": "2026-11-20", "kind": "easy", "name": "Łatwy", "duration_min": 20, "hr_zone": 2},
+        {"date": "2026-11-22", "kind": "long", "name": "Długi", "duration_min": 40, "hr_zone": 2}]}
+    workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
+    runs = [w for w in workouts if w["type"] != "rest"]
+    assert len(runs) == 6 and sum(w["duration_min"] for w in runs) <= 150  # liczba biegów zostaje
+
+
+def test_a_tiny_limit_keeps_two_runs_and_the_long_run_is_not_shorter_than_easy_ones():
+    runner = _regular()
+    runner["week_cap_min"] = 39
+    response = {"workouts": [{"date": "2026-11-17", "kind": "easy", "name": "Łatwy", "duration_min": 20, "hr_zone": 2},
+                             {"date": "2026-11-19", "kind": "easy", "name": "Łatwy", "duration_min": 20, "hr_zone": 2},
+                             {"date": "2026-11-22", "kind": "long", "name": "Długi", "duration_min": 25, "hr_zone": 2}]}
+    workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
+    runs = [w for w in workouts if w["type"] != "rest"]
+    assert len(runs) == 2 and sum(w["duration_min"] for w in runs) <= 39
+    longs = [w["duration_min"] for w in runs if w["type"] == "long"]
+    assert not longs or longs[0] >= max(w["duration_min"] for w in runs if w["type"] != "long")
+
+
+def test_weeks_to_race_and_the_decision_agree_for_a_sunday_plan():
+    race = TODAY + timedelta(days=6)
+    planned = build_runner_profile(activities=_weeks([300, 300, 300, 300]), today=TODAY - timedelta(days=1),
+                                   previous_plan=_done_last_week(), plan_monday=TODAY,
+                                   profile=_profile(target_date=str(race), target_distance="marathon"))
+    assert planned["weeks_to_race"] == 0 and planned["decision_cause"] == "race_week"
+
+
+def test_a_hard_sunday_is_detected_from_the_watch_without_a_saved_plan():
+    from services.plan import _hard_day_before
+    sunday = TODAY - timedelta(days=1)
+    history = [{"date": f"{TODAY - timedelta(days=d)} 07:00", "type": "running", "duration_min": 150} for d in (8, 15)]
+    long_run = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 150}
+    assert _hard_day_before(None, history + [long_run], TODAY) == str(sunday)
+    easy = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 50}
+    assert _hard_day_before(None, history + [easy], TODAY) is None

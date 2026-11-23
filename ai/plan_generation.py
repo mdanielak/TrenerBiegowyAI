@@ -106,7 +106,9 @@ def _zone_text(floors) -> str:
 _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 1. Plan obejmuje dokładnie 7 dat, od poniedziałku do niedzieli, po jednym wpisie na dzień.
    Dzień odpoczynku to wpis z kind="rest" — nie pomijaj dnia.
-2. `duration_min` to CAŁKOWITY czas sesji w minutach, łącznie z rozgrzewką i schładką.
+2. `duration_min` to CAŁKOWITY czas sesji w minutach, łącznie z rozgrzewką i schładką. Dla kind="tempo"
+   i "threshold" zegarek dostaje: 10 min rozgrzewki, część główną = `duration_min` − 20 i 10 min schłodzenia —
+   opisz część główną tak samo (np. 50 min = 10 + 30 + 10).
    Dla kind="tempo", "threshold" i "intervals" rozgrzewka i schładka są własnością tego czasu.
 3. `hr_zone` to numer strefy 1-5 i jest wymagany dla kind="easy", "recovery" i "long".
 4. Akcent (kind="tempo", "threshold", "intervals") ma cel części głównej: `pace_target` albo `hr_zone`.

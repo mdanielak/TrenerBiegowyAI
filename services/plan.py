@@ -178,10 +178,11 @@ def _hard_day_before(previous_plan, activities, monday) -> str | None:
     for workout in (previous_plan or {}).get("workouts") or []:
         if isinstance(workout, dict) and workout.get("date") == day_before and workout.get("type") in _HARD_KINDS:
             return day_before
-    for activity in activities or []:
-        if (isinstance(activity, dict) and str(activity.get("date") or "")[:10] == day_before
-                and isinstance(activity.get("ate"), (int, float)) and activity["ate"] >= 2.0):
-            return day_before
+    from services.readiness import yesterday_load
+    # Bez zapisanego planu (np. pierwszy plan w aplikacji) decyduje zegarek: mocny trening albo bieg tak długi
+    # jak najdłuższy z ostatnich tygodni — te same progi, co ocena gotowości.
+    if yesterday_load(activities, monday.isoformat()) == "hard":
+        return day_before
     return None
 
 
@@ -370,7 +371,8 @@ def _limit_long_run_share(workouts) -> None:
 def _limit_week_minutes(workouts, runner) -> None:
     """Przytnij tydzień do limitu z profilu biegacza (zwykły tydzień razy mnożnik decyzji tygodnia).
 
-    Biegi spokojne i długi skracają się proporcjonalnie (długi zostaje najdłuższy), żaden poniżej 20 minut.
+    Biegi spokojne i długi skracają się proporcjonalnie (długi zostaje najdłuższy), żaden poniżej 20 minut
+    (15 przy bardzo małym limicie); potem akcenty i długi bieg, a na końcu najkrótsze biegi stają się odpoczynkiem.
     Przy krótkiej historii z zegarka limitu nie ma — nie wiemy jeszcze, ile ktoś biega.
     """
     cap = (runner or {}).get("week_cap_min")  # ta sama liczba, którą model dostał w LIMITACH APLIKACJI
@@ -381,34 +383,44 @@ def _limit_week_minutes(workouts, runner) -> None:
     adjustable = sum(w["duration_min"] for w in aerobic)
     if not adjustable or fixed + adjustable <= cap:
         return
+    # Najkrótszy sensowny bieg: 20 min, a przy bardzo małym limicie (np. tydzień regeneracji) 15 min,
+    # żeby zmieściły się wszystkie biegi, zamiast od razu je zabierać.
+    runs = [w for w in workouts if w["type"] != "rest" and w["duration_min"]]
+    floor = 20 if cap >= 20 * len(runs) else 15
     factor = max(cap - fixed, 0) / adjustable
     for workout in aerobic:
         before = workout["duration_min"]
-        after = max(20, int(before * factor))
+        after = max(floor, int(before * factor))
         if after >= before:
             continue
-        if workout["distance_km"]:
-            workout["distance_km"] = round(workout["distance_km"] * after / before, 1)
-        workout["duration_min"] = after
-        workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
-    # Dolna granica 20 min i akcenty mogą zostawić tydzień ponad limitem: wtedy najkrótsze biegi spokojne
-    # stają się odpoczynkiem — limit tygodnia jest twardy, tak jak obiecuje prompt.
+        _shorten(workout, after, cap)
     total = lambda: sum(w["duration_min"] or 0 for w in workouts if w["type"] != "rest")  # noqa: E731
+    # Najpierw krócej: akcenty (do 30 min) i długi bieg (do najdłuższego biegu łatwego) — liczba biegów zostaje,
+    # jak obiecuje taper. Dopiero gdy to nie wystarczy, najkrótsze biegi spokojne stają się odpoczynkiem.
+    for workout in [w for w in workouts if w["type"] in QUALITY_KINDS]:
+        excess = total() - cap
+        if excess > 0 and workout["duration_min"] > 30:
+            _shorten(workout, max(30, workout["duration_min"] - excess), cap)
+    easy_top = max((w["duration_min"] for w in workouts if w["type"] in ("easy", "recovery") and w["duration_min"]),
+                   default=floor)
+    for workout in [w for w in workouts if w["type"] == "long"]:
+        excess = total() - cap
+        if excess > 0 and workout["duration_min"] > easy_top:
+            _shorten(workout, max(easy_top, workout["duration_min"] - excess), cap)
     while total() > cap:
         easy = sorted((w for w in workouts if w["type"] in ("easy", "recovery") and w["duration_min"]),
                       key=lambda w: w["duration_min"])
         if not easy:
             break
         _make_rest(easy[0], f"Zmieniono na odpoczynek: limit czasu tygodnia ({cap} min).")
-    for workout in [w for w in workouts if w["type"] in QUALITY_KINDS + ("long",)]:
-        excess = total() - cap
-        if excess <= 0:
-            break
-        before = workout["duration_min"]
-        after = max(20, before - excess)
-        if after < before:
-            workout["duration_min"] = after
-            workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
+
+
+def _shorten(workout, after, cap) -> None:
+    before = workout["duration_min"]
+    if workout.get("distance_km"):
+        workout["distance_km"] = round(workout["distance_km"] * after / before, 1)
+    workout["duration_min"] = after
+    workout["notes"] = _append_note(workout["notes"], f"Skrócono do {after} min: limit czasu tygodnia ({cap} min).")
 
 
 def _make_rest(workout, note) -> None:
@@ -709,12 +721,13 @@ def normalize_plan(response, *, context) -> dict:
 
     # Bez historii biegów długość zostaje w gestii AI (reguła w prompcie). Z profilem biegacza:
     # ta sama liczba, którą model dostał w LIMITACH APLIKACJI.
-    from services.week_decision import long_run_limit
+    from services.week_decision import easy_run_limit, long_run_limit
     longest = runner.get("longest_min") or longest_recent_run(context.get("recent_activities"))
     if longest:
         # Akcent (z rozgrzewką i schłodzeniem) też nie dłuższy niż najdłuższy niedawny bieg.
-        limits = {"long": long_run_limit(runner, longest), "easy": longest, "recovery": longest,
-                  **{kind: longest for kind in QUALITY_KINDS}}
+        easy = easy_run_limit(runner, longest)
+        limits = {"long": long_run_limit(runner, longest), "easy": easy, "recovery": easy,
+                  **{kind: easy for kind in QUALITY_KINDS}}
         for workout in workouts:
             limit, minutes = limits.get(workout["type"]), workout["duration_min"]
             if limit and minutes and minutes > limit:

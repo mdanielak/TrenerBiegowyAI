@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from services.activity_matching import find_activity_for_workout
 from services.week_decision import (
     CAUSE_LABELS, DECISION_LABELS, FATIGUE_CAUSES, WEEK_LIMIT, _hrv_low, _race_days, _taper_phrase, decide_week,
-    decision_reason, earlier_week, long_run_limit, week_cap, week_reference,
+    decision_reason, earlier_week, easy_run_limit, long_run_limit, week_cap, week_reference,
 )
 
 # Odpowiedź z kreatora → przybliżony staż w miesiącach.
@@ -439,7 +439,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     if cap and taper_factor is not None and week_reference(week_minutes):
         cap = round(week_reference(week_minutes) * taper_factor)
     reference = week_reference(week_minutes)
-    weeks_to_race, phase = _phase(profile.get("target_date"), today)
+    weeks_to_race, phase = _phase(profile.get("target_date"), monday)  # ten sam poniedziałek co decyzja
     return {
         "level": "poczatkujacy" if returning else level,
         "level_auto": level_auto,
@@ -565,7 +565,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     limits = []
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {long_run_limit(runner, runner['longest_min'])} min, "
-                      f"bieg łatwy i akcent najwyżej {runner['longest_min']} min")
+                      f"bieg łatwy i akcent najwyżej {easy_run_limit(runner, runner['longest_min'])} min")
     if runner.get("frequency"):
         count = runner["frequency"]
         limits.append(f"najwyżej {count} " + ("trening" if count == 1 else "treningi" if count <= 4 else "treningów")

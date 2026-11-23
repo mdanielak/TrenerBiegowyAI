@@ -93,6 +93,21 @@ def long_run_limit(runner, longest) -> int:
     return max(min(limit, LONG_RUN_MAX_MIN), min(longest, limit))
 
 
+AFTER_RACE_EASY_MAX = 45  # tydzień po starcie: krótkie spokojne biegi
+
+
+def easy_run_limit(runner, longest) -> int:
+    """Najdłuższy bieg łatwy i akcent: najdłuższy niedawny bieg, a w lekkim tygodniu i w taperze nie dłużej
+    niż długi bieg (bieg łatwy nie może obejść skrócenia długiego biegu); po starcie najwyżej 45 min."""
+    runner = runner or {}
+    limit = longest
+    if runner.get("taper_percent") or runner.get("decision") in LIGHT_DECISIONS:
+        limit = min(limit, long_run_limit(runner, longest))
+    if runner.get("decision_cause") == "after_race":
+        limit = min(limit, AFTER_RACE_EASY_MAX)
+    return limit
+
+
 def week_reference(week_minutes: list[float]) -> float | None:
     """Zwykły tydzień z ostatnich czterech (od najstarszego do ostatniego) — podstawa limitu tygodnia.
 
@@ -197,7 +212,7 @@ def _race_days(target_date, today: date) -> int | None:
 
 _CAUSE_TEXT = {
     "step_back": "Trzy tygodnie z rzędu rosła objętość — czas na lżejszy tydzień, żeby ciało się dostosowało.",
-    "race_week": "To tydzień startu: mniej biegania ({taper}), krótkie żywe odcinki zostają, "
+    "race_week": "To tydzień startu: mniej biegania, {taper}; krótkie żywe odcinki zostają, "
                  "żeby być świeżym.",
     "taper": "Coraz bliżej startu: objętość spada do {taper}, a intensywność zostaje — "
              "tak forma rośnie najlepiej.",
