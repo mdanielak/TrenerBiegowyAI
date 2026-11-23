@@ -346,9 +346,23 @@ def test_the_weeks_before_the_race_do_not_grow_and_the_race_week_is_light():
                                       today=TODAY, previous_plan=_done_last_week())
         return runner["decision"], runner["decision_cause"]
     assert decision(60) == ("doloz", "ready")
-    assert decision(14) == ("utrzymaj", "taper")
+    assert decision(17) == ("utrzymaj", "before_taper")
+    assert decision(10) == ("odpusc", "taper")
     assert decision(3) == ("odpusc", "race_week")
     assert decision(-2) == ("odpusc", "after_race")
+
+
+def test_the_taper_cuts_volume_by_the_literature_and_keeps_intensity():
+    from ai.prompts import modules_for
+
+    def runner(days):
+        race = (TODAY + timedelta(days=days)).isoformat()
+        return build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(target_date=race),
+                                    today=TODAY, previous_plan=_done_last_week())
+    week_before, race_week = runner(10), runner(3)
+    assert (week_before["week_cap_min"], race_week["week_cap_min"]) == (80, 55)
+    assert "zdrowie/regeneracja-i-przemeczenie" not in modules_for(race_week)
+    assert "intensywność zostaje" in "\n".join(profile_lines(week_before))
 
 
 def test_a_comeback_to_known_volume_is_its_own_step():

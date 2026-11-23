@@ -63,3 +63,5 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
   `git archive --format=zip --prefix=TrenerBiegowyAI/ -o dist/TrenerBiegowyAI-X.Y.Z.zip vX.Y.Z`,
   `gh release create` z polskimi notatkami (zip jako asset — z niego korzysta `update.bat`).
 - Aktualne prompty są wyłącznie w `ai/prompts/`; `docs/TRAINING_RULES.md` to opis dla ludzi i do promptu nie trafia.
+- Progi trenerskie (decyzje tygodnia, taper, przerwy, długi bieg) mają uzasadnienie w `docs/wiedza-trenerska.md`;
+  przy zmianie liczby zaktualizuj też ten plik i, w razie potrzeby, sprawdź źródło w sieci.

@@ -27,6 +27,15 @@ DECISION_LABELS = {
 }
 # Dwa lekkie stopnie: bez zapasu na prośbę biegacza i bez „nie niżej niż ostatni tydzień”.
 LIGHT_DECISIONS = ("regeneracja", "odpusc")
+# Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
+# i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
+TAPER_LIMIT = {"taper": 0.8, "race_week": 0.55}
+TAPER_LABELS = {
+    "taper": "odpuść przed startem — około 80% zwykłego tygodnia; mniej objętości, ale intensywność zostaje: "
+             "krótki akcent w tempie startowym, bez nowych bodźców",
+    "race_week": "tydzień startu — około połowy zwykłego tygodnia; krótkie spokojne biegi i jeden krótki trening "
+                 "z kilkoma żywymi odcinkami, bez wyczerpujących jednostek",
+}
 # Twardy sufit, nie cel: mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
 # Cel opisują DECISION_LABELS (utrzymaj = podobnie jak ostatnio, czyli 1,0); sufit to tylko zapas.
 WEEK_LIMIT = {"regeneracja": 0.6, "odpusc": 0.75, "utrzymaj": 1.1, "doloz": 1.15, "odbuduj": 1.15}
@@ -60,6 +69,9 @@ def address_form(profile) -> str:
         return profile["address_form"]
     return profile.get("sex") if profile.get("sex") in ("female", "male") else "neutral"
 WINDOW_DAYS = 28
+# Krótka przerwa (od tylu dni, ale krótsza niż 3 tygodnie powrotu) nie liczy się do częstotliwości przy ocenie poziomu.
+SHORT_BREAK_DAYS = 10
+RETURNING_GAP_DAYS = 21
 # Tyle dni historii biegów z zegarka (pobierane jest 120) wystarcza, by uznać, że osoba biega od dawna.
 RUNNING_SEEN_DAYS = 90
 
@@ -115,7 +127,7 @@ def _returning(run_days: list[date], today: date) -> bool:
     if not recent:
         return False
     before = [d for d in run_days if d < min(recent)]
-    return bool(before) and (min(recent) - max(before)).days >= 21
+    return bool(before) and (min(recent) - max(before)).days >= RETURNING_GAP_DAYS
 
 
 def long_run_step(runner) -> int:
@@ -247,6 +259,27 @@ def _window_stats(runs, monday: date, until: date):
     return len(window) / 4, km / 4, (round(max(durations)) if durations else None)
 
 
+def _level_stats(runs, monday: date, until: date):
+    """Dane do oceny poziomu z okna 28 dni, bez dni krótkiej przerwy (SHORT_BREAK_DAYS–20 dni bez biegania).
+
+    Dwa tygodnie przerwy (wyjazd, przeziębienie) nie zmieniają kogoś biegającego regularnie w początkującego:
+    wytrenowana osoba po takiej przerwie traci niewiele. Rzadkie bieganie bez przerwy nadal obniża poziom,
+    a przerwa od 3 tygodni to powrót (moduł powrotu i ostrożny plan), jak dotąd.
+    """
+    rpw, km, longest = _window_stats(runs, monday, until)
+    start = monday - timedelta(days=WINDOW_DAYS)
+    days = sorted({_run_day(a) for a in runs if _run_day(a) < monday})
+    pause = 0
+    for before, after in zip(days, days[1:]):
+        gap = (after - before).days
+        if after >= start and SHORT_BREAK_DAYS <= gap < RETURNING_GAP_DAYS:
+            pause = max(pause, (after - max(before, start)).days)
+    if not pause:
+        return rpw, km, longest
+    weeks = max((WINDOW_DAYS - pause) / 7, 1)
+    return rpw * 4 / weeks, km * 4 / weeks, longest
+
+
 def _level_rule(months, runs_per_week, km_per_week, longest, short_history) -> str:
     """Poziom z jednego okna 28 dni — progi bez zmian od wersji 0.8.0."""
     # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
@@ -312,7 +345,7 @@ def _level_history(runs, profile, monday: date, today: date):
         point = monday - timedelta(days=7 * k)
         if (point - run_days[0]).days < 21 or not any(point - timedelta(days=7) <= d < point for d in run_days):
             continue
-        rpw, km, longest = _window_stats(runs, point, today if k == 0 else point)
+        rpw, km, longest = _level_stats(runs, point, today if k == 0 else point)
         points.append(point)
         ratings.append(_level_rule(running_months(profile, point, first_run=run_days[0]), rpw, km, longest, False))
     if not ratings:
@@ -327,12 +360,16 @@ def _decimal(value) -> str:
     return f"{value:g}".replace(".", ",")
 
 
-def _level_reason(runs_per_week, longest) -> str | None:
-    """Jedno zdanie z liczbami tej osoby (czas teraźniejszy — bez form płciowych)."""
+def _level_reason(runs_per_week, longest, pause=False) -> str | None:
+    """Jedno zdanie z liczbami tej osoby (czas teraźniejszy — bez form płciowych).
+
+    ``pause``: w oknie była krótka przerwa, więc średnia liczy tylko tygodnie z bieganiem.
+    """
     if not runs_per_week:
         return None
     times = "raz" if runs_per_week == 1 else "razy"
-    text = f"W ostatnich 4 tygodniach biegasz średnio {_decimal(round(runs_per_week, 1))} {times} w tygodniu"
+    when = "Poza krótką przerwą biegasz" if pause else "W ostatnich 4 tygodniach biegasz"
+    text = f"{when} średnio {_decimal(round(runs_per_week, 1))} {times} w tygodniu"
     return text + (f", a najdłuższy bieg trwał {longest} min." if longest else ".")
 
 
@@ -413,8 +450,9 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     short_history = not run_days or (monday - run_days[0]).days < 21
 
     since = profile.get("running_since")
+    level_rpw, level_km, level_longest = _level_stats(runs, monday, today)
     level_now = _level_rule(running_months(profile, today, first_run=run_days[0] if run_days else today),
-                            runs_per_week, km_per_week, longest, short_history)
+                            level_rpw, level_km, level_longest, short_history)
     level_auto, level_since, level_changed = _level_history(runs, profile, monday, today)
     if level_auto is None:
         level_auto = level_now
@@ -462,6 +500,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         decision, cause = "odpusc", "struggling"
     elif race_days is not None and 0 <= race_days < 7:
         decision, cause = "odpusc", "race_week"
+    elif race_days is not None and 7 <= race_days < 14:
+        decision, cause = "odpusc", "taper"
     elif race_days is not None and -7 < race_days < 0:
         decision, cause = "odpusc", "after_race"
     elif not short_history and _rising_weeks(week_minutes):
@@ -469,7 +509,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     elif adherence is None or adherence < 0.9 or returning or hr_too_high:
         decision, cause = "utrzymaj", "low_adherence"
     elif taper:
-        decision, cause = "utrzymaj", "taper"
+        decision, cause = "utrzymaj", "before_taper"
     elif not short_history and _after_light_week(week_minutes):
         decision, cause = "utrzymaj", "stabilise"
     else:
@@ -493,6 +533,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     comeback = bool(cap) and cap > (week_cap(week_minutes, decision, earlier, request=user_request) or 0)
     if comeback:
         decision, cause = "odbuduj", "comeback"
+    if cap and cause in TAPER_LIMIT and week_reference(week_minutes):
+        cap = round(week_reference(week_minutes) * TAPER_LIMIT[cause])
     reference = week_reference(week_minutes)
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
@@ -501,7 +543,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "level_since": level_since.isoformat() if level_since else None,
         "level_changed": level_changed,
         "level_override": override,
-        "level_reason": _level_reason(runs_per_week, longest),
+        "level_reason": _level_reason(level_rpw, longest, pause=level_rpw != runs_per_week),
         "returning": returning,
         "running_since": since,
         "short_history": short_history,
@@ -554,8 +596,9 @@ def quality_sessions_limit(runner: dict, configured=None) -> int:
 
 _CAUSE_TEXT = {
     "step_back": "Trzy tygodnie z rzędu rosła objętość — czas na lżejszy tydzień, żeby ciało się dostosowało.",
-    "race_week": "To tydzień startu: mniej biegania, żeby być świeżym.",
-    "taper": "Zbliża się start — objętość już nie rośnie, żeby dotrzeć do niego wypoczętym.",
+    "race_week": "To tydzień startu: o około połowę mniej biegania, krótkie żywe odcinki zostają, żeby być świeżym.",
+    "taper": "Za tydzień start: objętość spada o około 20%, a intensywność zostaje — tak forma rośnie najlepiej.",
+    "before_taper": "Do startu zostały trzy tygodnie: objętość już nie rośnie.",
     "after_race": "Po starcie potrzebny jest lekki tydzień na regenerację.",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
 }
@@ -625,7 +668,8 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     if not weekly:
         return lines
-    lines.append(f"- DECYZJA TYGODNIA: {DECISION_LABELS[runner['decision']]}")
+    label = TAPER_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]
+    lines.append(f"- DECYZJA TYGODNIA: {label}")
     limits = []
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {runner['longest_min'] + long_run_step(runner)} min, "

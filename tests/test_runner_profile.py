@@ -330,3 +330,17 @@ def test_availability_windows_become_a_visible_ceiling_and_the_plan_remembers_it
     assert "mieści się łącznie" not in "\n".join(profile_lines(runner))
     plan = plan_service.normalize_plan({"workouts": []}, context=_context(runner))
     assert plan["week_decision"] == runner["decision"] and plan["week_decision_reason"]
+
+
+def test_a_two_week_pause_does_not_turn_a_regular_runner_into_a_beginner():
+    # Regularnie 3–4 razy w tygodniu, potem 15 dni przerwy (wyjazd) i powrót: to nie jest nowa osoba biegająca.
+    before = _runs([26, 28, 31, 33, 35, 38, 40, 42, 45, 47, 49, 52, 54, 56], 50, km=8.0)
+    back = _runs([11, 9, 6, 4], 40)
+    runner = build_runner_profile(activities=before + back, profile=_profile(), today=TODAY)
+    assert not runner["returning"] and runner["level"] == "regularny"
+    assert runner["level_reason"].startswith("Poza krótką przerwą biegasz średnio")
+    assert quality_sessions_limit(runner, 1) == 1
+    # Ten sam rytm, ale przerwa od 3 tygodni: powrót, ostrożnie jak dotąd.
+    long_pause = build_runner_profile(activities=_runs([33, 35, 38, 40, 42, 45, 47, 49, 52], 50) + _runs([9, 6, 4], 40),
+                                      profile=_profile(), today=TODAY)
+    assert long_pause["returning"] and long_pause["level"] == "poczatkujacy"

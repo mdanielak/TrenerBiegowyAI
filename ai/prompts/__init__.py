@@ -45,7 +45,8 @@ def modules_for(runner: dict | None) -> list[str]:
         names.append("zdrowie/kontuzje")
     if runner.get("returning"):
         names.append("zdrowie/powrot-po-przerwie")
-    if runner.get("decision") in ("regeneracja", "odpusc"):
+    # Taper przed startem jest lżejszy, ale zachowuje intensywność: bez modułu regeneracji, który zakazuje akcentów.
+    if runner.get("decision") in ("regeneracja", "odpusc") and runner.get("decision_cause") not in ("taper", "race_week"):
         names.append("zdrowie/regeneracja-i-przemeczenie")
     return names
 
