@@ -86,3 +86,18 @@ def _app_with_goal(tmp_path, race):
     return create_app(profile_provider=lambda: {**PROFILE, "target_date": race},
                       job_store=JobStore(tmp_path / "jobs2"), lock_directory=tmp_path / "locks2",
                       ai_settings_provider=lambda: {})
+
+
+def test_each_phase_shows_where_it_starts_and_steps_lead_to_the_peak():
+    text = build_strategy_markdown(profile=PROFILE, activities=_runs(3, 5), today=TODAY)
+    strategy = parse_strategy(text)
+    base = strategy.phases[0]
+    assert base.km[0] < base.km[1]  # baza zaczyna się od obecnego biegania, nie od szczytu
+    assert "Kroki po drodze (zwykły tydzień):" in text
+
+
+def test_the_parser_reads_a_flat_phase_written_as_about():
+    from services.strategy import _KM, _LONG, _range
+    assert _range(_KM.search("ok. 42 km")) == (42, 42)
+    assert _range(_LONG.search("long ok. 20 km")) == (20, 20)
+    assert _range(_KM.search("zwykle 17-42 km")) == (17, 42)

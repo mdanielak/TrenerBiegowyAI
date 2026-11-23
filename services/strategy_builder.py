@@ -41,6 +41,22 @@ def _weekly_volume(week: float, start_km: float, peak: int) -> int:
     return min(peak, round(start_km * _WEEKLY_GROWTH ** max(week, 0)))
 
 
+_MONTHS = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
+           "październik", "listopad", "grudzień")
+
+
+def _monthly_steps(monday: date, until: date, start_km: float, peak: int) -> str:
+    """Zwykły tydzień na początku kolejnych miesięcy, aż objętość dojdzie do szczytu; pusty, gdy nie ma czego rozpisać."""
+    steps, day = [], date(monday.year + monday.month // 12, monday.month % 12 + 1, 1)
+    while day < until:
+        km = _weekly_volume((day - monday).days / 7, start_km, peak)
+        steps.append(f"{_MONTHS[day.month - 1]} ok. {km} km")
+        if km >= peak:
+            break
+        day = date(day.year + day.month // 12, day.month % 12 + 1, 1)
+    return ", ".join(steps) + (" i tak do startu" if steps and steps[-1].endswith(f"{peak} km") else "") if len(steps) > 1 else ""
+
+
 def recent_volume(activities, today: date) -> tuple[float | None, float | None]:
     """Średnie kilometry na tydzień i najdłuższy bieg (km) z ostatnich 28 dni; None bez biegów.
 
@@ -112,15 +128,21 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
 
     rows, long_range = [], (long_start, long_start + 2)
     for name, hint, start, end in stages:
-        # Tyle tygodni minęło od początku planu do końca fazy — tyle wynosi objętość.
-        week = (end - monday).days / 7
-        top = _weekly_volume(week, start_km, peak)
-        long_top = min(_weekly_volume(week, long_start, max(long_target, long_start)),
-                       max(round(top * 0.5), 6))
-        long_range = (max(long_top - 3, 4), max(long_top, 6))
-        rows.append(f"| {name} | {_span(start, end)} | zwykle {max(round(top * 0.8), 6)}-{top} km, "
-                    f"long {long_range[0]}-{long_range[1]} km | {hint.format(runs=runs)} |")
+        # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
+        # więc długa faza bazy zaczynała się „od szczytu”, choć biegacz jest dziś daleko niżej.
+        first, last = (start - monday).days / 7, (end - monday).days / 7
+        low, top = _weekly_volume(first, start_km, peak), _weekly_volume(last, start_km, peak)
+        long_cap = max(long_target, long_start)
+        long_low = min(_weekly_volume(first, long_start, long_cap), max(round(low * 0.5), 6))
+        long_top = min(_weekly_volume(last, long_start, long_cap), max(round(top * 0.5), 6))
+        long_range = (max(long_low, 4), max(long_top, 6))
+        # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
+        volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
+        longs = (f"long {long_range[0]}-{long_range[1]} km" if long_range[1] > long_range[0]
+                 else f"long ok. {long_range[1]} km")
+        rows.append(f"| {name} | {_span(start, end)} | {volume}, {longs} | {hint.format(runs=runs)} |")
     taper_long = (max(long_range[1] - 6, 4), max(long_range[1] - 4, 6))
+    steps = _monthly_steps(monday, taper_start, start_km, peak)
     rows.append(f"| {_TAPER[0]} | {_span(taper_start, race)} | redukcja objętości, "
                 f"long maks. {taper_long[0]}-{taper_long[1]} km | {_TAPER[1]} |")
 
@@ -157,6 +179,7 @@ def build_strategy_markdown(*, profile: dict, activities, today: date) -> str:
         "|---|---|---|---|",
         *rows,
         "",
+        *([f"Kroki po drodze (zwykły tydzień): {steps}.", ""] if steps else []),
         "Objętość jest zakresem, nie obowiązkiem. Po 2-3 tygodniach budowania zaplanuj lżejszy tydzień, "
         "a po chorobie, bólu lub przerwie wróć o co najmniej jeden krok fazy.",
         "",
