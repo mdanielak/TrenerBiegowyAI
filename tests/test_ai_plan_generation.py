@@ -254,3 +254,22 @@ def test_null_text_fields_from_the_model_read_as_empty():
     })
     assert (plan.focus, plan.summary) == ("", "")
     assert (plan.workouts[0].description, plan.workouts[0].notes) == ("", "")
+
+
+def test_the_prompt_examples_survive_the_app_rules_unchanged():
+    """Przykłady w ai/prompts/przyklady.md mają przejść przez bezpieczniki bez zamiany na inny trening."""
+    import json
+    import re
+    from pathlib import Path
+
+    from services.plan import PLAN_KINDS, QUALITY_KINDS, _quality_target
+
+    text = Path("ai/prompts/przyklady.md").read_text(encoding="utf-8")
+    examples = [json.loads(raw) for raw in re.findall(r"`(\{.*?\})`", text)]
+    assert len(examples) >= 4
+    for example in examples:
+        assert example["kind"] in PLAN_KINDS
+        if example["kind"] in QUALITY_KINDS:
+            assert _quality_target(example) is not None
+        if example["kind"] == "intervals":
+            assert all(example.get(key) for key in ("repetitions", "work_seconds", "rest_seconds"))
