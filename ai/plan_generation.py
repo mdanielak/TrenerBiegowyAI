@@ -109,8 +109,11 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 2. `duration_min` to CAŁKOWITY czas sesji w minutach, łącznie z rozgrzewką i schładką.
    Dla kind="tempo", "threshold" i "intervals" rozgrzewka i schładka są własnością tego czasu.
 3. `hr_zone` to numer strefy 1-5 i jest wymagany dla kind="easy", "recovery" i "long".
-4. `pace_target` jest wymagany dla kind="tempo", "threshold" i "intervals".
-   Zapisuj go jako "M:SS" albo "M:SS-M:SS" (szybsza granica jako pierwsza).
+4. Akcent (kind="tempo", "threshold", "intervals") ma cel części głównej: `pace_target` albo `hr_zone`.
+   `pace_target` podajesz tylko z podstawą w danych (wynik z zawodów, tempo niedawnych akcentów w OSTATNICH
+   BIEGACH) jako "M:SS" albo "M:SS-M:SS" (szybsza granica jako pierwsza). Bez takiej podstawy wpisz null,
+   a w `hr_zone` strefę części głównej: 3–4 dla biegu progowego i tempowego, 4–5 dla krótkich odcinków;
+   wysiłek opisz oddechem i odczuciem. Akcent bez obu celów aplikacja zamieni na bieg łatwy.
 5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
    Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR.
@@ -128,10 +131,11 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 14. Teksty czyta osoba nietechniczna. Nie przepisuj angielskich kodów z danych (LOW, UNBALANCED,
    BALANCED, RHR, score): pisz „HRV niskie”, „HRV niezrównoważone”, „tętno spoczynkowe”, „ocena snu”.
    Formę zwracania się (męską, żeńską albo bez form płciowych) określa moduł języka.
-15. Długość biegów rośnie stopniowo od tego, co biegacz już biega (sekcja OSTATNIE BIEGI):
-   długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów, bieg łatwy nie dłuższy niż on.
+15. Długość biegów rośnie stopniowo od tego, co biegacz już biega (sekcja OSTATNIE BIEGI): dokładne
+   limity długiego biegu, biegu łatwego i całego tygodnia są w linii LIMITY APLIKACJI w PROFILU BIEGACZA.
    Przy krótkich biegach albo celu 5 km długi bieg to wydłużony bieg łatwy, a nie 60-90 minut.
-   Bez historii biegów zacznij ostrożnie: 20-30 minut, a długi bieg najwyżej 40 minut.
+   Bez historii biegów zacznij ostrożnie: 20-30 minut, a długi bieg najwyżej 40 minut; przy stażu ponad
+   pół roku z kreatora 30-45 minut i długi bieg najwyżej 60 minut, do czasu pierwszych pomiarów.
 16. Okno dostępności to limit czasu, a nie wymagana długość treningu: nie wydłużaj sesji, żeby je wypełnić."""
 
 _PLAN_SCHEMA = """SCHEMAT ODPOWIEDZI
@@ -150,7 +154,7 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
       "duration_min": 0,
       "distance_km": 0.0,
       "hr_zone": 2,
-      "pace_target": "M:SS-M:SS albo null",
+      "pace_target": "M:SS-M:SS albo null (akcent bez podstawy w danych: null i hr_zone 3-5)",
       "repetitions": 5,
       "work_seconds": 180,
       "rest_seconds": 90,

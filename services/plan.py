@@ -20,6 +20,8 @@ from services.plan_files import week_bounds
 PLAN_KINDS = ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")
 QUALITY_KINDS = ("tempo", "threshold", "intervals")
 AEROBIC_KINDS = ("easy", "recovery", "long")
+# Akcent bez tempa celuje w strefę tętna; poniżej Z3 to nie jest akcent.
+QUALITY_MIN_ZONE = 3
 
 _DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 _WEEKDAY_NAMES = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
@@ -503,8 +505,8 @@ def _normalize_day(day, workout, floors):
         _settle_aerobic(entry, notes, max_minutes, default_zone=2 if kind in ("easy", "long") else 1)
 
     if kind in ("tempo", "threshold"):
-        if parse_pace_target(entry["pace_target"]) is None:
-            notes.append("Zmieniono na bieg łatwy (brak parsowalnego tempa docelowego).")
+        if _quality_target(entry) is None:
+            notes.append("Zmieniono na bieg łatwy (brak tempa i strefy tętna dla części głównej).")
             entry["kind"] = "easy"
 
     if kind == "intervals":
@@ -513,8 +515,8 @@ def _normalize_day(day, workout, floors):
         if missing:
             notes.append("Zmieniono na bieg łatwy (brak kompletnych parametrów interwałów).")
             entry["kind"] = "easy"
-        elif parse_pace_target(entry["pace_target"]) is None:
-            notes.append("Zmieniono na bieg łatwy (brak parsowalnego tempa docelowego).")
+        elif _quality_target(entry) is None:
+            notes.append("Zmieniono na bieg łatwy (brak tempa i strefy tętna dla odcinków).")
             entry["kind"] = "easy"
 
     if kind == "long" and entry["duration_min"] is None:
@@ -703,6 +705,17 @@ def previous_week_load(data, monday):
     return _compute_weekly_load(data, monday - timedelta(days=7))
 
 
+def _quality_target(workout) -> dict | None:
+    """Cel części głównej akcentu: tempo, a bez tempa strefa tętna Z3–Z5 (np. przy braku wyniku z zawodów)."""
+    pace = parse_pace_target(workout.get("pace_target"))
+    if pace is not None:
+        return {"pace_from": _format_pace(pace[0]), "pace_to": _format_pace(pace[1])}
+    zone = zone_number(workout.get("hr_zone"))
+    if zone is not None and zone >= QUALITY_MIN_ZONE:
+        return {"pace_from": None, "pace_to": None, "zone_number": zone}
+    return None
+
+
 def plan_workout_to_garmin(workout):
     """Zamień trening z planu na parę (rodzaj, argumenty) dla Garmin Connect."""
     if not isinstance(workout, dict):
@@ -722,29 +735,21 @@ def plan_workout_to_garmin(workout):
             "warmup_min": 6,  # rozgrzewka bez celu: każdy we własnym tempie, bez alarmu tętna
         })
 
-    if kind in ("tempo", "threshold"):
-        pace = parse_pace_target(workout.get("pace_target"))
+    if kind in QUALITY_KINDS:
+        target = _quality_target(workout)
+        if target is None:
+            return None
+        if kind == "intervals":
+            return ("intervals", {
+                "repeats": workout.get("repetitions"),
+                "work_seconds": workout.get("work_seconds"),
+                "rest_seconds": workout.get("rest_seconds"),
+                **target,
+                "date": date,
+            })
         minutes = workout.get("duration_min")
-        if pace is None or not minutes:
+        if not minutes:
             return None
-        return ("tempo", {
-            "minutes": max(5, int(minutes) - 20),
-            "pace_from": _format_pace(pace[0]),
-            "pace_to": _format_pace(pace[1]),
-            "date": date,
-        })
-
-    if kind == "intervals":
-        pace = parse_pace_target(workout.get("pace_target"))
-        if pace is None:
-            return None
-        return ("intervals", {
-            "repeats": workout.get("repetitions"),
-            "work_seconds": workout.get("work_seconds"),
-            "rest_seconds": workout.get("rest_seconds"),
-            "pace_from": _format_pace(pace[0]),
-            "pace_to": _format_pace(pace[1]),
-            "date": date,
-        })
+        return ("tempo", {"minutes": max(5, int(minutes) - 20), **target, "date": date})
 
     return None

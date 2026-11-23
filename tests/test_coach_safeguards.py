@@ -2,6 +2,8 @@
 """Bezpieczniki trenera: limit tygodnia, poziom, tętno spoczynkowych biegów, mocne dni z rzędu, gotowość."""
 from datetime import date, timedelta
 
+import pytest
+
 from services import plan as plan_service
 from services.readiness import compute_readiness_breakdown, yesterday_load
 from services.runner_profile import build_runner_profile, profile_lines, week_cap, week_reference
@@ -231,7 +233,9 @@ def _tempo(day, minutes=45):
 
 
 def _regular():
-    return build_runner_profile(activities=_weeks([200, 200, 200, 200]), profile=_profile(), today=TODAY)
+    """Regularnie 4 razy w tygodniu: przy dwóch akcentach w ustawieniach oba są dozwolone."""
+    runs = [_run(7 * week + day, 50) for week in range(4) for day in (1, 2, 4, 6)]
+    return build_runner_profile(activities=runs, profile=_profile(), today=TODAY)
 
 
 def test_two_hard_days_in_a_row_become_hard_then_easy():
@@ -440,3 +444,38 @@ def test_the_strategy_starts_from_regular_running_not_from_a_short_pause():
     paused_runs = regular + [dict(_run(27, 50), distance_km=5.0)]  # potem 14 dni przerwy wcześniej
     weekly, _ = recent_volume(paused_runs, TODAY)
     assert weekly > 35 / 4  # średnia nie dzieli przez puste tygodnie przerwy
+
+
+@pytest.mark.parametrize(("distance", "days", "expected"), [
+    ("5k", 3, ("odpusc", "race_week", 75)),
+    ("5k", 10, ("utrzymaj", "before_taper", None)),   # przy 5 km tylko tydzień startu jest lżejszy
+    ("10k", 10, ("odpusc", "taper", 85)),
+    ("hm", 10, ("odpusc", "taper", 80)),
+    ("marathon", 3, ("odpusc", "race_week", 50)),
+    ("marathon", 10, ("odpusc", "taper", 70)),
+    ("marathon", 17, ("odpusc", "taper", 85)),        # maraton: trzy tygodnie zmniejszania
+    ("marathon", 24, ("utrzymaj", "before_taper", None)),
+])
+def test_the_taper_depends_on_the_race_distance(distance, days, expected):
+    race = (TODAY + timedelta(days=days)).isoformat()
+    runner = build_runner_profile(activities=_weeks([100, 100, 100, 100]), today=TODAY, previous_plan=_done_last_week(),
+                                  profile=_profile(target_date=race, target_distance=distance))
+    assert (runner["decision"], runner["decision_cause"], runner["taper_percent"]) == expected
+    if expected[2]:
+        assert runner["week_cap_min"] == expected[2]  # zwykły tydzień 100 min
+
+
+def test_after_a_marathon_the_first_week_is_regeneration_and_the_second_lighter():
+    def runner(days_after):
+        race = (TODAY - timedelta(days=days_after)).isoformat()
+        return build_runner_profile(activities=_weeks([100, 100, 100, 100]), today=TODAY,
+                                    previous_plan=_done_last_week(),
+                                    profile=_profile(target_date=race, target_distance="marathon"))
+    assert runner(3)["decision"] == "regeneracja" and runner(10)["decision"] == "odpusc"
+
+
+def test_a_new_watch_still_gets_a_week_limit_from_the_days_it_has_seen():
+    runs = [_run(day, 60) for day in (2, 3, 4, 5, 6)]  # jeden tydzień danych, 300 min
+    runner = build_runner_profile(activities=runs, today=TODAY, profile=_profile())
+    assert runner["short_history"] and runner["week_cap_min"] == 330
+    assert runner["decision"] != "doloz"

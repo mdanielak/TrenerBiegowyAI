@@ -29,13 +29,18 @@ DECISION_LABELS = {
 LIGHT_DECISIONS = ("regeneracja", "odpusc")
 # Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
 # i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
-TAPER_LIMIT = {"taper": 0.8, "race_week": 0.55}
+# Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu), zależnie od dystansu:
+# krótki start potrzebuje krótkiego tapera, maraton trzech tygodni. Tydzień przed taperem: „utrzymaj” (bez wzrostu).
+TAPER_WEEKS = {"5k": (0.75,), "10k": (0.65, 0.85), "hm": (0.55, 0.8), "marathon": (0.5, 0.7, 0.85)}
+TAPER_DEFAULT = TAPER_WEEKS["hm"]
+# Po starcie: tyle dni lżej (po maratonie dłużej, a pierwszy tydzień to regeneracja).
+AFTER_RACE_DAYS = {"marathon": 14}
 CAUSE_LABELS = {
     "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; to planowa przerwa "
                  "w budowaniu, nie zmęczenie: spokojne biegi, a jeśli limit akcentów pozwala, jeden krótszy, lżejszy akcent",
-    "taper": "odpuść przed startem — około 80% zwykłego tygodnia; mniej objętości, ale intensywność zostaje: "
+    "taper": "odpuść przed startem — {taper}; mniej objętości, ale intensywność zostaje: "
              "krótki akcent w tempie startowym, bez nowych bodźców",
-    "race_week": "tydzień startu — około połowy zwykłego tygodnia; krótkie spokojne biegi i jeden krótki trening "
+    "race_week": "tydzień startu — {taper}; krótkie spokojne biegi i jeden krótki trening "
                  "z kilkoma żywymi odcinkami, bez wyczerpujących jednostek",
 }
 # Twardy sufit, nie cel: mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
@@ -57,6 +62,7 @@ EARLIER_MIN_WEEKS = 6  # z 8: dopiero regularne bieganie to wcześniejsza objęt
 EXPERIENCED_SHORT_RUN_MIN = 30
 # Garmin: efekt beztlenowy od 2,0 to trening z mocnymi odcinkami, nie bieg spokojny.
 HARD_ANAEROBIC_EFFECT = 2.0
+REGULAR_SECOND_QUALITY_RUNS = 4  # poziom regularny: drugi akcent w tygodniu dopiero od tylu biegów tygodniowo
 # Spokojny bieg ze średnim tętnem tyle bpm pod Z3 lub bliżej: „górna granica Z2”, sygnał dla trenera (bez zmiany decyzji).
 Z2_TOP_MARGIN = 3
 # HRV: tygodniowa średnia z zegarka poniżej zakresu tej osoby. Sama nie zmienia tygodnia na lżejszy (pojedyncza metryka),
@@ -541,7 +547,11 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
     hrv_low, hrv_values = _hrv_low(hrv, today)
     race_days = _race_days(profile.get("target_date"), today)
-    taper = race_days is not None and 0 <= race_days < 21
+    taper_weeks = TAPER_WEEKS.get(goal_distance(profile), TAPER_DEFAULT)
+    weeks_before = race_days // 7 if race_days is not None and race_days >= 0 else None
+    taper_factor = taper_weeks[weeks_before] if weeks_before is not None and weeks_before < len(taper_weeks) else None
+    taper = weeks_before is not None and weeks_before <= len(taper_weeks)  # taper albo tydzień przed nim
+    after_race = AFTER_RACE_DAYS.get(goal_distance(profile), 7)
     if pain:
         decision, cause = "regeneracja", "pain"
     elif rhr_up is not None and rhr_up >= RHR_REGENERATION_BPM:
@@ -552,12 +562,11 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         decision, cause = "odpusc", "struggling"
     elif hrv_low and rhr_up is not None and rhr_up >= HRV_WITH_RHR_BPM:
         decision, cause = "odpusc", "hrv_rhr"
-    elif race_days is not None and 0 <= race_days < 7:
-        decision, cause = "odpusc", "race_week"
-    elif race_days is not None and 7 <= race_days < 14:
-        decision, cause = "odpusc", "taper"
-    elif race_days is not None and -7 < race_days < 0:
-        decision, cause = "odpusc", "after_race"
+    elif taper_factor is not None:
+        decision, cause = "odpusc", ("race_week" if weeks_before == 0 else "taper")
+    elif race_days is not None and -after_race < race_days < 0:
+        # Po maratonie pierwszy tydzień to regeneracja, drugi lżejszy; po krótszych startach jeden lżejszy tydzień.
+        decision, cause = ("regeneracja" if after_race > 7 and race_days > -7 else "odpusc"), "after_race"
     elif not short_history and _rising_weeks(week_minutes):
         decision, cause = "odpusc", "step_back"
     elif adherence is None or adherence < 0.9 or returning or hr_too_high:
@@ -589,8 +598,15 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     comeback = bool(cap) and cap > (week_cap(week_minutes, decision, earlier, request=user_request) or 0)
     if comeback:
         decision, cause = "odbuduj", "comeback"
-    if cap and cause in TAPER_LIMIT and week_reference(week_minutes):
-        cap = round(week_reference(week_minutes) * TAPER_LIMIT[cause])
+    if short_history:
+        # Nowy zegarek: limit z tygodni, które już są w danych, bez dokładania, aż historia obejmie 3 tygodnie.
+        known = [minutes for minutes in week_minutes if minutes]
+        if known:
+            cap = round(max(known) * WEEK_LIMIT["utrzymaj"])
+            if decision in ("doloz", "odbuduj"):
+                decision, cause = "utrzymaj", "short_history"
+    if cap and taper_factor is not None and week_reference(week_minutes):
+        cap = round(week_reference(week_minutes) * taper_factor)
     reference = week_reference(week_minutes)
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
@@ -611,6 +627,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "earlier_week_min": round(earlier) if earlier else None,
         "comeback": comeback,
         "decision_cause": cause,
+        "taper_percent": round(taper_factor * 100) if taper_factor is not None else None,
         "user_request": bool(user_request),
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
@@ -640,29 +657,44 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
 def quality_sessions_limit(runner: dict, configured=None) -> int:
     """Limit treningów jakościowych w tygodniu — ta sama liczba w prompcie i w kodzie.
 
-    Początkujący (także po powrocie od przerwy) nie dostaje mocnych akcentów w ogóle,
-    niezależnie od ustawienia w kreatorze. Brak ustawienia znaczy jeden trening.
+    Początkujący (także po powrocie od przerwy) nie dostaje mocnych akcentów w ogóle; regularny drugi akcent
+    tylko przy co najmniej 4 biegach w tygodniu; zaawansowany tyle, ile ustawiono w kreatorze.
+    Brak ustawienia znaczy jeden trening.
     """
-    if (runner or {}).get("level") == "poczatkujacy":
+    level = (runner or {}).get("level")
+    if level == "poczatkujacy":
         return 0
     if configured is None:
         return 1
     try:
-        return max(int(configured), 0)
+        wanted = max(int(configured), 0)
     except (TypeError, ValueError):
         return 1
+    # Drugi akcent na poziomie regularnym tylko przy co najmniej 4 biegach w tygodniu: przy trzech między mocnymi
+    # dniami nie ma miejsca na spokojne biegi (tak też mówi moduł poziomu w prompcie).
+    if level == "regularny" and (runner.get("runs_per_week") or 0) < REGULAR_SECOND_QUALITY_RUNS:
+        return min(wanted, 1)
+    return wanted
 
 
 _CAUSE_TEXT = {
     "step_back": "Trzy tygodnie z rzędu rosła objętość — czas na lżejszy tydzień, żeby ciało się dostosowało.",
-    "race_week": "To tydzień startu: o około połowę mniej biegania, krótkie żywe odcinki zostają, żeby być świeżym.",
-    "taper": "Za tydzień start: objętość spada o około 20%, a intensywność zostaje — tak forma rośnie najlepiej.",
-    "before_taper": "Do startu zostały trzy tygodnie: objętość już nie rośnie.",
+    "race_week": "To tydzień startu: mniej biegania ({taper}), krótkie żywe odcinki zostają, "
+                 "żeby być świeżym.",
+    "taper": "Coraz bliżej startu: objętość spada do {taper}, a intensywność zostaje — "
+             "tak forma rośnie najlepiej.",
+    "before_taper": "Za tydzień zaczyna się zmniejszanie objętości przed startem — ten tydzień już bez dokładania.",
+    "short_history": "Zegarek ma dopiero kilka dni Twoich biegów — na razie bez dokładania, aż zobaczy pełne tygodnie.",
     "hrv_rhr": "HRV jest poniżej Twojego zakresu, a tętno spoczynkowe wyższe niż zwykle — organizm prosi o lżejszy tydzień.",
     "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień bez dokładania.",
-    "after_race": "Po starcie potrzebny jest lekki tydzień na regenerację.",
+    "after_race": "Po starcie potrzebny jest lżejszy czas na regenerację (po maratonie dwa tygodnie).",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
 }
+
+
+def _taper_phrase(runner) -> str:
+    percent = (runner or {}).get("taper_percent")
+    return f"około {percent}% zwykłego tygodnia" if percent else "wyraźnie mniej niż zwykle"
 
 
 def decision_reason(runner: dict) -> str:
@@ -671,7 +703,7 @@ def decision_reason(runner: dict) -> str:
     if runner.get("comeback") or decision == "odbuduj":
         return "Wracasz do objętości z wcześniejszych tygodni — tydzień może być trochę dłuższy niż ostatni."
     if runner.get("decision_cause") in _CAUSE_TEXT:
-        return _CAUSE_TEXT[runner["decision_cause"]]
+        return _CAUSE_TEXT[runner["decision_cause"]].format(taper=_taper_phrase(runner))
     if decision in LIGHT_DECISIONS:
         if runner.get("pain"):
             return "W dzienniku z ostatnich dni jest ból."
@@ -737,7 +769,8 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     if not weekly:
         return lines
-    label = CAUSE_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]
+    label = (CAUSE_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]).format(
+        taper=_taper_phrase(runner))
     lines.append(f"- DECYZJA TYGODNIA: {label}")
     limits = []
     if runner["longest_min"]:

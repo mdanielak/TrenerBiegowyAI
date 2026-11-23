@@ -366,3 +366,17 @@ class TestZoneRunWarmup:
         assert kwargs['distance_m'] == 1000
         assert self.steps[0][0][3] == 0             # krok kilometrowy, nie czasowy
         assert kwargs['target_value_one'] == GarminWorkout._pace_to_ms('6:30')
+
+
+def test_quality_sessions_without_pace_target_a_heart_rate_zone(monkeypatch):
+    gw = GarminWorkout()
+    sent = []
+    monkeypatch.setattr(gw, "_upload_and_schedule", lambda name, total, steps, date_str, spec: sent.append((steps, spec)) or 1)
+    gw.tempo_run("Próg", 20, date_str="2026-11-30", zone_number=4)
+    gw.threshold_intervals("Odcinki", 4, 180, 90, date_str="2026-11-30", zone_number=5)
+    gw.tempo_run("Tempo", 20, "5:00", "5:10", date_str="2026-11-30")
+    tempo_zone, intervals_zone, tempo_pace = (steps for steps, _ in sent)
+    assert tempo_zone[1].zoneNumber == 4 and tempo_zone[1].targetType["workoutTargetTypeKey"] == "heart.rate.zone"
+    assert intervals_zone[1].zoneNumber == 5
+    assert tempo_pace[1].targetType["workoutTargetTypeKey"] == "pace.zone" and tempo_pace[1].targetValueOne == 3.3333
+    assert sent[0][1]["zone_number"] == 4

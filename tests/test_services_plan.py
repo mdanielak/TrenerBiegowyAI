@@ -136,7 +136,21 @@ def test_tempo_without_parsable_pace_is_downgraded_with_a_note():
 
     monday = plan["workouts"][0]
     assert monday["type"] == "easy"
-    assert "Zmieniono na bieg łatwy (brak parsowalnego tempa docelowego)." in monday["notes"]
+    assert "Zmieniono na bieg łatwy (brak tempa i strefy tętna dla części głównej)." in monday["notes"]
+
+
+def test_a_quality_session_without_pace_targets_a_heart_rate_zone_on_the_watch():
+    from services.plan import plan_workout_to_garmin
+    from services.workout_steps import spec_from_plan, workout_steps
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=45, pace_target=None, hr_zone=4)])
+    monday = plan["workouts"][0]
+    assert monday["type"] == "threshold" and monday["pace_target"] is None
+    kind, args = plan_workout_to_garmin(monday)
+    assert kind == "tempo" and args["zone_number"] == 4 and args["pace_from"] is None
+    work = [step for step in workout_steps(spec_from_plan(monday)) if step["phase"] == "work"]
+    assert "strefa Z4" in work[0]["target"]
+    easy_zone = _normalize([_workout("2026-10-26", "tempo", duration_min=45, pace_target=None, hr_zone=2)])
+    assert easy_zone["workouts"][0]["type"] == "easy"  # Z2 to nie akcent
 
 
 def test_intervals_without_parameters_are_downgraded_with_a_note():
@@ -308,7 +322,7 @@ def test_plan_prompt_names_the_longest_recent_run_and_the_gradual_rule():
     message = build_plan_message(_beginner_context([30, 38]))
     assert "- najdłuższy z nich: 38 min" in message
     system = build_system_prompt()
-    assert "długi bieg najwyżej 10 minut dłuższy niż najdłuższy z ostatnich biegów" in system
+    assert "limity długiego biegu, biegu łatwego i całego tygodnia są w linii LIMITY APLIKACJI" in system
     assert "nie wydłużaj sesji, żeby je wypełnić" in system
     from pathlib import Path
     from ai.prompts import coach_prompt

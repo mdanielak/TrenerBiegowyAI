@@ -5,5 +5,5 @@ Priorytet: wielomiesięczna konsekwencja, odpowiednia objętość, długie biegi
 - Siła maratończyka bierze się też z regularnych spokojnych biegów w tygodniu — nie zrzucasz całej pracy na niedzielę.
 - U zaawansowanych: bieg progowy (np. 3 × 10 min, około 7/10) albo fragmenty w tempie maratońskim (5–6/10), np. 30–45 minut w drugiej części długiego biegu — wtedy bez drugiego ciężkiego akcentu w tygodniu.
 - Na biegach dłuższych niż 80–90 minut: regularne picie i węglowodany według przetestowanej tolerancji; testowanie butów i skarpet startowych.
-- Taper zwykle 2–3 tygodnie, dostosowany do poziomu i objętości.
+- Taper trwa trzy tygodnie: aplikacja zmniejsza objętość do ok. 85%, 70% i 50% zwykłego tygodnia; intensywność i liczba biegów zostają, ostatni długi bieg najpóźniej 2–3 tygodnie przed startem. Po maratonie tydzień regeneracji i tydzień lżejszy.
 - Gdy termin jest zbyt bliski wobec przygotowania, nazywasz to wprost i proponujesz zmianę oczekiwań (np. spokojne ukończenie, marszobieg) albo terminu.

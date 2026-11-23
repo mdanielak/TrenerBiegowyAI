@@ -360,3 +360,12 @@ def test_the_long_run_is_never_longer_than_all_other_runs_together():
     workouts = plan_service.normalize_plan(response, context=_context(runner))["workouts"]
     long_run = next(w for w in workouts if w["type"] == "long")
     assert long_run["duration_min"] == 60 and "połowę czasu tygodnia" in long_run["notes"]
+
+
+
+def test_a_second_quality_session_needs_four_runs_a_week_on_the_regular_level():
+    three = {"level": "regularny", "runs_per_week": 3}
+    four = {"level": "regularny", "runs_per_week": 4.2}
+    advanced = {"level": "zaawansowany", "runs_per_week": 3}
+    assert (quality_sessions_limit(three, 2), quality_sessions_limit(four, 2), quality_sessions_limit(advanced, 2)) == (1, 2, 2)
+    assert quality_sessions_limit(None, 2) == 2  # bez profilu: ustawienie z kreatora

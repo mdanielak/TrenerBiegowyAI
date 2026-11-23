@@ -67,11 +67,12 @@ def spec_from_plan(workout) -> dict | None:
                 "warmup_pace_slower": args.get("warmup_pace_slower")}
     if kind == "tempo":
         return {"kind": "tempo_run", "tempo_min": args["minutes"], "pace_faster": args["pace_from"],
-                "pace_slower": args["pace_to"], "warmup_min": 10, "cooldown_min": 10}
+                "pace_slower": args["pace_to"], "zone_number": args.get("zone_number"),
+                "warmup_min": 10, "cooldown_min": 10}
     if kind == "intervals":
         return {"kind": "threshold_intervals", "num_intervals": args.get("repeats"), "work_sec": args.get("work_seconds"),
                 "rest_sec": args.get("rest_seconds"), "pace_faster": args["pace_from"], "pace_slower": args["pace_to"],
-                "warmup_min": 10, "cooldown_min": 10}
+                "zone_number": args.get("zone_number"), "warmup_min": 10, "cooldown_min": 10}
     return None
 
 
@@ -123,16 +124,17 @@ def workout_steps(spec, floors=None) -> list[dict]:
     elif kind == "tempo_run":
         if spec.get("warmup_min"):
             add("warmup", "Rozgrzewka", _minutes(spec["warmup_min"]), "spokojny trucht", spec["warmup_min"])
-        add("work", "Tempo", _minutes(spec.get("tempo_min")), _pace(spec.get("pace_faster"), spec.get("pace_slower")),
-            spec.get("tempo_min"))
+        add("work", "Tempo", _minutes(spec.get("tempo_min")),
+            _pace(spec.get("pace_faster"), spec.get("pace_slower")) or _zone(spec.get("zone_number"), floors),
+            spec.get("tempo_min"), _zone_number(spec.get("zone_number")))
         if spec.get("cooldown_min"):
             add("cooldown", "Schłodzenie", _minutes(spec["cooldown_min"]), "spokojny trucht", spec["cooldown_min"])
     elif kind == "threshold_intervals":
         if spec.get("warmup_min"):
             add("warmup", "Rozgrzewka", _minutes(spec["warmup_min"]), "spokojny trucht", spec["warmup_min"])
         add("work", "Odcinki", f"{spec.get('num_intervals')} × {_seconds(spec.get('work_sec'))}",
-            _pace(spec.get("pace_faster"), spec.get("pace_slower")),
-            repeated(spec.get("num_intervals"), spec.get("work_sec")))
+            _pace(spec.get("pace_faster"), spec.get("pace_slower")) or _zone(spec.get("zone_number"), floors),
+            repeated(spec.get("num_intervals"), spec.get("work_sec")), _zone_number(spec.get("zone_number")))
         if spec.get("rest_sec"):
             add("rest", "Przerwy między odcinkami", _seconds(spec["rest_sec"]), "trucht",
                 repeated(max(_number(spec.get("num_intervals")) - 1, 1), spec["rest_sec"]))
