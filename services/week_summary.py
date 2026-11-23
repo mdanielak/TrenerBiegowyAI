@@ -13,9 +13,11 @@ from services.runner_profile import decision_reason
 
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
 _PROPOSALS = {
+    "regeneracja": "Regeneracja — kolejny tydzień bardzo lekki",
     "odpusc": "Odpuść — kolejny tydzień wyraźnie lżejszy",
     "utrzymaj": "Utrzymaj — podobnie jak w tym tygodniu, bez dokładania",
     "doloz": "Dołóż — kolejny tydzień może być o 5–10% większy",
+    "odbuduj": "Odbuduj — powrót do znanej objętości, tydzień może być dłuższy",
 }
 # Propozycja ma sens, gdy większość tygodnia jest już za biegaczem: od piątku.
 _PROPOSAL_FROM_WEEKDAY = 4

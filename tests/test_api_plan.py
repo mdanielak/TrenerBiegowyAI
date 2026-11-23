@@ -521,3 +521,19 @@ def test_plan_page_remembers_the_week_opened_last(tmp_path):
         assert "14 września 2026" in client.get("/plan").text  # z menu, bez ?week
         client.get("/plan?week=2026-09-28")  # bieżący tydzień zdejmuje zapamiętanie
         assert "14 września 2026" not in client.get("/plan").text
+
+
+def test_plan_page_shows_the_week_stage_with_icon_and_reason(tmp_path):
+    from tests.test_plan_remove import _future_plan
+    plan = {**_future_plan(), "week_decision": "doloz", "week_decision_reason": "Plan wykonany, a pomiary nie pokazują zmęczenia."}
+    with TestClient(_app(tmp_path, plan=plan)) as client:
+        page = client.get("/plan?week=2026-09-28").text
+    assert "Ten tydzień to:" in page and 'data-stage="doloz"' in page and "Dołóż" in page
+    assert "Plan wykonany, a pomiary nie pokazują zmęczenia." in page
+    assert "Ten tydzień to:" not in _app_page_without_stage(tmp_path)
+
+
+def _app_page_without_stage(tmp_path):
+    from tests.test_plan_remove import _future_plan
+    with TestClient(_app(tmp_path, plan=_future_plan())) as client:
+        return client.get("/plan?week=2026-09-28").text

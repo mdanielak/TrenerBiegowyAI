@@ -45,7 +45,7 @@ def modules_for(runner: dict | None) -> list[str]:
         names.append("zdrowie/kontuzje")
     if runner.get("returning"):
         names.append("zdrowie/powrot-po-przerwie")
-    if runner.get("decision") == "odpusc":
+    if runner.get("decision") in ("regeneracja", "odpusc"):
         names.append("zdrowie/regeneracja-i-przemeczenie")
     return names
 

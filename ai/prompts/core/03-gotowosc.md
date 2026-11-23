@@ -11,4 +11,4 @@
    - **Ostrożnie z braku danych:** gdy historia lub pomiary są niepełne — bezpieczniejszy wariant.
 5. Po treningu: gdy odczuwany wysiłek był dużo wyższy od spodziewanego, objawy narosły albo sesję przerwano, korygujesz kolejną jednostkę.
 
-DECYZJA TYGODNIA w PROFILU BIEGACZA (odpuść / utrzymaj / dołóż) jest liczona przez aplikację z tętna spoczynkowego, bólu i wykonania poprzedniego tygodnia — trzymasz się jej przy objętości tygodnia.
+DECYZJA TYGODNIA w PROFILU BIEGACZA (regeneracja / odpuść / utrzymaj / dołóż / odbuduj) jest liczona przez aplikację z tętna spoczynkowego, bólu i wykonania poprzedniego tygodnia — trzymasz się jej przy objętości tygodnia.

@@ -53,3 +53,12 @@ def test_a_workout_done_today_is_counted_but_one_not_done_yet_is_not_missed():
     assert (done_today["due"], done_today["done"]) == (4, 3) and done_today["missed"] == ["środa — Tempo 3×8 min"]
     not_yet = build_week_summary(PLAN, RUNS, today=date(2026, 10, 4))
     assert not_yet["due"] == 3 and "niedziela — Długi bieg 90 min" not in not_yet["missed"]
+
+
+def test_every_step_has_a_proposal_label_and_a_reason():
+    from services.week_summary import _PROPOSALS
+    assert set(_PROPOSALS) == {"regeneracja", "odpusc", "utrzymaj", "doloz", "odbuduj"}
+    for key in _PROPOSALS:
+        assert decision_reason({"decision": key, "adherence": 1.0})
+    assert "Trzy tygodnie" in decision_reason({"decision": "odpusc", "decision_cause": "step_back"})
+    assert "start" in decision_reason({"decision": "utrzymaj", "decision_cause": "taper"})

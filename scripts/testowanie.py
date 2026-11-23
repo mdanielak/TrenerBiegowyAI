@@ -441,6 +441,8 @@ def _seed():
         "start_date": _iso(MONDAY), "end_date": _iso(MONDAY + timedelta(days=6)), "priority": "normal",
         "focus": "Akcent w czwartek, długi bieg w niedzielę",
         "summary": "Środa i sobota wolne. Czwartek i piątek są już na zegarku, niedziela czeka na wysyłkę.",
+        "week_decision": "doloz",
+        "week_decision_reason": "Plan wykonany, a pomiary nie pokazują zmęczenia.",
         "generated_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat(),
         "workouts": workouts,
     })

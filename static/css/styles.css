@@ -175,6 +175,11 @@
   .icon-box.info { background: var(--accent-soft-2); color: var(--accent-strong); }
   .icon-box.none { background: var(--surface); border: 1px solid var(--border); }
   .icon-box.sm { width: 36px; height: 36px; border-radius: 10px; }
+  .stage-badge { display: inline-flex; align-items: center; gap: 8px; vertical-align: middle; }
+  .stage-name { font-weight: 650; }
+  .stage-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 6px 0 0; }
+  .stage-line .stage-label { font-size: 1.125rem; }
+  .stage-reason { margin: 4px 0 0; max-width: 62ch; }
 
   /* ============================ szkielet ============================ */
 

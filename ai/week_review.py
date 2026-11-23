@@ -29,8 +29,9 @@ ZASADY BEZWZGLĘDNE
 8. Kolejny tydzień opisuj zgodnie z DECYZJĄ TYGODNIA z danych; nie proponuj większej objętości, niż ona dopuszcza.
 9. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score).'''
 
-_DECISIONS = {"odpusc": "odpuść (lżejszy tydzień)", "utrzymaj": "utrzymaj (podobnie jak ostatnio)",
-              "doloz": "dołóż (o 5–10% więcej)"}
+_DECISIONS = {"regeneracja": "regeneracja (bardzo lekki tydzień)", "odpusc": "odpuść (lżejszy tydzień)",
+              "utrzymaj": "utrzymaj (podobnie jak ostatnio)", "doloz": "dołóż (o 5–10% więcej)",
+              "odbuduj": "odbuduj (powrót do znanej objętości)"}
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
 
 

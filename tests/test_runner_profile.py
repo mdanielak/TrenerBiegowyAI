@@ -56,7 +56,7 @@ def test_weekly_decision_follows_resting_heart_rate_pain_and_last_week():
     assert done["adherence"] == 1.0 and done["decision"] == "doloz"
     assert build_runner_profile(**base, previous_plan=last_week,
                                 rhr_trend={"recent": 56, "average": 50})["decision"] == "odpusc"
-    assert build_runner_profile(**base, previous_plan=last_week, pain=True)["decision"] == "odpusc"
+    assert build_runner_profile(**base, previous_plan=last_week, pain=True)["decision"] == "regeneracja"
     hard = dict(base, activities=_runs([4, 6, 9, 11, 13, 16, 18, 20, 23, 25, 27, 30], 35, hr=150))
     assert build_runner_profile(**hard, previous_plan=last_week)["decision"] == "utrzymaj"
 
@@ -144,7 +144,7 @@ def test_the_model_is_told_the_same_limits_the_app_enforces():
     assert "najwyżej 3 treningi w tygodniu" in lines and f"najwyżej {runner['week_cap_min']} min" in lines
     assert "bez interwałów, biegu progowego i tempowego" in lines
     easing = build_runner_profile(activities=_tester(), today=TODAY, pain=True, profile=_profile(running_since="6to24"))
-    assert easing["week_cap_min"] == round(easing["max_week_minutes"] * 0.75)
+    assert easing["decision"] == "regeneracja" and easing["week_cap_min"] == round(easing["max_week_minutes"] * 0.6)
     assert "zdrowie/regeneracja-i-przemeczenie" in modules_for(easing) and "zdrowie/kontuzje" in modules_for(easing)
 
 
@@ -319,3 +319,14 @@ def test_a_level_that_only_slid_into_the_window_is_not_announced():
 def test_a_steady_level_has_no_since_date():
     runner = build_runner_profile(activities=_weeks((10, 4, 50)), profile=_profile(), today=TODAY)
     assert runner["level"] == "regularny" and runner["level_since"] is None
+
+
+def test_availability_windows_become_a_visible_ceiling_and_the_plan_remembers_its_decision():
+    runner = build_runner_profile(activities=_tester(), today=TODAY, profile=_profile(running_since="6to24"))
+    runner["window_cap_min"] = 80
+    lines = "\n".join(profile_lines(runner))
+    assert "mieści się łącznie najwyżej 80 min" in lines
+    runner["window_cap_min"] = 10_000  # okna szersze niż limit tygodnia nic nie dodają
+    assert "mieści się łącznie" not in "\n".join(profile_lines(runner))
+    plan = plan_service.normalize_plan({"workouts": []}, context=_context(runner))
+    assert plan["week_decision"] == runner["decision"] and plan["week_decision_reason"]

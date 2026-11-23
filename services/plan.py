@@ -238,6 +238,9 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
         pain=bool((training.get("journal") or {}).get("pain_days")),
         user_request=bool(user_note))
+    # Dni, w których biegacz ma czas: ich okna to naturalny sufit tygodnia, który model widzi od razu.
+    window_total = sum(day["max_minutes"] for day in days if day["available"] and not day["pause_reason"])
+    runner["window_cap_min"] = window_total or None
 
     return {
         "week_start": monday.date().isoformat(),
@@ -554,6 +557,11 @@ def _quality_limit_text(limit: int) -> str:
     return f"limit {limit} {word} jakościowych w tygodniu"
 
 
+def _decision_reason(runner) -> str:
+    from services.runner_profile import decision_reason
+    return decision_reason(runner)
+
+
 def normalize_plan(response, *, context) -> dict:
     """Zamień odpowiedź AI na plan tygodniowy zgodny z regułami i schematem pliku."""
     context = context or {}
@@ -639,6 +647,8 @@ def normalize_plan(response, *, context) -> dict:
         "priority": "normal",
         "focus": _trim(_field(response, "focus"), _TEXT_LIMIT),
         "summary": _trim(_field(response, "summary"), _SUMMARY_LIMIT),
+        "week_decision": runner.get("decision"),
+        "week_decision_reason": _decision_reason(runner) if runner.get("decision") else None,
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "workouts": workouts,
     }

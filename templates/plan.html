@@ -5,6 +5,7 @@
 
 {% block content %}
 {% import "_icons.html" as ico %}
+{% from "_stage.html" import stage_badge %}
 
 {% if error_message %}
   <div class="banner bad"{% if error_countdown %} data-countdown-banner{% endif %}>
@@ -20,6 +21,10 @@
   <div>
     <h1>Plan treningowy</h1>
     <p class="page-sub">{{ format_date(week_start) }} – {{ format_date(week_end) }}</p>
+    {% if week_stage %}
+      <p class="stage-line"><span class="stage-label">Ten tydzień to:</span> {{ stage_badge(week_stage.key, 22) }}</p>
+      {% if week_stage.reason %}<p class="mid stage-reason">{{ week_stage.reason }}</p>{% endif %}
+    {% endif %}
     <div class="week-nav page-nav">
       <a class="btn btn-secondary" href="/plan?week={{ prev_week }}">Poprzedni tydzień</a>
       {% if week_start != current_week %}
@@ -418,8 +423,8 @@
       {% if week_summary.proposal %}
         <div class="suggestion plain">
           <div>
-            <p class="suggestion-title">Propozycja na kolejny tydzień: {{ week_summary.proposal.label }}</p>
-            <p class="suggestion-text">{{ week_summary.proposal.reason }} Tę samą wskazówkę dostanie trener przy układaniu następnego planu — decyzja należy do Ciebie.</p>
+            <p class="suggestion-title">Propozycja na kolejny tydzień: {{ stage_badge(week_summary.proposal.key, 20) }}</p>
+            <p class="suggestion-text">{{ week_summary.proposal.label.split(' — ', 1)[-1]|capitalize }}. {{ week_summary.proposal.reason }} Tę samą wskazówkę dostanie trener przy układaniu następnego planu — decyzja należy do Ciebie.</p>
           </div>
         </div>
         <p><a class="btn btn-secondary" href="/plan?week={{ next_week }}">Przejdź do kolejnego tygodnia</a></p>

@@ -65,6 +65,17 @@ def _week_summary(stored, data, today, profile_provider) -> dict | None:
     return summarize_week(stored, data, today, profile_provider)[0]
 
 
+_STAGE_KEYS = ("regeneracja", "odpusc", "utrzymaj", "doloz", "odbuduj")
+
+
+def _week_stage(plan_data) -> dict | None:
+    """Decyzja tygodnia zapisana w planie przy układaniu; starsze plany jej nie mają."""
+    key = (plan_data or {}).get("week_decision")
+    if key not in _STAGE_KEYS:
+        return None
+    return {"key": key, "reason": (plan_data or {}).get("week_decision_reason")}
+
+
 def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None, ai_ready=False,
                       banner=None, push_banner=None, remove_banner=None, error_message=None, error_command=None,
                       error_countdown=None,
@@ -108,6 +119,7 @@ def plan_page_context(*, today, csrf_token="", plan_data=None, availability=None
         "error_command": error_command,
         "conflict": conflict,
         "variants": variants or [],
+        "week_stage": _week_stage(plan_data),
         "week_note_limit": WEEK_NOTE_LIMIT,
         "max_quality_sessions": _max_quality_sessions(),
     }

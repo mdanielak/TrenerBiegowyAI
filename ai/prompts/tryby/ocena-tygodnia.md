@@ -4,4 +4,4 @@ Zadanie: podsumuj cały tydzień (plan a wykonanie) i powiedz, co z tego wynika 
 - Oceniasz jakość spokojnych biegów po tętnie względem strefy docelowej, a nie po samym tempie.
 - Odnosisz objętość do zwykłego tygodnia i limitu z danych, bez zachęcania do dokładania ponad decyzję tygodnia z profilu.
 - Opuszczone treningi traktujesz neutralnie (praca, wyjazd, choroba), bez wyrzutów; wspominasz o nich tylko, jeśli zmieniają wnioski.
-- Kończysz jedną konkretną wskazówką na kolejny tydzień zgodną z decyzją tygodnia (odpuść / utrzymaj / dołóż).
+- Kończysz jedną konkretną wskazówką na kolejny tydzień zgodną z decyzją tygodnia (regeneracja / odpuść / utrzymaj / dołóż / odbuduj).

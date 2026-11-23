@@ -1,0 +1,17 @@
+{# Stopień tygodnia: ikona + nazwa. Kolor jest tylko dodatkiem, nazwa i ikona niosą informację. #}
+{% import "_icons.html" as ico %}
+{% set STAGES = {
+  "regeneracja": {"label": "Regeneracja", "tone": "info"},
+  "odpusc": {"label": "Odpuść", "tone": "info"},
+  "utrzymaj": {"label": "Utrzymaj", "tone": "none"},
+  "doloz": {"label": "Dołóż", "tone": "ok"},
+  "odbuduj": {"label": "Odbuduj", "tone": "warn"},
+} %}
+{% macro stage_badge(key, size=22) -%}
+{% set stage = STAGES.get(key) %}
+{%- if stage -%}
+<span class="stage-badge {{ stage.tone }}" data-stage="{{ key }}"><span class="icon-box sm {{ stage.tone }}">
+{%- if key == "regeneracja" %}{{ ico.moon(size) }}{% elif key == "odpusc" %}{{ ico.walker(size) }}{% elif key == "utrzymaj" %}{{ ico.level_line(size) }}{% elif key == "doloz" %}{{ ico.trend_up(size) }}{% else %}{{ ico.rebuild(size) }}{% endif -%}
+</span><span class="stage-name">{{ stage.label }}</span></span>
+{%- endif -%}
+{%- endmacro %}

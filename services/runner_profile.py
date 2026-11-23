@@ -18,15 +18,18 @@ RUNNING_SINCE_LABELS = {"start": "dopiero zaczyna", "under6": "do 6 miesięcy", 
                         "over24": "ponad 2 lata"}
 LEVEL_LABELS = {"poczatkujacy": "początkujący", "regularny": "regularny", "zaawansowany": "zaawansowany"}
 DECISION_LABELS = {
+    "regeneracja": "regeneracja — bardzo lekki tydzień (około 60% zwykłego tygodnia), tylko spokojne krótkie biegi",
     "odpusc": "odpuść — wyraźnie lżejszy tydzień (około 75% zwykłego tygodnia z ostatniego czasu)",
     "utrzymaj": "utrzymaj — podobna objętość jak ostatnio, bez dokładania",
     "doloz": "dołóż — objętość może wzrosnąć o 5–10%",
+    "odbuduj": "odbuduj — powrót do znanej objętości, tydzień może być do 25% dłuższy niż ostatni, "
+               "ale nie dłuższy niż zwykły tydzień sprzed 5–12 tygodni",
 }
-COMEBACK_LABEL = ("powrót do znanej objętości — tydzień może być do 25% dłuższy niż ostatni, "
-                  "ale nie dłuższy niż zwykły tydzień sprzed 5–12 tygodni")
+# Dwa lekkie stopnie: bez zapasu na prośbę biegacza i bez „nie niżej niż ostatni tydzień”.
+LIGHT_DECISIONS = ("regeneracja", "odpusc")
 # Twardy sufit, nie cel: mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
 # Cel opisują DECISION_LABELS (utrzymaj = podobnie jak ostatnio, czyli 1,0); sufit to tylko zapas.
-WEEK_LIMIT = {"odpusc": 0.75, "utrzymaj": 1.1, "doloz": 1.15}
+WEEK_LIMIT = {"regeneracja": 0.6, "odpusc": 0.75, "utrzymaj": 1.1, "doloz": 1.15, "odbuduj": 1.15}
 # Gdy biegacz zostawił trenerowi wiadomość na tydzień (np. „wydłuż niedzielę”), sufit tygodnia rośnie o tyle
 # (a długi bieg może być o LONG_RUN_REQUEST_STEP_MIN dłuższy niż zwykle). Nie dotyczy „odpuść”
 # (ból, zmęczenie, wiele opuszczonych treningów).
@@ -118,7 +121,7 @@ def _returning(run_days: list[date], today: date) -> bool:
 def long_run_step(runner) -> int:
     """O ile minut długi bieg może przekroczyć najdłuższy niedawny; przy wiadomości od biegacza o 5 więcej."""
     runner = runner or {}
-    asked = runner.get("user_request") and runner.get("decision") != "odpusc"
+    asked = runner.get("user_request") and runner.get("decision") not in LIGHT_DECISIONS
     return LONG_RUN_REQUEST_STEP_MIN if asked else LONG_RUN_STEP_MIN
 
 
@@ -162,14 +165,16 @@ def week_cap(week_minutes: list[float], decision: str, earlier: float | None = N
         return None
     average = sum(week_minutes) / len(week_minutes)
     cap = min(reference * WEEK_LIMIT[decision], average * WEEK_SPIKE_LIMIT)
-    if decision != "odpusc":
+    if decision not in LIGHT_DECISIONS:
         last = week_minutes[-1]
         known = max([*week_minutes[:-1], earlier or 0])
         cap = max(cap, min(last, known * WEEK_SPIKE_LIMIT))
         if comeback and earlier and earlier > cap:
             cap = min(earlier, max(cap, last * COMEBACK_STEP))
         if request:
-            cap *= WEEK_REQUEST_LIMIT  # prośba biegacza: o 20% ponad zwykły sufit (nie dotyczy „odpuść”)
+            boosted = cap * WEEK_REQUEST_LIMIT  # prośba biegacza: o 20% ponad sufit (nie dotyczy lekkich stopni)
+            # Przy powrocie do znanej objętości prośba nie wyprowadza ponad zwykły tydzień sprzed 5–12 tygodni.
+            cap = min(boosted, max(earlier, cap)) if comeback and earlier else boosted
     return round(cap)
 
 
@@ -353,6 +358,35 @@ def level_message(runner: dict) -> str | None:
     return None
 
 
+RHR_REGENERATION_BPM = 8  # tętno spoczynkowe o tyle wyższe niż zwykle: tydzień regeneracji, nie tylko lżejszy
+STEP_BACK_GROWTH = 1.03  # tydzień „rośnie”, gdy ma co najmniej 3% więcej minut niż poprzedni
+
+
+def _rising_weeks(week_minutes: list[float]) -> bool:
+    """Cztery tygodnie z rzędu rosła objętość (trzy wzrosty): czas na lżejszy tydzień cofnięcia."""
+    if len(week_minutes) < 4 or not all(week_minutes):
+        return False
+    return all(week_minutes[i + 1] >= week_minutes[i] * STEP_BACK_GROWTH for i in range(len(week_minutes) - 1))
+
+
+def _after_light_week(week_minutes: list[float]) -> bool:
+    """Po wzroście przyszedł wyraźnie lżejszy tydzień (cofnięcie): najpierw ustabilizować, potem dokładać.
+
+    Zwykłe wahania (raz cztery biegi, raz trzy) nie są cofnięciem: potrzebny wzrost przed spadkiem.
+    """
+    if len(week_minutes) < 3 or not week_minutes[-2] or not week_minutes[-3]:
+        return False
+    return week_minutes[-2] >= week_minutes[-3] * STEP_BACK_GROWTH and week_minutes[-1] <= 0.85 * week_minutes[-2]
+
+
+def _race_days(target_date, today: date) -> int | None:
+    """Ile dni do startu (ujemnie: dni po starcie); None bez daty celu."""
+    try:
+        return (date.fromisoformat(str(target_date or "")[:10]) - today).days
+    except ValueError:
+        return None
+
+
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
                          pain=False, user_request=False) -> dict:
     """Profil do promptu i do bezpieczników planu.
@@ -415,16 +449,34 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     # gdy także wykonane treningi wychodziły wyraźnie krótsze.
     struggling = adherence is not None and adherence < 0.6 and shortened > 0
     hr_too_high = len(with_hr) >= 2 and too_hard * 2 >= len(with_hr)
-    if pain or (rhr_up is not None and rhr_up >= 5) or struggling:
-        decision = "odpusc"
+    week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
+    race_days = _race_days(profile.get("target_date"), today)
+    taper = race_days is not None and 0 <= race_days < 21
+    if pain:
+        decision, cause = "regeneracja", "pain"
+    elif rhr_up is not None and rhr_up >= RHR_REGENERATION_BPM:
+        decision, cause = "regeneracja", "rhr_high"
+    elif rhr_up is not None and rhr_up >= 5:
+        decision, cause = "odpusc", "rhr_up"
+    elif struggling:
+        decision, cause = "odpusc", "struggling"
+    elif race_days is not None and 0 <= race_days < 7:
+        decision, cause = "odpusc", "race_week"
+    elif race_days is not None and -7 < race_days < 0:
+        decision, cause = "odpusc", "after_race"
+    elif not short_history and _rising_weeks(week_minutes):
+        decision, cause = "odpusc", "step_back"
     elif adherence is None or adherence < 0.9 or returning or hr_too_high:
-        decision = "utrzymaj"
+        decision, cause = "utrzymaj", "low_adherence"
+    elif taper:
+        decision, cause = "utrzymaj", "taper"
+    elif not short_history and _after_light_week(week_minutes):
+        decision, cause = "utrzymaj", "stabilise"
     else:
-        decision = "doloz"
+        decision, cause = "doloz", "ready"
 
     weight, height = _number(profile.get("weight_kg")), _number(profile.get("height_cm"))
     max_week = round(max((w["minutes"] for w in weeks.values()), default=0)) or None
-    week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
     older = dict.fromkeys(EARLIER_WEEKS, 0.0)
     for activity in runs:
         key = (monday - _run_day(activity)).days // 7
@@ -433,11 +485,14 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     earlier = earlier_week(list(older.values()))
     # Szybki powrót tylko bez sygnałów ostrzegawczych: nie po przerwie, nie przy opuszczonych treningach
     # z planu i nie przy zbyt mocnych spokojnych biegach („utrzymaj” bez danych o planie albo „dołóż”).
-    comeback_ok = bool(earlier) and not returning and (
-        decision == "doloz" or (decision == "utrzymaj" and adherence is None and not hr_too_high))
+    comeback_ok = bool(earlier) and not returning and not taper and (
+        decision == "doloz" or (decision == "utrzymaj" and cause == "low_adherence"
+                                and adherence is None and not hr_too_high))
     cap = (week_cap(week_minutes, decision, earlier, comeback=comeback_ok, request=user_request)
            if not short_history else None)
     comeback = bool(cap) and cap > (week_cap(week_minutes, decision, earlier, request=user_request) or 0)
+    if comeback:
+        decision, cause = "odbuduj", "comeback"
     reference = week_reference(week_minutes)
     weeks_to_race, phase = _phase(profile.get("target_date"), today)
     return {
@@ -457,6 +512,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "week_reference_min": round(reference) if reference else None,
         "earlier_week_min": round(earlier) if earlier else None,
         "comeback": comeback,
+        "decision_cause": cause,
         "user_request": bool(user_request),
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
@@ -496,12 +552,23 @@ def quality_sessions_limit(runner: dict, configured=None) -> int:
         return 1
 
 
+_CAUSE_TEXT = {
+    "step_back": "Trzy tygodnie z rzędu rosła objętość — czas na lżejszy tydzień, żeby ciało się dostosowało.",
+    "race_week": "To tydzień startu: mniej biegania, żeby być świeżym.",
+    "taper": "Zbliża się start — objętość już nie rośnie, żeby dotrzeć do niego wypoczętym.",
+    "after_race": "Po starcie potrzebny jest lekki tydzień na regenerację.",
+    "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
+}
+
+
 def decision_reason(runner: dict) -> str:
     """Powód decyzji tygodnia prostym językiem — te same warunki, co w build_runner_profile."""
     decision, adherence = runner.get("decision"), runner.get("adherence")
-    if runner.get("comeback"):
+    if runner.get("comeback") or decision == "odbuduj":
         return "Wracasz do objętości z wcześniejszych tygodni — tydzień może być trochę dłuższy niż ostatni."
-    if decision == "odpusc":
+    if runner.get("decision_cause") in _CAUSE_TEXT:
+        return _CAUSE_TEXT[runner["decision_cause"]]
+    if decision in LIGHT_DECISIONS:
         if runner.get("pain"):
             return "W dzienniku z ostatnich dni jest ból."
         if (runner.get("rhr_up") or 0) >= 5:
@@ -558,7 +625,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     if not weekly:
         return lines
-    lines.append(f"- DECYZJA TYGODNIA: {COMEBACK_LABEL if runner.get('comeback') else DECISION_LABELS[runner['decision']]}")
+    lines.append(f"- DECYZJA TYGODNIA: {DECISION_LABELS[runner['decision']]}")
     limits = []
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {runner['longest_min'] + long_run_step(runner)} min, "
@@ -569,6 +636,9 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
                       + " w tygodniu")
     if runner.get("week_cap_min"):
         limits.append(f"cały tydzień najwyżej {runner['week_cap_min']} min biegania")
+    window = runner.get("window_cap_min")
+    if window and (not runner.get("week_cap_min") or window < runner["week_cap_min"]):
+        limits.append(f"w dniach, które biegacz ma dostępne, mieści się łącznie najwyżej {window} min")
     if runner["level"] == "poczatkujacy":
         limits.append("bez interwałów, biegu progowego i tempowego")
     if limits:

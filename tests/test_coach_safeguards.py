@@ -44,7 +44,7 @@ def test_one_big_week_a_month_ago_does_not_inflate_the_limit():
 def test_an_easier_week_is_really_easier_than_the_last_one():
     runner = build_runner_profile(activities=_weeks([240, 150, 150, 150]), profile=_profile(), today=TODAY,
                                   previous_plan=_done_last_week(), pain=True)
-    assert runner["decision"] == "odpusc" and runner["week_cap_min"] < 150
+    assert runner["decision"] == "regeneracja" and runner["week_cap_min"] < 150
 
 
 def test_steady_progress_is_not_cut_back():
@@ -115,7 +115,7 @@ def test_an_irregular_past_is_not_an_earlier_volume():
 def test_an_easier_week_stays_easier_even_with_a_bigger_past():
     runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY,
                                   pain=True)
-    assert runner["decision"] == "odpusc" and runner["week_cap_min"] < 120
+    assert runner["decision"] == "regeneracja" and runner["week_cap_min"] < 120
 
 
 def test_after_a_long_break_there_is_no_fast_comeback():
@@ -129,7 +129,7 @@ def test_the_model_is_told_the_comeback_in_the_decision_itself():
     runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY)
     lines = "\n".join(profile_lines(runner))
     assert "wcześniej (5–12 tygodni temu) zwykły tydzień 200 min" in lines
-    assert "DECYZJA TYGODNIA: powrót do znanej objętości" in lines and "bez dokładania" not in lines
+    assert "DECYZJA TYGODNIA: odbuduj — powrót do znanej objętości" in lines and "bez dokładania" not in lines
     assert "cały tydzień najwyżej 150 min" in lines
     plain = "\n".join(profile_lines(build_runner_profile(activities=_history(UNEVEN), profile=_profile(),
                                                          today=TODAY)))
@@ -314,3 +314,54 @@ def test_a_request_allows_a_slightly_longer_long_run_but_not_when_easing_off():
     assert long_run_step({"user_request": True, "decision": "utrzymaj"}) == 15
     assert long_run_step({"user_request": True, "decision": "odpusc"}) == 10
     assert long_run_step({"user_request": False, "decision": "utrzymaj"}) == 10
+
+
+# --- Pięć stopni decyzji tygodnia ---------------------------------------------------------------
+
+def test_resting_heart_rate_picks_the_lighter_or_the_regeneration_step():
+    def decision(up):
+        trend = {"recent": 50 + up, "average": 50}
+        return build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(), today=TODAY,
+                                    previous_plan=_done_last_week(), rhr_trend=trend)["decision"]
+    assert (decision(4), decision(5), decision(7), decision(8)) == ("doloz", "odpusc", "odpusc", "regeneracja")
+
+
+def test_three_rising_weeks_in_a_row_end_with_a_lighter_week_then_a_steady_one():
+    plan = _done_last_week()
+    rising = build_runner_profile(activities=_weeks([100, 108, 117, 126]), profile=_profile(), today=TODAY,
+                                  previous_plan=plan)
+    assert (rising["decision"], rising["decision_cause"]) == ("odpusc", "step_back")
+    after = build_runner_profile(activities=_weeks([108, 117, 126, 95]), profile=_profile(), today=TODAY,
+                                 previous_plan=plan)
+    assert (after["decision"], after["decision_cause"]) == ("utrzymaj", "stabilise")
+    ordinary = build_runner_profile(activities=_weeks([100, 110, 100, 105]), profile=_profile(), today=TODAY,
+                                    previous_plan=plan)
+    assert ordinary["decision"] == "doloz"  # zwykłe wahania nie są cofnięciem
+
+
+def test_the_weeks_before_the_race_do_not_grow_and_the_race_week_is_light():
+    def decision(days):
+        race = (TODAY + timedelta(days=days)).isoformat()
+        runner = build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(target_date=race),
+                                      today=TODAY, previous_plan=_done_last_week())
+        return runner["decision"], runner["decision_cause"]
+    assert decision(60) == ("doloz", "ready")
+    assert decision(14) == ("utrzymaj", "taper")
+    assert decision(3) == ("odpusc", "race_week")
+    assert decision(-2) == ("odpusc", "after_race")
+
+
+def test_a_comeback_to_known_volume_is_its_own_step():
+    runner = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY)
+    assert runner["decision"] == "odbuduj" and runner["comeback"] is True
+
+
+def test_a_request_does_not_lift_the_light_steps_and_stays_below_the_known_volume_when_rebuilding():
+    asked = build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(), today=TODAY,
+                                 previous_plan=_done_last_week(), pain=True, user_request=True)
+    plain = build_runner_profile(activities=_weeks([100, 100, 100, 100]), profile=_profile(), today=TODAY,
+                                 previous_plan=_done_last_week(), pain=True)
+    assert asked["decision"] == "regeneracja" and asked["week_cap_min"] == plain["week_cap_min"]
+    rebuilding = build_runner_profile(activities=_history({**EARLIER, **UNEVEN}), profile=_profile(), today=TODAY,
+                                      user_request=True)
+    assert rebuilding["week_cap_min"] <= rebuilding["earlier_week_min"]

@@ -33,7 +33,7 @@ Lokalny trener biegowy łączący dane Garmin, ocenę gotowości, plan tygodniow
 
 - Widoki obejmują stronę główną (dzień bieżący), plan treningowy, statystyki, analizę gotowości, dziennik, cel i ustawienia. Osobnego kalendarza nie ma — jego rolę pełnią Plan i Statystyki.
 - Użytkownik może zapisać samopoczucie, wysiłek, ból i przerwy oraz porównać plan z wykonaniem.
-- Profil biegacza (poziom liczony z danych, staż, kontuzje, wiek, cel, wybrana forma zwracania się: żeńska, męska albo bez form płciowych) i cotygodniowa decyzja „odpuść / utrzymaj / dołóż” sterują planem; długość treningów rośnie od tego, co osoba faktycznie biega.
+- Profil biegacza (poziom liczony z danych, staż, kontuzje, wiek, cel, wybrana forma zwracania się: żeńska, męska albo bez form płciowych) i cotygodniowa decyzja („regeneracja / odpuść / utrzymaj / dołóż / odbuduj”, pokazywana na stronie Plan z ikoną) sterują planem; długość treningów rośnie od tego, co osoba faktycznie biega.
 - Działa z dowolnym dostawcą AI zgodnym z API OpenAI (np. DeepSeek, Gemini, OpenAI); klucze nie są pokazywane, a surowe komunikaty błędów dostawców nie trafiają do interfejsu.
 - AI jest opcjonalne. Wysyłanie danych treningowych i zdrowotnych do dostawcy AI wymaga zgody użytkownika; bez AI nie działają generowanie planu, rekomendacja dnia i komentarz do treningu.
 - Konflikty przy tworzeniu planu i wysyłce treningów wymagają decyzji użytkownika.
