@@ -196,8 +196,13 @@ _CAUSE_TEXT = {
 
 
 def _taper_phrase(runner) -> str:
-    percent = (runner or {}).get("taper_percent")
-    return f"około {percent}% zwykłego tygodnia" if percent else "wyraźnie mniej niż zwykle"
+    """„około 70% zwykłego tygodnia (ok. 320 min)” — liczba minut daje modelowi konkretny cel, nie tylko sufit."""
+    runner = runner or {}
+    percent, reference = runner.get("taper_percent"), runner.get("week_reference_min")
+    if not percent:
+        return "wyraźnie mniej niż zwykle"
+    minutes = f" (ok. {round(reference * percent / 100 / 5) * 5} min)" if reference else ""
+    return f"około {percent}% zwykłego tygodnia{minutes}"
 
 
 def decision_reason(runner: dict) -> str:

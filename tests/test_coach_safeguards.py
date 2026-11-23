@@ -370,6 +370,7 @@ def test_the_taper_cuts_volume_by_the_literature_and_keeps_intensity():
     assert (week_before["week_cap_min"], race_week["week_cap_min"]) == (80, 55)
     assert "zdrowie/regeneracja-i-przemeczenie" not in modules_for(race_week)
     assert "intensywność zostaje" in "\n".join(profile_lines(week_before))
+    assert "około 80% zwykłego tygodnia (ok. 80 min)" in "\n".join(profile_lines(week_before))
 
 
 def test_a_comeback_to_known_volume_is_its_own_step():
