@@ -28,8 +28,8 @@ _PLAN_KIND_PILL = {
 _PLAN_KIND_ICONS = {kind: f"/assets/03_activity/kind_{kind}.png"
                     for kind in ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")}
 # Rodzaje z rejestru Garmina (builder treningu) w rodzajach planu.
-_REGISTRY_KINDS = {"easy_run": "easy", "easy_run_zoned": "easy", "hr_zone_run": "easy", "strides": "easy",
-                   "long_run": "long", "tempo_run": "tempo", "threshold_intervals": "threshold"}
+_REGISTRY_KINDS = {"easy_run": "easy", "easy_run_zoned": "easy", "hr_zone_run": "easy", "run_walk": "easy",
+                   "strides": "easy", "long_run": "long", "tempo_run": "tempo", "threshold_intervals": "threshold"}
 
 
 def _kind_icon(kind) -> str:

@@ -62,3 +62,20 @@ def test_every_step_has_a_proposal_label_and_a_reason():
         assert decision_reason({"decision": key, "adherence": 1.0})
     assert "Trzy tygodnie" in decision_reason({"decision": "odpusc", "decision_cause": "step_back"})
     assert "start" in decision_reason({"decision": "utrzymaj", "decision_cause": "taper"})
+
+
+def test_summarize_week_uses_next_monday_for_taper_proposal():
+    from datetime import datetime
+    from services.week_summary import summarize_week
+    friday = datetime(2026, 10, 2, 18, 0)  # piątek bieżącego tygodnia (28.09–4.10); kolejny poniedziałek 5.10
+    race = "2026-10-18"  # za 13 dni od 5.10 -> drugi tydzień tapera maratońskiego (70%)
+    runs = [{"date": "2026-09-28T07:00:00", "type": "running", "duration_min": 40, "distance_km": 6.5,
+             "pace": "6:09", "avg_hr": 135, "max_hr": 150},
+            {"date": "2026-09-30T07:00:00", "type": "running", "duration_min": 50, "distance_km": 8.0,
+             "pace": "6:15", "avg_hr": 138, "max_hr": 152},
+            {"date": "2026-10-02T07:00:00", "type": "running", "duration_min": 30, "distance_km": 5.0,
+             "pace": "6:00", "avg_hr": 132, "max_hr": 148}]
+    summary, runner = summarize_week(PLAN, {"activities": runs}, friday,
+                                     lambda: {"running_since": "over24", "target_distance": "marathon", "target_date": race})
+    assert runner["decision_cause"] == "taper" and runner["taper_percent"] == 70
+    assert summary["proposal"]["key"] == "odpusc"

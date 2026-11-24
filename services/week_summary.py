@@ -98,10 +98,12 @@ def summarize_week(stored, data, today, profile_provider) -> tuple[dict | None, 
         from services.runner_profile import build_runner_profile
 
         training = build_training_context(data, plan=None, today=today)
+        next_monday = today.date() - timedelta(days=today.date().weekday()) + timedelta(days=7)
         runner = build_runner_profile(
             activities=data.get("activities"), profile=profile_provider(), today=today.date(),
             rhr_trend=((_plan_trends(data, today.date()) or {}).get("metrics") or {}).get("rhr"),
-            previous_plan=stored, pain=bool((training.get("journal") or {}).get("pain_days")), hrv=data.get("hrv"))
+            previous_plan=stored, pain=bool((training.get("journal") or {}).get("pain_days")),
+            hrv=data.get("hrv"), plan_monday=next_monday)
     except Exception:  # noqa: BLE001 - bez propozycji strona planu nadal pokazuje liczby
         logging.getLogger(__name__).warning("Could not build the weekly proposal")
     try:

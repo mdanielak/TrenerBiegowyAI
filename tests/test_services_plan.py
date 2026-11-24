@@ -334,15 +334,19 @@ def test_plan_prompt_names_the_longest_recent_run_and_the_gradual_rule():
 
 def test_a_threshold_described_as_repeats_goes_to_the_watch_as_intervals():
     from services.plan import plan_workout_to_garmin
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
     plan = _normalize([_workout("2026-10-26", "threshold", duration_min=50, pace_target=None, hr_zone=4,
                                 name="Odcinki progowe 3 × 8 min",
-                                description="10 min rozgrzewki, 3 × 8 min komfortowo trudno, między odcinkami 2 minuty truchtu.")])
+                                description="10 min rozgrzewki, 3 × 8 min komfortowo trudno, między odcinkami 2 minuty truchtu.")],
+                      context=context)
     monday = plan["workouts"][0]
     assert (monday["type"], monday["repetitions"], monday["work_seconds"], monday["rest_seconds"]) == ("intervals", 3, 480, 120)
     kind, args = plan_workout_to_garmin(monday)
     assert kind == "intervals" and args["repeats"] == 3 and args["zone_number"] == 4
     continuous = _normalize([_workout("2026-10-26", "tempo", duration_min=50, pace_target=None, hr_zone=3,
-                                      name="Tempo maratonu 30 min", description="Ciągle w tempie maratonu.")])
+                                      name="Tempo maratonu 30 min", description="Ciągle w tempie maratonu.")],
+                            context=context)
     assert continuous["workouts"][0]["type"] == "tempo"
 
 
@@ -355,8 +359,11 @@ def test_a_threshold_described_as_repeats_goes_to_the_watch_as_intervals():
      ("tempo", None, None, None)),
 ])
 def test_repeats_come_from_the_name_and_the_rest_from_the_text_before_the_cool_down(name, description, expected):
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
     plan = _normalize([_workout("2026-10-26", "threshold" if "Odcinki" in name else "tempo", duration_min=50,
-                                pace_target=None, hr_zone=4 if "Odcinki" in name else 3, name=name, description=description)])
+                                pace_target=None, hr_zone=4 if "Odcinki" in name else 3, name=name, description=description)],
+                      context=context)
     monday = plan["workouts"][0]
     assert (monday["type"], monday.get("repetitions"), monday.get("work_seconds"), monday.get("rest_seconds")) == expected
 
@@ -366,8 +373,10 @@ def test_repeats_come_from_the_name_and_the_rest_from_the_text_before_the_cool_d
     ("Odcinki 10 × 1 min", "10 min truchtu, potem 10 × 1 min żwawo, przerwa 1 min marszu.", 60),
 ])
 def test_a_warm_up_with_the_same_digit_is_not_taken_for_the_break(name, description, rest):
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
     plan = _normalize([_workout("2026-10-26", "threshold", duration_min=50, pace_target=None, hr_zone=4,
-                                name=name, description=description)])
+                                name=name, description=description)], context=context)
     assert plan["workouts"][0]["rest_seconds"] == rest
 
 
@@ -384,15 +393,58 @@ def test_a_wrong_day_before_reference_is_corrected():
 
 def test_a_continuous_session_goes_to_the_watch_with_the_main_part_from_the_description():
     from services.plan import plan_workout_to_garmin
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
     plan = _normalize([_workout("2026-10-26", "threshold", duration_min=75, pace_target=None, hr_zone=4,
                                 name="Bieg progowy 30 min",
                                 description="10 min rozgrzewki, 15 min swobodnego biegu, 30 min biegu progowego, "
-                                            "10 min truchtu i 10 min schłodzenia. Całość 75 min.")])
+                                            "10 min truchtu i 10 min schłodzenia. Całość 75 min.")], context=context)
     monday = plan["workouts"][0]
     kind, args = plan_workout_to_garmin(monday)
     assert monday["duration_min"] == 50 and args["minutes"] == 30  # nie 55 min progu na zegarku
 
 
 def test_a_continuous_session_is_capped_at_the_dose_even_without_a_description():
-    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=70, pace_target=None, hr_zone=4, name="Próg")])
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=70, pace_target=None, hr_zone=4, name="Próg")],
+                      context=context)
     assert plan["workouts"][0]["duration_min"] == 50  # 30 min progu + 20 min rozgrzewki i schłodzenia
+
+
+def test_distance_intervals_flow_through_normalize_garmin_and_steps():
+    from services.plan import plan_workout_to_garmin
+    from services.workout_steps import spec_from_plan, workout_steps
+    context = _context()
+    context["week_days"][0]["max_minutes"] = 90
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=45, pace_target="4:00-4:10",
+                                name="Odcinki 6 × 400 m",
+                                description="10 min rozgrzewki, 6 × 400 m żwawo, przerwa 90 s marszu, 10 min schłodzenia.")],
+                      context=context)
+    monday = plan["workouts"][0]
+    assert monday["type"] == "intervals" and monday["repetitions"] == 6 and monday["work_meters"] == 400
+    kind, args = plan_workout_to_garmin(monday)
+    assert kind == "intervals" and args["work_meters"] == 400 and args["repeats"] == 6
+    work = [step for step in workout_steps(spec_from_plan(monday)) if step["phase"] == "work"]
+    assert work[0]["time"] == "6 × 400 m"
+
+
+def test_run_walk_maps_to_garmin_and_workout_steps():
+    from services.plan import plan_workout_to_garmin
+    from services.workout_steps import spec_from_plan, workout_steps
+    plan = _normalize([_workout("2026-10-26", "easy", duration_min=30, hr_zone=2,
+                                name="Marszobieg 30 min",
+                                description="5 min żwawego marszu, potem 6 × (3 min spokojnego truchtu + 1 min marszu), "
+                                            "na koniec minuta spaceru.")])
+    monday = plan["workouts"][0]
+    kind, args = plan_workout_to_garmin(monday)
+    assert kind == "run_walk" and args["repeats"] == 6 and args["run_seconds"] == 180 and args["walk_seconds"] == 60
+    steps = workout_steps(spec_from_plan(monday))
+    assert [s["phase"] for s in steps] == ["warmup", "work", "rest", "cooldown"]
+
+
+def test_rest_day_with_strength_exercises_keeps_its_custom_name():
+    plan = _normalize([_workout("2026-10-28", "rest", name="Siła 15 min",
+                                description="2 × 12 mostków biodrowych, 3 × 10 wspięć na palce.")])
+    wednesday = plan["workouts"][2]
+    assert wednesday["type"] == "rest" and wednesday["name"] == "Siła 15 min"

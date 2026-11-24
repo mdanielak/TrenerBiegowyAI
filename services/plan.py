@@ -13,6 +13,7 @@ from datetime import date as _date, datetime, timedelta, timezone
 
 from services import plan_files
 from services.readiness import readiness_for_day
+from services.training_specs import is_race_workout
 from trainer.files import write_atomic
 from services.plan_files import week_bounds
 
@@ -267,11 +268,21 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         previous_plan = None
     from services.runner_profile import build_runner_profile
     user_note = _week_note(monday)
+    phase_peak_km = None
+    try:
+        from services.strategy import load_strategy
+        strategy = load_strategy()
+        phase = strategy.phase_for(monday.date()) if strategy else None
+        if phase and phase.km and (phase.name != "Baza" or phase.km[0] == phase.km[1]):
+            phase_peak_km = phase.km[1]
+    except (OSError, ValueError):
+        phase_peak_km = None
     runner = build_runner_profile(
         activities=data.get("activities"), profile=profile, today=current.date(),
         rhr_trend=((trends or {}).get("metrics") or {}).get("rhr"), previous_plan=previous_plan,
         pain=bool((training.get("journal") or {}).get("pain_days")),
-        user_request=bool(user_note), hrv=data.get("hrv"), plan_monday=monday.date())
+        user_request=bool(user_note), hrv=data.get("hrv"), plan_monday=monday.date(),
+        phase_peak_km=phase_peak_km)
     # Dni, w których biegacz ma czas: ich okna to naturalny sufit tygodnia, który model widzi od razu.
     window_total = sum(day["max_minutes"] for day in days if day["available"] and not day["pause_reason"])
     runner["window_cap_min"] = window_total or None
@@ -356,7 +367,7 @@ def _space_hard_days(workouts, hard_day_before=None) -> None:
             workout["type"] = "easy"
             workout["pace_target"] = None
             workout["hr_zone"] = "Z2"
-            for key in ("repetitions", "work_seconds", "rest_seconds"):
+            for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
                 workout.pop(key, None)
             workout["notes"] = _append_note(workout["notes"], (
                 "Zmieniono na spokojny bieg: dzień po akcencie albo długim biegu organizm potrzebuje regeneracji."))
@@ -364,26 +375,71 @@ def _space_hard_days(workouts, hard_day_before=None) -> None:
         previous_hard = day
 
 
-# Dawka części głównej ciągłego akcentu (core/04): bieg progowy do ok. 30 min, tempo (maratonu) do ok. 40 min.
+# Dawka części głównej ciągłego akcentu (core/04): bieg progowy do ok. 30 min, tempo (maratonu) do ok. 40 min
+# (u zaawansowanego maratończyka do 60 min).
 CONTINUOUS_DOSE_MAX = {"threshold": 30, "tempo": 40}
 _MAIN_PART = re.compile(r"(\d{1,2})\s*min\w*\s+(?:\w+\s+){0,2}?(?:biegu\s+progow\w*|progow\w*|w\s+tempie|tempem|"
                         r"„?komfortowo\s+trudno)", re.IGNORECASE)
+_EMERGENCY_SPLIT = re.compile(r"przy\s+zmęczeni|w\s+razie\s+zmęczeni|wariant\s+awaryjn|gdy\s+brakuje\s+czasu|jeśli\s+brakuje",
+                              re.IGNORECASE)
 WARMUP_COOLDOWN_MIN = 20  # tyle zegarek dokłada do części głównej tempa i progu (10 + 10 min)
 
 
-def _fit_continuous_quality(workout) -> None:
+def _fit_continuous_quality(workout, runner=None) -> None:
     """Zegarek dostaje część główną = czas − 20 min. Gdy opis podaje krótszą część główną albo przekracza dawkę,
     czas treningu skracamy, żeby zegarek i opis mówiły to samo (wcześniej: opis 30 min progu, zegarek 55 min)."""
     if workout["type"] not in CONTINUOUS_DOSE_MAX or not workout.get("duration_min"):
         return
     main = workout["duration_min"] - WARMUP_COOLDOWN_MIN
-    described = _MAIN_PART.search(str(workout.get("description") or ""))
+    main_text = _EMERGENCY_SPLIT.split(str(workout.get("description") or ""), maxsplit=1)[0]
+    described = _MAIN_PART.search(main_text)
     wanted = min(main, int(described.group(1))) if described else main
-    wanted = min(wanted, CONTINUOUS_DOSE_MAX[workout["type"]])
+    max_dose = (60 if workout["type"] == "tempo"
+                and (runner or {}).get("level") == "zaawansowany"
+                and (runner or {}).get("goal_distance") == "marathon"
+                else CONTINUOUS_DOSE_MAX[workout["type"]])
+    wanted = min(wanted, max_dose)
     if wanted < main and wanted >= 10:
         workout["duration_min"] = wanted + WARMUP_COOLDOWN_MIN
         workout["notes"] = _append_note(workout["notes"], (
             f"Część główna {wanted} min (zegarek: 10 min rozgrzewki, {wanted} min, 10 min schłodzenia)."))
+
+
+def _fit_intervals_to_duration(workout) -> None:
+    """Dopasuj liczbę powtórzeń interwałów do ``duration_min``, żeby plan i zegarek mówiły to samo."""
+    if workout.get("type") != "intervals" or not workout.get("duration_min"):
+        return
+    reps = workout.get("repetitions")
+    rest_s = workout.get("rest_seconds") or 0
+    if not reps or reps < 2:
+        return
+    if workout.get("work_seconds"):
+        work_s = workout["work_seconds"]
+    elif workout.get("work_meters"):
+        pace = parse_pace_target(workout.get("pace_target"))
+        sec_per_km = pace[1] if pace else 280
+        work_s = round(workout["work_meters"] * sec_per_km / 1000)
+    else:
+        return
+    total_min = lambda n: WARMUP_COOLDOWN_MIN + (n * work_s + max(n - 1, 0) * rest_s) / 60  # noqa: E731
+    target = workout["duration_min"]
+    if target >= total_min(reps) - 1:
+        return
+    fitted = next((n for n in range(reps - 1, 1, -1) if total_min(n) <= target + 1), None)
+    if fitted is not None:
+        workout["repetitions"] = fitted
+        workout["notes"] = _append_note(
+            workout.get("notes"),
+            f"Zmniejszono liczbę powtórzeń do {fitted}, żeby trening zmieścił się w limicie czasu.")
+        return
+    workout["type"] = "easy"
+    workout["pace_target"] = None
+    workout["hr_zone"] = "Z2"
+    for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
+        workout.pop(key, None)
+    workout["notes"] = _append_note(
+        workout.get("notes"),
+        "Zmieniono na spokojny bieg: za mało czasu na bezpieczne interwały z rozgrzewką.")
 
 
 _DAY_REFERENCE = re.compile(r"\b([Dd])zień (przed|po) (długim biegiem|długim biegu|akcentem|akcencie|startem|starcie)")
@@ -396,7 +452,7 @@ def _fix_day_references(workouts) -> None:
 
     Model myli dni mimo reguły w prompcie; przy niezgodności zostaje ogólne „przed długim biegiem”.
     """
-    kinds = ["race" if str(w.get("name") or "").startswith("Start:") else w["type"] for w in workouts]
+    kinds = ["race" if is_race_workout(w) else w["type"] for w in workouts]
     for index, workout in enumerate(workouts):
         def check(match, index=index):
             neighbour = index + (1 if match.group(2) == "przed" else -1)
@@ -494,7 +550,7 @@ def _shorten(workout, after, cap) -> None:
 def _make_rest(workout, note) -> None:
     workout.update(type="rest", name="Odpoczynek", duration_min=None, distance_km=None, hr_zone=None,
                    hr_target=None, pace_target=None)
-    for key in ("repetitions", "work_seconds", "rest_seconds"):
+    for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
         workout.pop(key, None)
     workout["notes"] = _append_note(workout["notes"], note)
 
@@ -555,6 +611,7 @@ def _empty_workout():
         "pace_target": None,
         "repetitions": None,
         "work_seconds": None,
+        "work_meters": None,
         "rest_seconds": None,
         "notes": "",
     }
@@ -578,7 +635,7 @@ def _settle_aerobic(entry, notes, max_minutes, default_zone=2) -> None:
     _clip_to_window(entry, notes, max_minutes)
 
 
-_REPEATS = re.compile(r"(\d{1,2})\s*[×x]\s*(\d{1,2}(?:[.,]5)?)\s*min", re.IGNORECASE)
+_REPEATS = re.compile(r"(\d{1,2})\s*[×x]\s*(\d+(?:[.,]\d+)?)\s*(min|s|sek|km|m)\b", re.IGNORECASE)
 # Przerwa: „2 min truchtu”, „90 s marszu”, „2-minutową przerwą”, „przerwa 90 s”.
 _REST = re.compile(r"(?:(\d{1,3}(?:[.,]5)?)\s*(s|sek\w*|min\w*|-minutow\w*|-sekundow\w*)\s*(?:\w+\s+){0,2}?"
                    r"(?:truchtu|marszu|przerw\w*|truchtem|w\s+truchcie))"
@@ -591,7 +648,7 @@ def _seconds_of(value, unit) -> int:
 
 
 def _repeats_in_text(entry):
-    """(powtórzenia, sekundy pracy, sekundy przerwy), gdy NAZWA akcentu mówi „N × M min”; inaczej None.
+    """(powtórzenia, sekundy pracy, sekundy przerwy, metry pracy), gdy NAZWA akcentu mówi „N × ...”; inaczej None.
 
     Tylko nazwa: opis zawiera też wariant awaryjny („przy zmęczeniu 2 × 12 min”), którego nie wolno brać
     za trening główny. Przerwę szukamy w opisie tuż po odcinkach, przed schłodzeniem; bez niej 2 minuty.
@@ -599,17 +656,24 @@ def _repeats_in_text(entry):
     match = _REPEATS.search(str(entry.get("name") or ""))
     if not match or int(match.group(1)) < 2:
         return None
-    work = _seconds_of(match.group(2), "min")
+    raw_value, unit = match.group(2), match.group(3).lower()
+    if unit in ("m", "km"):
+        num = float(raw_value.replace(",", "."))
+        work_m = round(num * 1000 if unit == "km" else num)
+        work_sec = None
+    else:
+        work_sec = _seconds_of(raw_value, unit)
+        work_m = None
     description = str(entry.get("description") or "")
-    # Okno zaczyna się po całym zapisie „N × M min” w opisie — nie od pierwszej cyfry (ta bywa w rozgrzewce „15 min”).
+    # Okno zaczyna się po całym zapisie „N × ...” w opisie — nie od pierwszej cyfry (ta bywa w rozgrzewce „15 min”).
     in_text = _REPEATS.search(description)
     window = description[in_text.end():] if in_text else ""
     window = re.split(r"schłodz|na koniec|cool", window, maxsplit=1, flags=re.IGNORECASE)[0][:160]
     rest = _REST.search(window)
     if rest:
-        value, unit = (rest.group(1), rest.group(2)) if rest.group(1) else (rest.group(3), rest.group(4))
-        return int(match.group(1)), work, _seconds_of(value, unit)
-    return int(match.group(1)), work, 120
+        value, rest_unit = (rest.group(1), rest.group(2)) if rest.group(1) else (rest.group(3), rest.group(4))
+        return int(match.group(1)), work_sec, _seconds_of(value, rest_unit), work_m
+    return int(match.group(1)), work_sec, 120, work_m
 
 
 def _normalize_day(day, workout, floors):
@@ -650,6 +714,7 @@ def _normalize_day(day, workout, floors):
         entry["pace_target"] = _field(workout, "pace_target")
         entry["repetitions"] = _field(workout, "repetitions")
         entry["work_seconds"] = _field(workout, "work_seconds")
+        entry["work_meters"] = _field(workout, "work_meters")
         entry["rest_seconds"] = _field(workout, "rest_seconds")
         entry["notes"] = _trim(_field(workout, "notes"), _NOTES_LIMIT)
 
@@ -662,8 +727,9 @@ def _normalize_day(day, workout, floors):
         entry["pace_target"] = None
         entry["repetitions"] = None
         entry["work_seconds"] = None
+        entry["work_meters"] = None
         entry["rest_seconds"] = None
-        entry["name"] = "Odpoczynek"
+        entry["name"] = entry["name"] or "Odpoczynek"
         return _finish_day(day, entry, notes, floors)
 
     if kind in AEROBIC_KINDS:
@@ -672,9 +738,9 @@ def _normalize_day(day, workout, floors):
     if kind in ("tempo", "threshold"):
         reps = _repeats_in_text(entry)
         if reps is not None:
-            # „3 × 8 min z przerwami” to odcinki: na zegarku mają być powtórzenia z przerwami, nie jeden ciągły bieg.
+            # „3 × 8 min z przerwami” albo „6 × 400 m” to odcinki: na zegarku mają być powtórzenia z przerwami.
             entry["kind"] = kind = "intervals"
-            entry["repetitions"], entry["work_seconds"], entry["rest_seconds"] = reps
+            entry["repetitions"], entry["work_seconds"], entry["rest_seconds"], entry["work_meters"] = reps
             notes.append("Zapisano jako odcinki z przerwami, tak jak w opisie.")
     if kind in ("tempo", "threshold"):
         if _quality_target(entry) is None:
@@ -682,9 +748,10 @@ def _normalize_day(day, workout, floors):
             entry["kind"] = "easy"
 
     if kind == "intervals":
-        missing = [name for name in ("repetitions", "work_seconds", "rest_seconds")
-                   if not isinstance(entry[name], int) or isinstance(entry[name], bool) or entry[name] <= 0]
-        if missing:
+        def _pos_int(val):
+            return isinstance(val, int) and not isinstance(val, bool) and val > 0
+        has_work = _pos_int(entry["work_seconds"]) or _pos_int(entry["work_meters"])
+        if not _pos_int(entry["repetitions"]) or not _pos_int(entry["rest_seconds"]) or not has_work:
             notes.append("Zmieniono na bieg łatwy (brak kompletnych parametrów interwałów).")
             entry["kind"] = "easy"
         elif _quality_target(entry) is None:
@@ -740,6 +807,8 @@ def _finish_day(day, entry, notes, floors):
     if kind == "intervals":
         workout["repetitions"] = entry["repetitions"]
         workout["work_seconds"] = entry["work_seconds"]
+        if entry.get("work_meters"):
+            workout["work_meters"] = entry["work_meters"]
         workout["rest_seconds"] = entry["rest_seconds"]
     return workout
 
@@ -787,7 +856,7 @@ def normalize_plan(response, *, context) -> dict:
                 workout["type"] = "easy"
                 workout["pace_target"] = None
                 workout["hr_zone"] = "Z2"
-                for key in ("repetitions", "work_seconds", "rest_seconds"):
+                for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
                     workout.pop(key, None)
                 workout["notes"] = _append_note(workout["notes"], "Zmieniono na spokojny bieg: 1–2 dni po starcie "
                                                                   "tylko spokojnie, akcent najwcześniej trzeciego dnia.")
@@ -798,6 +867,8 @@ def normalize_plan(response, *, context) -> dict:
         workouts[index]["type"] = "easy"
         workouts[index]["pace_target"] = None
         workouts[index]["hr_zone"] = "Z2"
+        for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
+            workouts[index].pop(key, None)
         workouts[index]["notes"] = _append_note(workouts[index]["notes"], (
             "Zmieniono na spokojny bieg: na tym etapie bez mocnych akcentów (przebieżki są w porządku)." if beginner
             else f"Zmieniono na bieg łatwy ({_quality_limit_text(max_quality)})."))
@@ -825,15 +896,16 @@ def normalize_plan(response, *, context) -> dict:
     _space_hard_days(workouts, _date.fromisoformat(hard_before) if hard_before else None)
 
     for index, workout in enumerate(workouts):
-        if workout["type"] not in AEROBIC_KINDS:
+        if workout["type"] == "rest":
             continue
         day = week_days[index]
-        zone = zone_number(workout["hr_zone"])
-        if zone is None:
-            zone = 2
-            workout["hr_zone"] = "Z2"
-            workout["notes"] = _append_note(workout["notes"], "Uzupełniono brakującą strefę tętna: Z2.")
-        workout["hr_target"] = hr_band(zone, floors)
+        if workout["type"] in AEROBIC_KINDS:
+            zone = zone_number(workout["hr_zone"])
+            if zone is None:
+                zone = 2
+                workout["hr_zone"] = "Z2"
+                workout["notes"] = _append_note(workout["notes"], "Uzupełniono brakującą strefę tętna: Z2.")
+            workout["hr_target"] = hr_band(zone, floors)
         clipped, changed = _clip_duration(workout["duration_min"], day.get("min_minutes"), day.get("max_minutes"))
         if changed:
             workout["duration_min"] = clipped
@@ -863,7 +935,8 @@ def normalize_plan(response, *, context) -> dict:
     _limit_long_run_share(workouts)
     _limit_week_minutes(workouts, runner)
     for workout in workouts:
-        _fit_continuous_quality(workout)
+        _fit_intervals_to_duration(workout)
+        _fit_continuous_quality(workout, runner=runner)
     _fix_day_references(workouts)
 
     start_date = _field(response, "start_date") or context.get("week_start")
@@ -918,6 +991,44 @@ def _quality_target(workout) -> dict | None:
     return None
 
 
+_RUN_WALK_PATTERN = re.compile(
+    r"(\d{1,2})\s*[×x]\s*\(\s*(\d+(?:[.,]\d+)?)\s*(min|s|sek)\w*\s+(?:[\w,]+\s+){0,3}?(?:trucht\w*|bieg\w*)\s*\+"
+    r"\s*(\d+(?:[.,]\d+)?)\s*(min|s|sek)\w*\s+(?:[\w,]+\s+){0,2}?(?:marsz\w*|chod\w*|spacer\w*)",
+    re.IGNORECASE,
+)
+_WARMUP_WALK = re.compile(r"(\d{1,2})\s*min\w*\s+(?:[\w,]+\s+){0,2}?(?:marsz\w*|rozgrzew\w*)", re.IGNORECASE)
+_COOLDOWN_WALK = re.compile(r"(?:na\s+koniec|schłodzeni\w*)\s+(\d{1,2})\s*min|(\d{1,2})\s*min\w*\s+(?:spacer\w*|marsz\w*)",
+                            re.IGNORECASE)
+
+
+def _run_walk_args(workout) -> dict | None:
+    """Wykryj marszobieg z opisu (np. „6 × (3 min spokojnego truchtu + 1 min marszu)”) dla zegarka."""
+    name = str(workout.get("name") or "")
+    description = str(workout.get("description") or "")
+    if "marszobieg" not in f"{name} {description}".lower():
+        return None
+    match = _RUN_WALK_PATTERN.search(description)
+    if not match:
+        return None
+    repeats = int(match.group(1))
+    run_seconds = _seconds_of(match.group(2), match.group(3))
+    walk_seconds = _seconds_of(match.group(4), match.group(5))
+    before = description[:match.start()]
+    after = description[match.end():]
+    warmup = _WARMUP_WALK.search(before)
+    cooldown = _COOLDOWN_WALK.search(after)
+    warmup_min = int(warmup.group(1)) if warmup else 5
+    cooldown_min = int(cooldown.group(1) or cooldown.group(2)) if cooldown else (1 if "minuta spacer" in after.lower() else 2)
+    return {
+        "repeats": repeats,
+        "run_seconds": run_seconds,
+        "walk_seconds": walk_seconds,
+        "warmup_min": warmup_min,
+        "cooldown_min": cooldown_min,
+        "date": workout.get("date"),
+    }
+
+
 def plan_workout_to_garmin(workout):
     """Zamień trening z planu na parę (rodzaj, argumenty) dla Garmin Connect."""
     if not isinstance(workout, dict):
@@ -926,6 +1037,10 @@ def plan_workout_to_garmin(workout):
     date = workout.get("date")
 
     if kind in AEROBIC_KINDS:
+        if kind in ("easy", "long"):
+            run_walk = _run_walk_args(workout)
+            if run_walk is not None:
+                return ("run_walk", run_walk)
         minutes = workout.get("duration_min")
         zone = zone_number(workout.get("hr_zone"))
         if not minutes or zone is None:
@@ -942,13 +1057,16 @@ def plan_workout_to_garmin(workout):
         if target is None:
             return None
         if kind == "intervals":
-            return ("intervals", {
+            args = {
                 "repeats": workout.get("repetitions"),
                 "work_seconds": workout.get("work_seconds"),
                 "rest_seconds": workout.get("rest_seconds"),
                 **target,
                 "date": date,
-            })
+            }
+            if workout.get("work_meters"):
+                args["work_meters"] = workout.get("work_meters")
+            return ("intervals", args)
         minutes = workout.get("duration_min")
         if not minutes:
             return None

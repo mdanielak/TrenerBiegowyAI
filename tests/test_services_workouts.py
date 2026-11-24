@@ -380,3 +380,19 @@ def test_quality_sessions_without_pace_target_a_heart_rate_zone(monkeypatch):
     assert intervals_zone[1].zoneNumber == 5
     assert tempo_pace[1].targetType["workoutTargetTypeKey"] == "pace.zone" and tempo_pace[1].targetValueOne == 3.3333
     assert sent[0][1]["zone_number"] == 4
+
+
+def test_distance_intervals_run_walk_and_unpaced_strides(monkeypatch):
+    gw = GarminWorkout()
+    sent = []
+    monkeypatch.setattr(gw, "_upload_and_schedule", lambda name, total, steps, date_str, spec: sent.append((steps, spec, total)) or 1)
+    gw.threshold_intervals("Odcinki", 6, work_m=400, rest_sec=90, date_str="2026-11-30", zone_number=4)
+    gw.run_walk("Marszobieg", 6, 180, 60, "2026-11-30", warmup_min=5, cooldown_min=1)
+    gw.strides("Przebieżki", 25, 4, "2026-11-30")
+    dist_steps, dist_spec, _ = sent[0]
+    assert dist_steps[1].endCondition["conditionTypeKey"] == "distance" and dist_steps[1].endConditionValue == 400.0
+    assert dist_spec["work_m"] == 400
+    rw_steps, rw_spec, rw_total = sent[1]
+    assert rw_spec["kind"] == "run_walk" and rw_total == (5 + 6 * 3 + 5 * 1 + 1) * 60 and len(rw_steps) == 13
+    stride_steps, stride_spec, _ = sent[2]
+    assert stride_spec["pace_faster"] is None and stride_steps[1].targetType["workoutTargetTypeKey"] == "no.target"

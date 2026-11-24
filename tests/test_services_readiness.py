@@ -237,6 +237,15 @@ class TestComparePlanVsActual:
         results = compare_plan_vs_actual(plan, activities, datetime(2026, 9, 16))
         assert results[0]['status'] == 'REST_VIOLATION'
 
+    def test_race_day_is_ok_not_rest_violation(self):
+        plan = self._make_plan([
+            {'date': '2026-09-15', 'day': 'Wt', 'type': 'rest', 'name': 'Start: Maraton',
+             'distance_km': 0},
+        ])
+        activities = [self._make_activity('2026-09-15', name='Maraton', distance=42.2)]
+        results = compare_plan_vs_actual(plan, activities, datetime(2026, 9, 16))
+        assert results[0]['status'] == 'OK' and 'Start:' in results[0]['details']
+
     def test_scheduled_future(self):
         plan = self._make_plan([
             {'date': '2026-09-20', 'day': 'Nd', 'type': 'long', 'name': 'Long',

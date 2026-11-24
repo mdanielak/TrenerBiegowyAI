@@ -274,3 +274,17 @@ def test_recommendation_context_includes_the_journal_summary(tmp_path, monkeypat
 
     assert context["journal"]["pain_days"][0]["areas"] == ["łydka"]
     assert "## Dziennik samopoczucia (7 dni)" in text and "BÓL 2026-10-28: łydka" in text
+
+
+def test_build_training_context_passes_hrv_and_rhr_for_recovery_module():
+    from ai.prompts import modules_for
+    data = _make_sample_data()
+    data["hrv"] = [{"date": "2026-09-16", "weekly_avg": 55, "last_night": 52,
+                    "baseline_low": 67, "baseline_high": 82, "status": "LOW"}]
+    data["daily_health"] = [
+        {"date": f"2026-09-{d:02d}", "rhr": 54 if d >= 10 else 49, "stress_avg": 30}
+        for d in range(1, 17)
+    ]
+    context = build_training_context(data, plan={"workouts": []}, today=datetime(2026, 9, 16, 8))
+    assert context["runner"]["decision"] == "odpusc"
+    assert "zdrowie/regeneracja-i-przemeczenie" in modules_for(context["runner"])

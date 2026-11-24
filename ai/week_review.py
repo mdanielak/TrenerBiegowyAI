@@ -7,31 +7,6 @@ class WeekComment(BaseModel):
     komentarz: str
 
 
-WEEK_COMMENT_SYSTEM_PROMPT = '''Jesteś spokojnym, rzeczowym trenerem biegowym. Piszesz po polsku do osoby,
-która nie zna się na technikaliach i chce wiedzieć, jak poszedł jej tydzień i co dalej.
-
-ZASADY BEZWZGLĘDNE
-1. Napisz od 5 do 7 zdań, jednym spójnym akapitem, w tej kolejności:
-   - ile treningów z planu wykonano i ile to minut oraz kilometrów;
-   - jak wyglądały spokojne biegi względem docelowej strefy tętna;
-   - jak objętość wypadła wobec zwykłego tygodnia;
-   - czy coś w tygodniu zmienia wnioski (opuszczone lub wyraźnie krótsze treningi), jeśli tak było;
-   - co z tego wynika na kolejny tydzień i jedna konkretna wskazówka.
-2. Łącznie od 90 do 150 słów. Każde zdanie ma wnosić coś z danych, bez ogólników.
-3. Zwróć wyłącznie obiekt JSON z jednym polem tekstowym "komentarz", dokładnie w tej postaci:
-   {"komentarz": "Pierwsze zdanie. Drugie zdanie. Trzecie zdanie. Czwarte zdanie. Piąte zdanie."}
-   Bez Markdown, bez bloku kodu, bez innych pól.
-4. Używaj tylko liczb podanych w danych wejściowych. Nie wymyślaj wartości.
-5. Jeśli jakiejś danej brakuje, nie wspominaj o niej.
-6. Nie diagnozuj medycznie. Nie sugeruj chorób ani kontuzji. Przy wzmiance o bólu
-   napisz jedynie, żeby skonsultować się ze specjalistą.
-7. Bez wykrzykników, bez emoji, bez pochwał na siłę, bez haseł motywacyjnych.
-8. Kolejny tydzień opisuj zgodnie z DECYZJĄ TYGODNIA z danych; nie proponuj większej objętości, niż ona dopuszcza.
-9. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score).'''
-
-_DECISIONS = {"regeneracja": "regeneracja (bardzo lekki tydzień)", "odpusc": "odpuść (lżejszy tydzień)",
-              "utrzymaj": "utrzymaj (podobnie jak ostatnio)", "doloz": "dołóż (o 5–10% więcej)",
-              "odbuduj": "odbuduj (powrót do znanej objętości)"}
 _WEEKDAYS = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
 
 
@@ -54,6 +29,8 @@ def _day(iso):
 
 def build_week_message(*, plan, summary, week_runs, runner, note="", profile_text="") -> str:
     """Dane tygodnia jako tekst; ta sama wejściowa treść daje ten sam komunikat."""
+    from services.week_decision import cause_label
+
     plan, summary, runner = plan or {}, summary or {}, runner or {}
     planned = [f"- {_day(w.get('date'))}: {_value(w.get('name'))}, {_value(w.get('duration_min'))} min, "
                f"strefa {_value(w.get('hr_zone'))}"
@@ -62,6 +39,7 @@ def build_week_message(*, plan, summary, week_runs, runner, note="", profile_tex
             f"średnie tętno {_value(a.get('avg_hr'))} bpm, maksymalne {_value(a.get('max_hr'))} bpm"
             for a in week_runs]
     missed = "; ".join(summary.get("missed") or []) or "brak"
+    decision_text = cause_label(runner) if runner.get("decision") else "brak"
     lines = [
         profile_text.rstrip(),
         "",
@@ -80,11 +58,11 @@ def build_week_message(*, plan, summary, week_runs, runner, note="", profile_tex
         f"- tydzień zakończony: {'tak' if summary.get('over') else 'nie'}",
         "",
         "PROFIL BIEGACZA",
-        f"- decyzja na kolejny tydzień: {_DECISIONS.get(runner.get('decision'), 'brak')}",
+        f"- decyzja na kolejny tydzień: {decision_text}",
         f"- zwykły tydzień: {_value(runner.get('week_reference_min'))} min, "
         f"limit tygodnia: {_value(runner.get('week_cap_min'))} min",
         f"- najdłuższy niedawny bieg: {_value(runner.get('longest_min'))} min",
-        f"- zaległości w wykonaniu planu z poprzedniego tygodnia: "
+        f"- wykonanie planu z poprzedniego tygodnia: "
         f"{'brak danych' if runner.get('adherence') is None else str(round(runner['adherence'] * 100)) + '% wykonanych'}",
     ]
     if note:
@@ -94,5 +72,5 @@ def build_week_message(*, plan, summary, week_runs, runner, note="", profile_tex
 
 def get_week_comment(provider, *, message, address_form=None, runner=None) -> WeekComment:
     from ai.prompts import coach_prompt
-    system = coach_prompt(runner, mode="tydzien", address_form=address_form) + "\n\n" + WEEK_COMMENT_SYSTEM_PROMPT
+    system = coach_prompt(runner, mode="tydzien", address_form=address_form)
     return provider.chat(system, message, response_model=WeekComment, temperature=0.0, seed=7)

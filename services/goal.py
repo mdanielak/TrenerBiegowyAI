@@ -12,15 +12,18 @@ from datetime import date, datetime, timedelta
 
 from services.data_extract import SnapshotStatus, read_snapshot_status
 from services.plan_files import week_bounds
+from services.runner_profile import goal_distance
 from services.stats import _is_run, _number
 from services.strategy import Strategy, load_strategy
+from services.training_specs import DISTANCE_SPECS
 from services.wizard import _distance_key
 
 # Dystanse celów z kreatora; „inny dystans” i „bez zawodów” nie mają tempa.
-RACE_KM = {"5k": (5.0, "5 km"), "10k": (10.0, "10 km"), "hm": (21.0975, "21,1 km"), "marathon": (42.195, "42,2 km")}
+RACE_KM = {key: (spec.km, spec.distance_label) for key, spec in DISTANCE_SPECS.items()}
 LONG_RUN_WINDOW_DAYS = 56
 FREQUENCY_WEEKS = 4
 TEST_DISTANCE_KM = (9.8, 10.5)
+TEST_5K_DISTANCE_KM = (4.85, 5.25)
 
 
 @dataclass(frozen=True)
@@ -115,6 +118,23 @@ def _criteria(strategy: Strategy, activities, today: date) -> list[Criterion]:
             met=longest >= low if longest else False,
         ))
 
+    if strategy.test_5k_seconds:
+        low, high = strategy.test_5k_seconds
+        candidates = []
+        for day, activity in _runs(activities, date.min, today):
+            distance = _number(activity.get("distance_km")) or 0
+            minutes = _number(activity.get("duration_min"))
+            if TEST_5K_DISTANCE_KM[0] <= distance <= TEST_5K_DISTANCE_KM[1] and minutes:
+                candidates.append((minutes * 60 * 5 / distance, day))
+        best = min(candidates, default=None)
+        criteria.append(Criterion(
+            label="Sprawdzian 5 km",
+            target=f"około {_clock(low)}–{_clock(high)}",
+            actual=(f"najszybszy bieg ~5 km: {_clock(best[0])} ({best[1].day}.{best[1].month:02d})"
+                    if best else "brak biegu ~5 km w danych"),
+            met=best[0] <= high if best else None,
+        ))
+
     if strategy.test_10k_seconds:
         low, high = strategy.test_10k_seconds
         candidates = []
@@ -175,7 +195,7 @@ def build_goal_report(*, snapshot, strategy: Strategy | None, profile: dict, tod
     current = next((step for step in steps if step.is_current), None)
     target_day = _target_date(profile, strategy)
     target_seconds = _seconds(profile.get("target_time"))
-    race = RACE_KM.get(_distance_key(profile.get("target_race")))
+    race = RACE_KM.get(goal_distance(profile) or _distance_key(profile.get("target_race")))
     activities = [a for a in data.get("activities") or [] if isinstance(a, dict)]
 
     return GoalReport(

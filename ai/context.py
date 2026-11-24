@@ -146,9 +146,17 @@ def build_training_context(data, plan=None, today=None):
 
     # Za każdym razem z dysku: cel zmieniony w kreatorze ma trafić do najbliższego planu.
     profile = _load_runner_profile()
+    rhr_trend = None
+    try:
+        from services.plan import _plan_trends
+        rhr_trend = ((_plan_trends(data, today.date()) or {}).get("metrics") or {}).get("rhr")
+    except Exception:  # noqa: BLE001 - rekomendacja dnia działa też bez pełnych trendów
+        rhr_trend = None
     from services.runner_profile import build_runner_profile
-    runner = build_runner_profile(activities=data.get('activities'), profile=profile, today=today.date(),
-                                  pain=bool((journal or {}).get("pain_days")))
+    runner = build_runner_profile(
+        activities=data.get('activities'), profile=profile, today=today.date(),
+        rhr_trend=rhr_trend, previous_plan=plan,
+        pain=bool((journal or {}).get("pain_days")), hrv=data.get('hrv'))
     return {
         "runner": runner,
         "runner_profile": profile,

@@ -41,6 +41,7 @@ _BUILDERS = {
     'hr_zone_run': 'hr_zone_run',
     'tempo_run': 'tempo_run',
     'threshold_intervals': 'threshold_intervals',
+    'run_walk': 'run_walk',
     'strides': 'strides',
 }
 
@@ -446,16 +447,17 @@ class GarminWorkout:
         print(f"  {date_str} {name}: ID={wid}")
         return wid
 
-    def threshold_intervals(self, name, num_intervals, work_sec, rest_sec,
+    def threshold_intervals(self, name, num_intervals, work_sec=None, rest_sec=0,
                             pace_faster=None, pace_slower=None, warmup_min=10,
-                            cooldown_min=10, date_str=None, zone_number=None):
+                            cooldown_min=10, date_str=None, zone_number=None, work_m=None):
         """
-        Interwały progowe z przerwami.
+        Interwały progowe lub szybkościowe z przerwami (czasowe albo dystansowe ``work_m``).
 
         Args:
             num_intervals: liczba powtórzeń
-            work_sec: czas pracy w sekundach
+            work_sec: czas pracy w sekundach (gdy brak ``work_m``)
             rest_sec: czas przerwy w sekundach (trucht)
+            work_m: dystans odcinka pracy w metrach (np. 400, 1000)
         """
         if not date_str:
             date_str = ""
@@ -467,7 +469,10 @@ class GarminWorkout:
             steps.append(self._make_step(o, StepType.WARMUP, "warmup", warmup_min * 60))
             o += 1
         for i in range(num_intervals):
-            steps.append(self._make_step(o, StepType.INTERVAL, "interval", work_sec, **target))
+            if work_m:
+                steps.append(self._make_step(o, StepType.INTERVAL, "interval", 0, distance_m=work_m, **target))
+            else:
+                steps.append(self._make_step(o, StepType.INTERVAL, "interval", work_sec, **target))
             o += 1
             if i < num_intervals - 1 and rest_sec > 0:
                 steps.append(self._make_step(o, StepType.RECOVERY, "recovery", rest_sec))
@@ -475,22 +480,56 @@ class GarminWorkout:
         if cooldown_min > 0:
             steps.append(self._make_step(o, StepType.COOLDOWN, "cooldown", cooldown_min * 60))
 
-        total = sum(s.endConditionValue for s in steps)
+        if work_m:
+            if pace_slower and ":" in str(pace_slower):
+                parts = str(pace_slower).strip().split(":")
+                sec_per_km = int(parts[0]) * 60 + int(parts[1])
+            else:
+                sec_per_km = 300
+            work_est = round(work_m * sec_per_km / 1000)
+            total = (warmup_min + cooldown_min) * 60 + num_intervals * work_est + max(num_intervals - 1, 0) * rest_sec
+        else:
+            total = sum(s.endConditionValue for s in steps)
         wid = self._upload_and_schedule(
             name, total, steps, date_str,
             spec={'kind': 'threshold_intervals', 'num_intervals': num_intervals,
-                  'work_sec': work_sec, 'rest_sec': rest_sec,
+                  'work_sec': work_sec, 'work_m': work_m, 'rest_sec': rest_sec,
                   'pace_faster': pace_faster, 'pace_slower': pace_slower, 'zone_number': zone_number,
                   'warmup_min': warmup_min, 'cooldown_min': cooldown_min},
         )
         print(f"  {date_str} {name}: ID={wid}")
         return wid
 
+    def run_walk(self, name, repeats, run_sec, walk_sec, date_str, warmup_min=5, cooldown_min=2):
+        """Marszobieg bez alarmu tętna: rozgrzewka, powtórzenia trucht/marsz i schłodzenie."""
+        o = 1
+        steps = []
+        if warmup_min > 0:
+            steps.append(self._make_step(o, StepType.WARMUP, "warmup", warmup_min * 60))
+            o += 1
+        for i in range(repeats):
+            steps.append(self._make_step(o, StepType.INTERVAL, "interval", run_sec))
+            o += 1
+            if i < repeats - 1 and walk_sec > 0:
+                steps.append(self._make_step(o, StepType.RECOVERY, "recovery", walk_sec))
+                o += 1
+        if cooldown_min > 0:
+            steps.append(self._make_step(o, StepType.COOLDOWN, "cooldown", cooldown_min * 60))
+
+        total = sum(s.endConditionValue for s in steps)
+        wid = self._upload_and_schedule(
+            name, total, steps, date_str,
+            spec={'kind': 'run_walk', 'repeats': repeats, 'run_sec': run_sec, 'walk_sec': walk_sec,
+                  'warmup_min': warmup_min, 'cooldown_min': cooldown_min},
+        )
+        print(f"  {date_str} {name}: ID={wid}")
+        return wid
+
     def strides(self, name, base_min, num_strides, date_str,
-                pace_faster="3:30", pace_slower="4:00",
+                pace_faster=None, pace_slower=None,
                 stride_sec=20, rest_sec=90):
         """
-        Bieg bazowy + przebieżki (krótkie przyspieszenia).
+        Bieg bazowy + przebieżki (krótkie przyspieszenia na odczucie lub podane tempo).
 
         Args:
             base_min: czas biegu bazowego przed przebieżkami
@@ -498,8 +537,14 @@ class GarminWorkout:
             stride_sec: czas jednej przebieżki (domyślnie 20s)
             rest_sec: przerwa między przebieżkami (domyślnie 90s)
         """
-        faster_ms = self._pace_to_ms(pace_faster)
-        slower_ms = self._pace_to_ms(pace_slower)
+        stride_targets = {}
+        if pace_faster and pace_slower:
+            stride_targets = {
+                'target_type_id': 6,
+                'target_type_key': "pace.zone",
+                'target_value_one': self._pace_to_ms(pace_faster),
+                'target_value_two': self._pace_to_ms(pace_slower),
+            }
 
         o = 1
         steps = []
@@ -507,9 +552,7 @@ class GarminWorkout:
         o += 1
         for i in range(num_strides):
             steps.append(self._make_step(
-                o, StepType.INTERVAL, "interval", stride_sec,
-                target_type_id=6, target_type_key="pace.zone",
-                target_value_one=faster_ms, target_value_two=slower_ms,
+                o, StepType.INTERVAL, "interval", stride_sec, **stride_targets,
             ))
             o += 1
             if i < num_strides - 1:
@@ -597,9 +640,13 @@ def build_workout(gw, kind, name, **kwargs) -> int:
                                       kwargs.get('pace_to'), date_str=kwargs['date'],
                                       zone_number=kwargs.get('zone_number')),
         'intervals': lambda: gw.threshold_intervals(
-            name, kwargs['repeats'], kwargs['work_seconds'], kwargs['rest_seconds'],
+            name, kwargs['repeats'], kwargs.get('work_seconds'), kwargs['rest_seconds'],
             kwargs.get('pace_from'), kwargs.get('pace_to'), date_str=kwargs['date'],
-            zone_number=kwargs.get('zone_number')),
+            zone_number=kwargs.get('zone_number'), work_m=kwargs.get('work_meters')),
+        'run_walk': lambda: gw.run_walk(
+            name, kwargs['repeats'], kwargs['run_seconds'], kwargs['walk_seconds'],
+            kwargs['date'], warmup_min=kwargs.get('warmup_min', 5),
+            cooldown_min=kwargs.get('cooldown_min', 2)),
         'long': lambda: gw.long_run(name, kwargs['minutes'], kwargs['date']),
         'strides': lambda: gw.strides(name, kwargs['base_minutes'], kwargs['repeats'], kwargs['date']),
         'hr_zone_run': lambda: gw.hr_zone_run(

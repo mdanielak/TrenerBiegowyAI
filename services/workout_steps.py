@@ -71,8 +71,13 @@ def spec_from_plan(workout) -> dict | None:
                 "warmup_min": 10, "cooldown_min": 10}
     if kind == "intervals":
         return {"kind": "threshold_intervals", "num_intervals": args.get("repeats"), "work_sec": args.get("work_seconds"),
-                "rest_sec": args.get("rest_seconds"), "pace_faster": args["pace_from"], "pace_slower": args["pace_to"],
+                "work_m": args.get("work_meters"), "rest_sec": args.get("rest_seconds"),
+                "pace_faster": args["pace_from"], "pace_slower": args["pace_to"],
                 "zone_number": args.get("zone_number"), "warmup_min": 10, "cooldown_min": 10}
+    if kind == "run_walk":
+        return {"kind": "run_walk", "repeats": args.get("repeats"), "run_sec": args.get("run_seconds"),
+                "walk_sec": args.get("walk_seconds"), "warmup_min": args.get("warmup_min", 5),
+                "cooldown_min": args.get("cooldown_min", 2)}
     return None
 
 
@@ -132,14 +137,35 @@ def workout_steps(spec, floors=None) -> list[dict]:
     elif kind == "threshold_intervals":
         if spec.get("warmup_min"):
             add("warmup", "Rozgrzewka", _minutes(spec["warmup_min"]), "spokojny trucht", spec["warmup_min"])
-        add("work", "Odcinki", f"{spec.get('num_intervals')} × {_seconds(spec.get('work_sec'))}",
+        work_m = spec.get("work_m")
+        if work_m:
+            dist_label = f"{int(work_m) // 1000} km" if int(work_m) % 1000 == 0 else f"{int(work_m)} m"
+            work_label = f"{spec.get('num_intervals')} × {dist_label}"
+            work_minutes = repeated(spec.get("num_intervals"), round(_number(work_m) * 0.3))
+        else:
+            work_label = f"{spec.get('num_intervals')} × {_seconds(spec.get('work_sec'))}"
+            work_minutes = repeated(spec.get("num_intervals"), spec.get("work_sec"))
+        add("work", "Odcinki", work_label,
             _pace(spec.get("pace_faster"), spec.get("pace_slower")) or _zone(spec.get("zone_number"), floors),
-            repeated(spec.get("num_intervals"), spec.get("work_sec")), _zone_number(spec.get("zone_number")))
+            work_minutes, _zone_number(spec.get("zone_number")))
         if spec.get("rest_sec"):
             add("rest", "Przerwy między odcinkami", _seconds(spec["rest_sec"]), "trucht",
                 repeated(max(_number(spec.get("num_intervals")) - 1, 1), spec["rest_sec"]))
         if spec.get("cooldown_min"):
             add("cooldown", "Schłodzenie", _minutes(spec["cooldown_min"]), "spokojny trucht", spec["cooldown_min"])
+    elif kind == "run_walk":
+        warmup = _number(spec.get("warmup_min"))
+        if warmup:
+            add("warmup", "Rozgrzewka", _minutes(warmup), "żwawy marsz", warmup)
+        repeats = int(_number(spec.get("repeats")) or 1)
+        add("work", "Marszobieg — trucht", f"{repeats} × {_seconds(spec.get('run_sec'))}",
+            "swobodnie, bez alarmu tętna", repeated(repeats, spec.get("run_sec")))
+        if spec.get("walk_sec"):
+            add("rest", "Przerwy w marszu", _seconds(spec["walk_sec"]), "marsz",
+                repeated(max(repeats - 1, 1), spec.get("walk_sec")))
+        cooldown = _number(spec.get("cooldown_min"))
+        if cooldown:
+            add("cooldown", "Schłodzenie", _minutes(cooldown), "spokojny marsz", cooldown)
     elif kind == "strides":
         add("main", "Bieg spokojny", _minutes(spec.get("base_min")), "swobodnie", spec.get("base_min"))
         add("work", "Przebieżki", f"{spec.get('num_strides')} × {_seconds(spec.get('stride_sec', 20))}",

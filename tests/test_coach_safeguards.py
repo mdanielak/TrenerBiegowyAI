@@ -450,7 +450,7 @@ def test_the_strategy_starts_from_regular_running_not_from_a_short_pause():
 
 
 @pytest.mark.parametrize(("distance", "days", "expected"), [
-    ("5k", 3, ("odpusc", "race_week", 75)),
+    ("5k", 3, ("odpusc", "race_week", 60)),
     ("5k", 10, ("utrzymaj", "before_taper", None)),   # przy 5 km tylko tydzień startu jest lżejszy
     ("10k", 10, ("odpusc", "taper", 85)),
     ("hm", 10, ("odpusc", "taper", 80)),
@@ -493,8 +493,10 @@ def test_yesterday_load_is_judged_against_the_runners_own_longest_run():
     assert yesterday_load(runs(150, 75), day) == "light"      # maratończyk: 75 min spokojnie to zwykły bieg
     assert yesterday_load(runs(150, 120), day) == "moderate"
     assert yesterday_load(runs(150, 150), day) == "hard"      # długi bieg
-    assert yesterday_load(runs(30, 80), day) == "moderate"    # początkująca: progi jak dotąd (75 i 90 min)
-    assert yesterday_load(runs(30, 95), day) == "hard"
+    assert yesterday_load(runs(30, 30), day) == "light"       # początkująca: zwykły bieg 30 min
+    assert yesterday_load(runs(30, 48), day) == "moderate"    # początkująca: podłogi 45 i 60 min przy znanej historii
+    assert yesterday_load(runs(30, 65), day) == "hard"
+    assert yesterday_load([{"date": "2026-11-15 07:00", "type": "running", "duration_min": 80}], day) == "moderate"  # bez historii: 75/90 min
 
 
 # --- Znaleziska niezależnej recenzji (straznik-limitow, 2026-11-23) -------------------------------------
@@ -666,3 +668,99 @@ def test_no_quality_session_in_the_two_days_after_a_short_race():
     tuesday, thursday = workouts[1], workouts[3]
     assert tuesday["type"] == "easy" and "trzeciego dnia" in tuesday["notes"]
     assert thursday["type"] == "tempo"  # czwartego dnia akcent już wolno
+
+
+# --- Macierz Poziom × Dystans i naprawione bezpieczniki (audyt 2026-11-24) -------------------------------
+
+def test_short_history_with_pain_keeps_regeneration_limit():
+    runs = [_run(day, 60) for day in (2, 3, 4, 5, 6)]  # 300 min w pierwszym tygodniu zegarka
+    runner = build_runner_profile(activities=runs, today=TODAY, profile=_profile(), pain=True)
+    assert runner["short_history"] and runner["decision"] == "regeneracja"
+    assert runner["week_cap_min"] == 180  # 60% z 300 min, nie 110%
+
+
+def test_marathon_race_day_is_excluded_from_week_minutes_and_longest():
+    race = TODAY - timedelta(days=1)  # wczorajszy maraton 220 min nie może zawyżać limitu kolejnego miesiąca
+    base_runs = _weeks([200, 200, 200, 200])
+    with_race = base_runs + [dict(_run(1, 220), date=f"{race} 09:00")]
+    runner = build_runner_profile(activities=with_race, today=TODAY, previous_plan=_done_last_week(),
+                                  profile=_profile(target_date=str(race), target_distance="marathon"))
+    assert runner["week_reference_min"] == 200 and runner["longest_min"] < 220
+
+
+def test_second_week_after_marathon_allows_longer_runs_without_quality():
+    from services.runner_profile import quality_sessions_limit
+    from services.week_decision import easy_run_limit, long_run_limit
+    race = TODAY - timedelta(days=10)
+    runner = build_runner_profile(activities=_weeks([300, 300, 300, 300]), today=TODAY, previous_plan=_done_last_week(),
+                                  profile=_profile(target_date=str(race), target_distance="marathon"))
+    assert (runner["decision"], runner["decision_cause"]) == ("odpusc", "after_marathon_2")
+    assert quality_sessions_limit(runner, 2) == 0
+    assert long_run_limit(runner, 150) == 90 and easy_run_limit(runner, 150) == 75
+
+
+def test_beginner_cause_labels_and_reasons_omit_quality_sessions():
+    from services.week_decision import cause_label, decision_reason
+    for cause in ("step_back", "taper", "race_week", "after_short_race", "at_peak"):
+        runner = {"level": "poczatkujacy", "decision": "odpusc", "decision_cause": cause,
+                  "taper_percent": 55, "week_reference_min": 100}
+        text = f"{cause_label(runner)} {decision_reason(runner)}".lower()
+        assert "akcent" not in text and "tempie startowym" not in text and "żywych" not in text
+
+
+def test_at_peak_stabilizes_volume_when_phase_peak_is_reached():
+    runner = build_runner_profile(activities=_weeks([180, 180, 180, 180]), profile=_profile(), today=TODAY,
+                                  previous_plan=_done_last_week(), phase_peak_km=25)
+    assert (runner["decision"], runner["decision_cause"]) == ("utrzymaj", "at_peak")
+
+
+def test_level_rule_distinguishes_5k_specialist_and_slow_high_duration_runner():
+    # 5 km specjalista: 5 biegów/tydz., 35 km/tydz., staż > 2 lata -> zaawansowany
+    five_k_runs = [_run(7 * w + d, 35) for w in range(10) for d in (1, 2, 3, 5, 6)]
+    for run in five_k_runs:
+        run["distance_km"] = 7.0
+    spec_5k = build_runner_profile(activities=five_k_runs, today=TODAY,
+                                   profile=_profile(running_since="over24", target_distance="5k"))
+    assert spec_5k["level"] == "zaawansowany"
+
+    # Wolny biegacz 4×/tydz., razem 28 km/tydz., długi 90 min -> nie wpada w strategię 80 km zaawansowanych
+    slow_runs = [_run(7 * w + d, 90 if d == 6 else 45) for w in range(10) for d in (1, 3, 5, 6)]
+    for run in slow_runs:
+        run["distance_km"] = 10.0 if run["duration_min"] == 90 else 6.0
+    slow_runner = build_runner_profile(activities=slow_runs, today=TODAY,
+                                       profile=_profile(running_since="over24", target_distance="marathon"))
+    assert slow_runner["level"] == "regularny"
+
+
+def test_quality_session_is_clipped_to_day_window_and_intervals_sync_repetitions():
+    runner = _regular()
+    context = _context(runner)
+    context["week_days"][1]["max_minutes"] = 40  # wtorek ma tylko 40 min
+    context["week_days"][3]["max_minutes"] = 25  # czwartek tylko 25 min (za mało na interwały)
+    # 5 × 3 min + 4 × 2 min + 20 min = 43 min -> w 40 min mieszczą się 4 powtórzenia (38 min)
+    response = {"workouts": [
+        {"date": "2026-11-17", "kind": "intervals", "name": "Odcinki 5 × 3 min", "duration_min": 50,
+         "hr_zone": 4, "pace_target": "4:40-4:50", "repetitions": 5, "work_seconds": 180, "rest_seconds": 120},
+        {"date": "2026-11-19", "kind": "intervals", "name": "Odcinki 4 × 3 min", "duration_min": 40,
+         "hr_zone": 4, "pace_target": "4:40-4:50", "repetitions": 4, "work_seconds": 180, "rest_seconds": 120},
+    ]}
+    workouts = plan_service.normalize_plan(response, context=context)["workouts"]
+    tuesday, thursday = workouts[1], workouts[3]
+    assert tuesday["type"] == "intervals" and tuesday["duration_min"] == 40 and tuesday["repetitions"] == 4
+    assert thursday["type"] == "easy" and thursday["duration_min"] == 25 and "repetitions" not in thursday
+
+
+def test_emergency_alternative_never_truncates_main_part_and_marathon_allows_60_min_tempo():
+    adv = _regular()
+    adv["level"] = "zaawansowany"
+    adv["goal_distance"] = "marathon"
+    adv["longest_min"] = 120
+    adv["week_cap_min"] = 400
+    response = {"workouts": [
+        {"date": "2026-11-18", "kind": "tempo", "name": "Tempo maratońskie 55 min", "duration_min": 75,
+         "hr_zone": 3, "pace_target": "4:40-4:50",
+         "description": "10 min rozgrzewki, 55 min w tempie maratońskim, 10 min schłodzenia. "
+                        "Przy zmęczeniu skróć do 15 min w tempie progowym."},
+    ]}
+    wednesday = plan_service.normalize_plan(response, context=_context(adv))["workouts"][2]
+    assert wednesday["type"] == "tempo" and wednesday["duration_min"] == 75

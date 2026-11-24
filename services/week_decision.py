@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from services.training_specs import DISTANCE_SPECS
+
 
 def _number(value) -> float | None:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -26,31 +28,41 @@ DECISION_LABELS = {
 # Dwa lekkie stopnie: bez zapasu na prośbę biegacza i bez „nie niżej niż ostatni tydzień”.
 LIGHT_DECISIONS = ("regeneracja", "odpusc")
 # Powody lekkiego tygodnia, które oznaczają zmęczenie albo regenerację: wtedy bez akcentów (prompt: „zero u zmęczonych”).
-# Taper i planowy tydzień cofnięcia to nie zmęczenie — tam jeden akcent zostaje.
-FATIGUE_CAUSES = ("pain", "rhr_high", "rhr_up", "struggling", "hrv_rhr", "after_race")
+# Taper i planowy tydzień cofnięcia to nie zmęczenie — tam jeden akcent zostaje (poza początkującym).
+FATIGUE_CAUSES = ("pain", "rhr_high", "rhr_up", "struggling", "hrv_rhr", "after_race", "after_marathon_2")
 # Długi bieg w lekkim tygodniu: część najdłuższego niedawnego biegu (zamiast wzrostu).
 LIGHT_LONG_RUN = {"regeneracja": 0.6, "odpusc": 0.75, "step_back": 0.8}
-AFTER_RACE_EASY_MAX = 45  # tydzień po starcie: krótkie spokojne biegi, długi bieg też nie dłuższy
+AFTER_RACE_EASY_MAX = 45  # pierwszy tydzień po starcie: krótkie spokojne biegi, długi bieg też nie dłuższy
+AFTER_MARATHON_2_LONG_MAX = 90  # drugi tydzień po maratonie: stopniowy powrót bez sztucznego korka 45 min
+AFTER_MARATHON_2_EASY_MAX = 75
 # Tydzień startu na krótkim dystansie: długi bieg najwyżej tę część najdłuższego niedawnego (świeże nogi na start).
-RACE_WEEK_LONG_RUN = {"5k": 0.55, "10k": 0.6}
-SHORT_RACES = ("5k", "10k")
-# Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
-# i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
-# Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu), zależnie od dystansu:
-# krótki start potrzebuje krótkiego tapera, maraton trzech tygodni. Tydzień przed taperem: „utrzymaj” (bez wzrostu).
-TAPER_WEEKS = {"5k": (0.75,), "10k": (0.65, 0.85), "hm": (0.55, 0.8), "marathon": (0.5, 0.7, 0.85)}
+RACE_WEEK_LONG_RUN = {key: spec.race_week_long_share for key, spec in DISTANCE_SPECS.items() if spec.category == "short"}
+SHORT_RACES = tuple(key for key, spec in DISTANCE_SPECS.items() if spec.category == "short")
+# Taper przed startem (Bosquet 2007, przegląd 2023, Mujika & Padilla 2003): objętość w dół o 41–60%, intensywność
+# i częstotliwość bez zmian. Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu).
+TAPER_WEEKS = {key: spec.taper_weeks for key, spec in DISTANCE_SPECS.items()}
 TAPER_DEFAULT = TAPER_WEEKS["hm"]
 # Po starcie: tyle dni lżej (po maratonie dłużej, a pierwszy tydzień to regeneracja).
-AFTER_RACE_DAYS = {"marathon": 14}
+AFTER_RACE_DAYS = {key: spec.after_race_days for key, spec in DISTANCE_SPECS.items() if spec.after_race_days > 7}
 CAUSE_LABELS = {
     "after_short_race": "utrzymaj po krótkim starcie — pierwsze 2–3 dni tylko spokojnie, potem zwykły tydzień; "
                         "najwyżej jeden akcent, najwcześniej trzeciego dnia po starcie",
+    "after_marathon_2": "odpuść w drugim tygodniu po maratonie — około 75% zwykłego tygodnia, wciąż bez mocnych akcentów",
     "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; to planowa przerwa "
                  "w budowaniu, nie zmęczenie: spokojne biegi i najwyżej jeden krótszy, lżejszy akcent",
     "taper": "odpuść przed startem — {taper}; mniej objętości, ale intensywność zostaje: "
              "krótki akcent w tempie startowym, bez nowych bodźców",
     "race_week": "tydzień startu — {taper}; krótkie spokojne biegi i jeden krótki trening "
                  "z kilkoma żywymi odcinkami, bez wyczerpujących jednostek",
+    "at_peak": "utrzymaj na szczycie fazy — objętość w docelowym zakresie tej fazy; utrzymuj czas biegania "
+               "i rozwijaj akcent pod dystans",
+}
+_BEGINNER_CAUSE_LABELS = {
+    "after_short_race": "utrzymaj po krótkim starcie — pierwsze 2–3 dni bardzo lekko, potem spokojne biegi jak ostatnio",
+    "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; same spokojne biegi",
+    "taper": "odpuść przed startem — {taper}; krótkie, spokojne biegi, żeby zebrać świeżość",
+    "race_week": "tydzień startu — {taper}; tylko krótkie, spokojne biegi dla świeżości na starcie",
+    "at_peak": "utrzymaj na szczycie fazy — objętość w docelowym zakresie tej fazy; spokojne biegi jak ostatnio",
 }
 # Twardy sufit, nie cel: mnożnik zwykłego tygodnia (week_reference), którego plan nie przekroczy.
 # Cel opisują DECISION_LABELS (utrzymaj = podobnie jak ostatnio, czyli 1,0); sufit to tylko zapas.
@@ -89,6 +101,8 @@ def long_run_limit(runner, longest) -> int:
     runner = runner or {}
     if runner.get("decision_cause") == "after_race":
         return min(AFTER_RACE_EASY_MAX, round(longest * LIGHT_LONG_RUN["regeneracja"]))
+    if runner.get("decision_cause") == "after_marathon_2":
+        return min(AFTER_MARATHON_2_LONG_MAX, round(longest * LIGHT_LONG_RUN["odpusc"]))
     if runner.get("taper_percent"):
         share = runner["taper_percent"] / 100
         if runner.get("decision_cause") == "race_week":
@@ -113,6 +127,8 @@ def easy_run_limit(runner, longest) -> int:
         limit = min(limit, long_run_limit(runner, longest))
     if runner.get("decision_cause") == "after_race":
         limit = min(limit, AFTER_RACE_EASY_MAX)
+    elif runner.get("decision_cause") == "after_marathon_2":
+        limit = min(limit, AFTER_MARATHON_2_EASY_MAX, long_run_limit(runner, longest))
     return limit
 
 
@@ -229,10 +245,29 @@ _CAUSE_TEXT = {
     "hrv_rhr": "HRV jest poniżej Twojego zakresu, a tętno spoczynkowe wyższe niż zwykle — organizm prosi o lżejszy tydzień.",
     "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień objętość jak ostatnio, bez wzrostu.",
     "after_race": "Po starcie potrzebny jest lżejszy czas na regenerację (po maratonie dwa tygodnie).",
+    "after_marathon_2": "Drugi tydzień po maratonie — objętość wraca stopniowo (ok. 75%), wciąż bez mocnych akcentów.",
     "after_short_race": "Po starcie na krótkim dystansie: 2–3 spokojne dni, akcent najwcześniej trzeciego dnia, "
                         "objętość jak ostatnio.",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
+    "at_peak": "Objętość jest już w docelowym zakresie tej fazy — utrzymujesz czas biegania i rozwijasz akcent pod start.",
 }
+_BEGINNER_CAUSE_TEXT = {
+    "race_week": "To tydzień startu: mniej biegania, {taper}; same krótkie, spokojne biegi dla świeżości.",
+    "taper": "Coraz bliżej startu: objętość spada do {taper} — same spokojne biegi przed startem.",
+    "after_short_race": "Po starcie na krótkim dystansie: 2–3 bardzo spokojne dni, potem objętość jak ostatnio.",
+    "at_peak": "Objętość jest już w docelowym zakresie tej fazy — utrzymujesz spokojne biegi jak ostatnio.",
+}
+
+
+def cause_label(runner: dict | None) -> str:
+    """Etykieta decyzji tygodnia do promptu, dopasowana również do poziomu początkującego."""
+    runner = runner or {}
+    cause = runner.get("decision_cause")
+    decision = runner.get("decision") or "utrzymaj"
+    template = (_BEGINNER_CAUSE_LABELS.get(cause) if runner.get("level") == "poczatkujacy" else None)
+    if template is None:
+        template = CAUSE_LABELS.get(cause) or DECISION_LABELS[decision]
+    return template.format(taper=_taper_phrase(runner))
 
 
 def _taper_phrase(runner) -> str:
@@ -252,8 +287,11 @@ def decision_reason(runner: dict) -> str:
     decision, adherence = runner.get("decision"), runner.get("adherence")
     if runner.get("comeback") or decision == "odbuduj":
         return "Wracasz do objętości z wcześniejszych tygodni — tydzień może być trochę dłuższy niż ostatni."
-    if runner.get("decision_cause") in _CAUSE_TEXT:
-        return _CAUSE_TEXT[runner["decision_cause"]].format(taper=_taper_phrase(runner))
+    cause = runner.get("decision_cause")
+    if runner.get("level") == "poczatkujacy" and cause in _BEGINNER_CAUSE_TEXT:
+        return _BEGINNER_CAUSE_TEXT[cause].format(taper=_taper_phrase(runner))
+    if cause in _CAUSE_TEXT:
+        return _CAUSE_TEXT[cause].format(taper=_taper_phrase(runner))
     if decision in LIGHT_DECISIONS:
         if runner.get("pain"):
             return "W dzienniku z ostatnich dni jest ból."
@@ -283,7 +321,7 @@ class WeekDecision:
 
 
 def decide_week(*, pain, rhr_up, struggling, hrv_low, adherence, returning, hr_too_high, short_history,
-                week_minutes, race_days, goal) -> WeekDecision:
+                week_minutes, race_days, goal, at_volume_peak: bool = False) -> WeekDecision:
     """Jedna decyzja tygodnia z sygnałów; kolejność warunków to hierarchia: zdrowie > start > rytm > wykonanie.
 
     Szybki powrót do znanej objętości („odbuduj”) i krótka historia z zegarka dochodzą później,
@@ -311,7 +349,10 @@ def decide_week(*, pain, rhr_up, struggling, hrv_low, adherence, returning, hr_t
         decision, cause = "utrzymaj", "after_short_race"
     elif race_days is not None and -after_race < race_days < 0:
         # Po maratonie pierwszy tydzień to regeneracja, drugi lżejszy; po półmaratonie jeden lżejszy tydzień.
-        decision, cause = ("regeneracja" if after_race > 7 and race_days > -7 else "odpusc"), "after_race"
+        if after_race > 7:
+            decision, cause = ("regeneracja", "after_race") if race_days > -7 else ("odpusc", "after_marathon_2")
+        else:
+            decision, cause = "odpusc", "after_race"
     elif not short_history and _rising_weeks(week_minutes):
         decision, cause = "odpusc", "step_back"
     elif adherence is None or adherence < 0.9 or returning or hr_too_high:
@@ -322,6 +363,8 @@ def decide_week(*, pain, rhr_up, struggling, hrv_low, adherence, returning, hr_t
         decision, cause = "utrzymaj", "before_taper"
     elif not short_history and _after_light_week(week_minutes):
         decision, cause = "utrzymaj", "stabilise"
+    elif at_volume_peak:
+        decision, cause = "utrzymaj", "at_peak"
     else:
         decision, cause = "doloz", "ready"
     return WeekDecision(decision, cause, taper_factor, taper)

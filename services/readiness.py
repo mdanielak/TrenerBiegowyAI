@@ -10,6 +10,7 @@ import statistics
 from datetime import datetime, timedelta
 
 from services.activity_matching import find_activity_for_workout
+from services.training_specs import is_race_workout
 
 
 # Oceny HRV z zegarka po polsku: te zdania trafiają na stronę Analiza i do kontekstu AI.
@@ -80,10 +81,11 @@ def _value(activity, key):
 
 
 def load_minutes(longest=None) -> tuple[int, int]:
-    """Progi czasu (średnio mocny, mocny) dla tej osoby: 75 i 90 minut, a przy dłuższym bieganiu
-    3/4 najdłuższego niedawnego biegu i sam najdłuższy bieg — 75 minut spokojnie to dla maratończyka zwykły bieg."""
-    longest = longest or 0
-    return max(_LOAD_MODERATE["minutes"], round(longest * 0.75)), max(_LOAD_HARD["minutes"], round(longest))
+    """Progi czasu (średnio mocny, mocny) dla tej osoby: 3/4 najdłuższego niedawnego biegu i sam najdłuższy bieg
+    (z podłogą 45 i 60 min przy znanej historii); bez historii bezpieczne 75 i 90 minut."""
+    if longest and longest > 0:
+        return max(45, round(longest * 0.75)), max(60, round(longest))
+    return _LOAD_MODERATE["minutes"], _LOAD_HARD["minutes"]
 
 
 def _activity_load(activity, longest=None) -> str:
@@ -434,7 +436,20 @@ def compare_plan_vs_actual(plan, activities, today=None):
         matched_activity = None
         match_method = 'unmatched'
 
-        if wtype == 'rest':
+        if wtype == 'rest' and is_race_workout(w):
+            matched_activity, match_method = find_activity_for_workout(
+                workout=w, activities=activities)
+            if matched_activity:
+                status = "OK"
+                details = (f"Start: {matched_activity['name']} ({matched_activity['distance_km']}km, "
+                           f"{matched_activity['pace']})")
+            elif day_date > today_str:
+                status = "SCHEDULED"
+                details = f"Planowany start ({w['name']})"
+            else:
+                status = "OK"
+                details = f"Dzień startu ({w['name']})"
+        elif wtype == 'rest':
             if matched_activity is None:
                 matched_activity, match_method = find_activity_for_workout(
                     workout=w, activities=activities)

@@ -49,6 +49,15 @@ def planned_duration_min(spec: dict) -> int | None:
             return None
         return round((spec.get("warmup_min") or 0) + tempo_min + (spec.get("cooldown_min") or 0))
 
+    if kind == "run_walk":
+        repeats = spec.get("repeats")
+        run_sec = spec.get("run_sec")
+        walk_sec = spec.get("walk_sec") or 0
+        if repeats is None or run_sec is None:
+            return None
+        rw_min = (repeats * run_sec + max(repeats - 1, 0) * walk_sec) / 60
+        return round((spec.get("warmup_min") or 0) + (spec.get("cooldown_min") or 0) + rw_min)
+
     return None
 
 
@@ -82,13 +91,18 @@ def score_execution(*, planned, execution, readiness_score, hr_zone_floors, hr_m
     hr_deviation = None
     if avg_hr is not None and target_band is not None:
         lower, upper = target_band
-        effective_lower = lower - HR_TOLERANCE_WARMUP_BPM
-        if avg_hr < effective_lower:
-            hr_deviation = avg_hr - effective_lower
-        elif avg_hr > upper:
-            hr_deviation = avg_hr - upper
+        if spec.get("kind") == "threshold_intervals":
+            # Kinetika tętna i przerwy sprawiają, że średnie HR całego treningu naturalnie jest niższe od strefy odcinków.
+            if avg_hr > upper:
+                hr_deviation = avg_hr - upper
         else:
-            hr_deviation = 0
+            effective_lower = lower - HR_TOLERANCE_WARMUP_BPM
+            if avg_hr < effective_lower:
+                hr_deviation = avg_hr - effective_lower
+            elif avg_hr > upper:
+                hr_deviation = avg_hr - upper
+            else:
+                hr_deviation = 0
     execution_zone = _execution_zone(avg_hr, hr_zone_floors)
     happened = execution.get("happened") is True
 

@@ -11,8 +11,9 @@ import re
 from datetime import date, timedelta
 
 from services.activity_matching import find_activity_for_workout
+from services.training_specs import is_long_race
 from services.week_decision import (
-    CAUSE_LABELS, DECISION_LABELS, FATIGUE_CAUSES, WEEK_LIMIT, _hrv_low, _race_days, _taper_phrase, decide_week,
+    FATIGUE_CAUSES, LIGHT_DECISIONS, WEEK_LIMIT, _hrv_low, _race_days, cause_label, decide_week,
     decision_reason, earlier_week, easy_run_limit, long_run_limit, week_cap, week_reference,
 )
 
@@ -197,8 +198,8 @@ def _level_stats(runs, monday: date, until: date):
     return rpw * 4 / weeks, km * 4 / weeks, longest
 
 
-def _level_rule(months, runs_per_week, km_per_week, longest, short_history) -> str:
-    """Poziom z jednego okna 28 dni — progi bez zmian od wersji 0.8.0."""
+def _level_rule(months, runs_per_week, km_per_week, longest, short_history, goal: str | None = None) -> str:
+    """Poziom z jednego okna 28 dni."""
     # Długość biegów mówi o stażu tylko wtedy, gdy biegacz go nie podał: przy pół roku i dłużej
     # krótkie biegi pod 5 km to wybór, a nie brak przygotowania.
     short_run = EXPERIENCED_SHORT_RUN_MIN if months is not None and months >= 6 else 45
@@ -206,7 +207,11 @@ def _level_rule(months, runs_per_week, km_per_week, longest, short_history) -> s
         return "poczatkujacy" if months < 6 else "regularny"
     if (months is not None and months < 6) or runs_per_week < 2 or (longest or 0) < short_run:
         return "poczatkujacy"
-    if (months is None or months >= 24) and runs_per_week >= 4 and ((longest or 0) >= 90 or km_per_week >= 40):
+    if (months is None or months >= 24) and runs_per_week >= 4 and (
+        km_per_week >= 40
+        or ((longest or 0) >= 90 and km_per_week >= 35)
+        or (goal == "5k" and runs_per_week >= 5 and km_per_week >= 30)
+    ):
         return "zaawansowany"
     return "regularny"
 
@@ -257,6 +262,7 @@ def _level_history(runs, profile, monday: date, today: date):
     run_days = sorted(_run_day(a) for a in runs)
     if not run_days:
         return None, None, None
+    goal = goal_distance(profile)
     points, ratings = [], []
     for k in range(LEVEL_HISTORY_WEEKS, -1, -1):  # o tydzień więcej: poziom ustalony tydzień wcześniej
         point = monday - timedelta(days=7 * k)
@@ -264,7 +270,8 @@ def _level_history(runs, profile, monday: date, today: date):
             continue
         rpw, km, longest = _level_stats(runs, point, today if k == 0 else point)
         points.append(point)
-        ratings.append(_level_rule(running_months(profile, point, first_run=run_days[0]), rpw, km, longest, False))
+        ratings.append(_level_rule(running_months(profile, point, first_run=run_days[0]), rpw, km, longest, False,
+                                   goal=goal))
     if not ratings:
         return None, None, None
     level, index, _ = _settle_level(ratings[-LEVEL_HISTORY_WEEKS:])
@@ -322,10 +329,15 @@ def _race_date(target_date) -> date | None:
 def _quality_dose(workout) -> str:
     """„bieg progowy 30 min” albo „odcinki 3 × 8 min (strefa 4)” — rodzaj i dawka ostatniego akcentu."""
     zone = f" (strefa {str(workout.get('hr_zone')).lstrip('Zz')})" if workout.get("hr_zone") else ""
-    if workout.get("type") == "intervals" and workout.get("repetitions") and workout.get("work_seconds"):
-        work = workout["work_seconds"]
-        length = f"{work // 60} min" if work % 60 == 0 else f"{work} s"
-        return f"odcinki {workout['repetitions']} × {length}{zone}"
+    if workout.get("type") == "intervals" and workout.get("repetitions"):
+        if workout.get("work_meters"):
+            meters = int(workout["work_meters"])
+            length = f"{meters // 1000} km" if meters % 1000 == 0 else f"{meters} m"
+            return f"odcinki {workout['repetitions']} × {length}{zone}"
+        if workout.get("work_seconds"):
+            work = workout["work_seconds"]
+            length = f"{work // 60} min" if work % 60 == 0 else f"{work} s"
+            return f"odcinki {workout['repetitions']} × {length}{zone}"
     names = {"tempo": "bieg tempowy", "threshold": "bieg progowy", "intervals": "odcinki"}
     main = (workout.get("duration_min") or 0) - 20
     return f"{names[workout['type']]}" + (f" {main} min" if main > 0 and workout["type"] != "intervals" else "") + zone
@@ -344,7 +356,8 @@ def goal_distance(profile) -> str | None:
 
 
 def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, previous_plan=None,
-                         pain=False, user_request=False, hrv=None, plan_monday: date | None = None) -> dict:
+                         pain=False, user_request=False, hrv=None, plan_monday: date | None = None,
+                         phase_peak_km: float | None = None) -> dict:
     """Profil do promptu i do bezpieczników planu.
 
     ``user_request``: biegacz zostawił trenerowi wiadomość na ten tydzień; limit tygodnia rośnie do WEEK_REQUEST_LIMIT.
@@ -352,13 +365,19 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     ``previous_plan``: plan poprzedniego tygodnia (do policzenia wykonania).
     ``plan_monday``: poniedziałek planowanego tygodnia, gdy plan powstaje wcześniej (np. w niedzielę na kolejny
     tydzień) — od niego liczą się tygodnie historii i dni do startu, żeby taper nie przesunął się o tydzień.
+    ``phase_peak_km``: docelowy zakres tygodnia w bieżącej fazie strategii; gdy biegacz już go osiągnął,
+    tydzień dostaje stabilizację (``at_peak``) zamiast dokładania ponad szczyt fazy.
     """
     profile = profile or {}
     monday = today - timedelta(days=today.weekday())
     if plan_monday is not None and plan_monday > monday:
         monday = plan_monday
     runs = _runs(activities)
-    window = [a for a in runs if monday - timedelta(days=WINDOW_DAYS) <= _run_day(a) < monday]
+    race_day = _race_date(profile.get("target_date"))
+    goal = goal_distance(profile)
+    exclude_long_race = race_day is not None and race_day < monday and is_long_race(goal)
+    window = [a for a in runs if monday - timedelta(days=WINDOW_DAYS) <= _run_day(a) < monday
+              and not (exclude_long_race and _run_day(a) == race_day)]
     weeks = {}  # 0 = ostatni pełny tydzień, 3 = najstarszy
     for activity in window:
         key = (monday - _run_day(activity)).days // 7
@@ -368,7 +387,6 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         week["minutes"] += _number(activity.get("duration_min")) or 0
     # Najdłuższy bieg z 28 dni do dziś (z bieżącym tygodniem): ta sama liczba trafia do promptu i do bezpieczników.
     runs_per_week, km_per_week, longest = _window_stats(runs, monday, today)
-    race_day = _race_date(profile.get("target_date"))
     if race_day is not None and race_day < monday:
         # Sam start nie jest „najdłuższym niedawnym biegiem”: po maratonie długi bieg nie rośnie od 3,5 h zawodów.
         longest = _window_stats([a for a in runs if _run_day(a) != race_day], monday, today)[2]
@@ -379,7 +397,7 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     since = profile.get("running_since")
     level_rpw, level_km, level_longest = _level_stats(runs, monday, today)
     level_now = _level_rule(running_months(profile, today, first_run=run_days[0] if run_days else today),
-                            level_rpw, level_km, level_longest, short_history)
+                            level_rpw, level_km, level_longest, short_history, goal=goal)
     level_auto, level_since, level_changed = _level_history(runs, profile, monday, today)
     if level_auto is None:
         level_auto = level_now
@@ -417,10 +435,11 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     hr_too_high = len(with_hr) >= 2 and too_hard * 2 >= len(with_hr)
     week_minutes = [weeks.get(key, {}).get("minutes", 0.0) for key in (3, 2, 1, 0)]
     hrv_low, hrv_values = _hrv_low(hrv, today)
+    at_volume_peak = bool(phase_peak_km and km_per_week >= phase_peak_km)
     week = decide_week(
         pain=pain, rhr_up=rhr_up, struggling=struggling, hrv_low=hrv_low, adherence=adherence, returning=returning,
         hr_too_high=hr_too_high, short_history=short_history, week_minutes=week_minutes,
-        race_days=_race_days(profile.get("target_date"), monday), goal=goal_distance(profile))
+        race_days=_race_days(profile.get("target_date"), monday), goal=goal, at_volume_peak=at_volume_peak)
     decision, cause, taper_factor, taper = week.decision, week.cause, week.taper_factor, week.taper
 
     weight, height = _number(profile.get("weight_kg")), _number(profile.get("height_cm"))
@@ -442,10 +461,11 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
     if comeback:
         decision, cause = "odbuduj", "comeback"
     if short_history:
-        # Nowy zegarek: limit z tygodni, które już są w danych, bez dokładania, aż historia obejmie 3 tygodnie.
+        # Nowy zegarek: limit z tygodni, które już są w danych, bez dokładania (a przy bólu/zmęczeniu z lekkim limitem).
         known = [minutes for minutes in week_minutes if minutes]
         if known:
-            cap = round(max(known) * WEEK_LIMIT["utrzymaj"])
+            factor = WEEK_LIMIT[decision] if decision in LIGHT_DECISIONS else WEEK_LIMIT["utrzymaj"]
+            cap = round(max(known) * factor)
             if decision in ("doloz", "odbuduj"):
                 decision, cause = "utrzymaj", "short_history"
     if cap and taper_factor is not None and week_reference(week_minutes):
@@ -574,9 +594,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
         lines.append(f"- zdrowie (opis biegacza): {runner['health_notes']}")
     if not weekly:
         return lines
-    label = (CAUSE_LABELS.get(runner.get("decision_cause")) or DECISION_LABELS[runner["decision"]]).format(
-        taper=_taper_phrase(runner))
-    lines.append(f"- DECYZJA TYGODNIA: {label}")
+    lines.append(f"- DECYZJA TYGODNIA: {cause_label(runner)}")
     lines.append(f"- powód decyzji (napisz go biegaczowi jednym zdaniem w `summary`): {decision_reason(runner)}")
     limits = []
     if runner["longest_min"]:

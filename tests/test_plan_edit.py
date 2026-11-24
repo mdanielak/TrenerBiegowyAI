@@ -110,3 +110,18 @@ def test_page_offers_the_changes_and_the_form_applies_them(tmp_path, plans_dir):
             "action": "resize", "minutes": "70"})
     assert response.status_code == 303 and response.headers["location"] == f"/plan?week={WEEK}"
     assert _day("2026-10-03")["duration_min"] == 70
+
+
+def test_moving_quality_workout_to_shorter_day_clips_and_syncs_intervals(tmp_path, monkeypatch):
+    from trainer.preferences import set_weekly_availability
+    monkeypatch.setattr("services.plan_files.TRAINING_PLANS_DIR", tmp_path / "plans")
+    plan = _future_plan()
+    plan["workouts"][5].update(
+        type="intervals", name="Odcinki 5 × 3 min", duration_min=45, hr_zone="Z4",
+        repetitions=5, work_seconds=180, rest_seconds=120,
+    )
+    plan_service.save_plan(plan)
+    set_weekly_availability("sun", True, 20, 40)
+    edit_plan_workout(week_start=WEEK, day="2026-10-03", action="move", target="2026-10-04", today=TODAY)
+    sunday = _day("2026-10-04")
+    assert sunday["type"] == "intervals" and sunday["duration_min"] == 40 and sunday["repetitions"] == 4

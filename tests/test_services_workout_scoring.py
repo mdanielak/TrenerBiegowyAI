@@ -125,3 +125,17 @@ def test_score_uses_calculated_easy_run_zoned_duration():
     result = score(planned=planned, execution={"happened": True, "duration_min": 45, "avg_hr": 130})
     assert result["odchylenie_czasu_proc"] == 0
     assert result["pewnosc"] == "wysoka"
+
+
+def test_planned_duration_for_run_walk():
+    spec = {"kind": "run_walk", "warmup_min": 5, "cooldown_min": 1, "repeats": 6, "run_sec": 180, "walk_sec": 60}
+    assert planned_duration_min(spec) == 29
+
+
+def test_threshold_intervals_are_not_penalized_for_low_average_hr():
+    planned = {"spec": {"kind": "threshold_intervals", "zone_number": 4, "warmup_min": 10, "cooldown_min": 10,
+                        "num_intervals": 5, "work_sec": 180, "rest_sec": 120}}
+    low_avg = score(planned=planned, execution={"happened": True, "duration_min": 43, "avg_hr": 135})
+    assert low_avg["odchylenie_tetna_bpm"] is None and low_avg["zgodnosc_z_planem"] == 10
+    too_high = score(planned=planned, execution={"happened": True, "duration_min": 43, "avg_hr": 180})
+    assert too_high["odchylenie_tetna_bpm"] == 8 and too_high["zgodnosc_z_planem"] < 10

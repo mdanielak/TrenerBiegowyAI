@@ -33,6 +33,7 @@ _DATE_RANGE = re.compile(
 _LONG = re.compile(r"long(?:\s+maks\.)?\s+(?:ok\.\s+)?(\d+)(?:\s*-\s*(\d+))?\s*km")
 _KM = re.compile(r"(\d+)(?:\s*-\s*(\d+))?\s*km")
 _LONG_TARGET = re.compile(r"long run\w*\s+(?:ok\.\s+)?(\d+)(?:\s*-\s*(\d+))?\s*km")
+_TEST_5K = re.compile(r"sprawdzian 5 km[^0-9]*(\d+):(\d{2})\s*-\s*(\d+):(\d{2})")
 _TEST_10K = re.compile(r"test 10 km[^0-9]*(\d+):(\d{2})\s*-\s*(\d+):(\d{2})")
 _RUNS_PER_WEEK = re.compile(r"(\d)\s*-\s*(\d)\s*biegami/tydz")
 
@@ -53,6 +54,7 @@ class Strategy:
     long_run_target: tuple[int, int] | None
     test_10k_seconds: tuple[int, int] | None
     runs_per_week: tuple[int, int] | None
+    test_5k_seconds: tuple[int, int] | None = None
 
     def phase_for(self, day: date) -> Phase | None:
         return next((phase for phase in self.phases if phase.start <= day <= phase.end), None)
@@ -101,6 +103,7 @@ def parse_strategy(text: str) -> Strategy:
             phases.append(phase)
 
     criteria = _section(text, "Kryteria gotowości").replace("*", "")
+    test_5k = _TEST_5K.search(criteria)
     test = _TEST_10K.search(criteria)
     return Strategy(
         title=title_match.group(1).strip() if title_match else "",
@@ -109,6 +112,8 @@ def parse_strategy(text: str) -> Strategy:
         test_10k_seconds=((int(test.group(1)) * 60 + int(test.group(2)),
                            int(test.group(3)) * 60 + int(test.group(4))) if test else None),
         runs_per_week=_range(_RUNS_PER_WEEK.search(text)),
+        test_5k_seconds=((int(test_5k.group(1)) * 60 + int(test_5k.group(2)),
+                          int(test_5k.group(3)) * 60 + int(test_5k.group(4))) if test_5k else None),
     )
 
 
@@ -134,7 +139,8 @@ def strategy_from_json(text: str) -> Strategy:
         return Strategy(title=str(data.get("title") or ""), phases=phases,
                         long_run_target=_pair(data.get("long_run_target")),
                         test_10k_seconds=_pair(data.get("test_10k_seconds")),
-                        runs_per_week=_pair(data.get("runs_per_week")))
+                        runs_per_week=_pair(data.get("runs_per_week")),
+                        test_5k_seconds=_pair(data.get("test_5k_seconds")))
     except (KeyError, TypeError) as error:
         raise ValueError("Uszkodzony plik struktury strategii") from error
 

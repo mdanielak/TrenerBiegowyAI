@@ -7,31 +7,6 @@ class WorkoutComment(BaseModel):
     komentarz: str
 
 
-WORKOUT_COMMENT_SYSTEM_PROMPT = '''Jesteś spokojnym, rzeczowym trenerem biegowym. Piszesz po polsku do osoby,
-która nie zna się na technikaliach i chce wiedzieć, co dalej.
-
-ZASADY BEZWZGLĘDNE
-1. Napisz od 4 do 6 zdań, jednym spójnym akapitem, w tej kolejności:
-   - co się stało na treningu, oparte na liczbach (czas, dystans, tętno, strefa);
-   - jak to wypadło wobec planu i docelowej strefy;
-   - jak to się ma do formy tego dnia (gotowość, sen, HRV, tętno spoczynkowe), jeśli te dane są podane;
-   - co z tego wynika na najbliższe dni i jedna konkretna wskazówka.
-2. Łącznie od 70 do 120 słów. Nie wypełniaj miejsca ogólnikami: każde zdanie ma wnosić coś z danych.
-3. Zwróć wyłącznie obiekt JSON z jednym polem tekstowym "komentarz", dokładnie w tej postaci:
-   {"komentarz": "Pierwsze zdanie. Drugie zdanie. Trzecie zdanie. Czwarte zdanie."}
-   Bez Markdown, bez bloku kodu, bez innych pól.
-4. Używaj tylko liczb podanych w danych wejściowych. Nie wymyślaj wartości
-   i nie zaokrąglaj inaczej, niż podano.
-5. Jeśli jakiejś danej brakuje, nie wspominaj o niej. Wyjątkiem jest brak
-   informacji o samym wykonaniu treningu.
-6. Nie podawaj ocen punktowych cyfrą. Możesz odnieść się do nich słowem.
-7. Nie diagnozuj medycznie. Nie sugeruj chorób ani kontuzji. Przy wzmiance
-   o bólu napisz jedynie, żeby skonsultować się ze specjalistą.
-8. Bez wykrzykników, bez emoji, bez pochwał na siłę, bez haseł motywacyjnych.
-9. Nie zaczynaj od słów "Dzisiejszy trening" ani "Twój trening".
-10. Bez angielskich kodów z danych (LOW, UNBALANCED, RHR, score).'''
-
-
 def _value(value):
     if value is None or value == "None-None":
         return "brak"
@@ -66,6 +41,11 @@ def build_comment_message(*, planned, execution, score, readiness, hr_zones_text
     happened = "tak" if execution.get("happened") is True else "nie"
     hrv = _value(readiness.get("hrv_last"))
     baseline = _value(readiness.get("hrv_baseline"))
+    hr_note = (
+        "srednie tetno obejmuje rozgrzewke, przerwy i schlodzenie — w interwalach naturalnie jest nizsze niz strefa odcinkow"
+        if spec.get("kind") == "threshold_intervals"
+        else "srednie tetno obejmuje takze rozgrzewke, dlatego dolna granica docelowego zakresu jest obnizona o 8 bpm przy liczeniu odchylenia"
+    )
     return runner + f'''ZAPLANOWANY TRENING
 - nazwa: {_value(planned.get("name"))}
 - zaplanowany czas: {_with_unit(spec.get("duration_min"), "min")}
@@ -83,8 +63,7 @@ WYKONANIE
 ROZNICE POLICZONE LOKALNIE
 - odchylenie_czasu_proc: {_value(score.get("odchylenie_czasu_proc"))}
 - odchylenie_tetna_bpm: {_value(score.get("odchylenie_tetna_bpm"))}
-- uwaga: srednie tetno obejmuje takze rozgrzewke, dlatego dolna granica
-  docelowego zakresu jest obnizona o 8 bpm przy liczeniu odchylenia
+- uwaga: {hr_note}
 
 OCENY POLICZONE LOKALNIE
 - zgodnosc_z_planem: {_value(score.get("zgodnosc_z_planem"))} z 10
@@ -103,11 +82,10 @@ STREFY TETNA BIEGACZA
 
 
 def get_workout_comment(provider, *, planned, execution, score, readiness, hr_zones_text,
-                        runner="", address_form=None) -> WorkoutComment:
+                        runner="", address_form=None, runner_profile=None) -> WorkoutComment:
     from ai.prompts import coach_prompt
     message = build_comment_message(planned=planned, execution=execution, score=score,
                                     readiness=readiness, hr_zones_text=hr_zones_text, runner=runner)
-    # Zasady trenera i forma zwracania się, a na końcu ścisłe zasady formatu komentarza (te wygrywają).
-    system = coach_prompt(mode="trening", address_form=address_form) + "\n\n" + WORKOUT_COMMENT_SYSTEM_PROMPT
+    system = coach_prompt(runner_profile, mode="trening", address_form=address_form)
     return provider.chat(system, message, response_model=WorkoutComment,
                          temperature=0.0, seed=7)

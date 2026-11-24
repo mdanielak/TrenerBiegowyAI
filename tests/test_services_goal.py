@@ -102,3 +102,20 @@ def test_required_pace_uses_the_goal_distance(race, time, pace, label):
     report = build_goal_report(snapshot=snapshot, strategy=parse_strategy(SAMPLE), today=TODAY,
                                profile={**PROFILE, "target_race": race, "target_time": time})
     assert (report.target_pace, report.distance_label) == (pace, label)
+
+
+def test_5k_test_criterion_is_evaluated_from_recent_runs():
+    from services.strategy import Phase, Strategy
+    strategy = Strategy(
+        title="5 km 21:00",
+        phases=(Phase("Budowanie", date(2026, 10, 1), date(2026, 11, 30), (30, 40), (10, 12)),),
+        long_run_target=(10, 12),
+        test_10k_seconds=None,
+        runs_per_week=(3, 4),
+        test_5k_seconds=(21 * 60, 21 * 60 + 38),
+    )
+    snapshot = SnapshotReadResult(status=SnapshotStatus.FRESH, data={"activities": [_run("2026-10-25", 5.0, 21.3)]})
+    report = build_goal_report(snapshot=snapshot, strategy=strategy, today=TODAY,
+                               profile={"target_distance": "5k", "target_date": "2026-11-30", "target_time": "21:00"})
+    criteria = {c.label: c for c in report.criteria}
+    assert criteria["Sprawdzian 5 km"].met is True and "21:18" in criteria["Sprawdzian 5 km"].actual

@@ -185,3 +185,45 @@ def test_the_long_run_never_exceeds_half_the_week_and_a_marathoner_can_grow_to_t
         "running_since": "over24", "target_distance": "marathon", "target_date": "2027-06-20",
         "training_frequency": "6 treningów"})
     assert structured.phases[-2].long_km[1] >= 32  # dochodzi do celu dla poziomu, nie stoi na obecnych 30 km
+
+
+def test_beginner_5k_starts_from_real_long_run_without_5km_floor():
+    beginner_5k = _weekly([(1, 20), (3, 20), (6, 20)], 8.0, weeks=6)  # ~2,5 km na bieg
+    _, structured = build_strategy(activities=beginner_5k, today=TODAY, profile={
+        "running_since": "under6", "target_distance": "5k", "target_date": "2027-02-28", "training_frequency": "3 treningi"})
+    assert structured.phases[0].long_km[0] < 5
+
+
+def test_slow_marathoner_strategy_respects_three_hour_long_run_ceiling():
+    slow_marathoner = _weekly([(1, 45), (2, 45), (4, 45), (6, 120)], 7.5, weeks=10)  # 7:30/km -> 3 h = 24 km
+    text, structured = build_strategy(activities=slow_marathoner, today=TODAY, profile={
+        "running_since": "over24", "target_distance": "marathon", "target_date": "2027-08-15",
+        "training_frequency": "4 treningi"})
+    assert structured.phases[-2].long_km[1] <= 24
+    assert "3 godziny" in text
+
+
+def test_marathon_4h_riegel_gives_realistic_10k_test():
+    marathoner = _weekly([(0, 50), (1, 70), (2, 60), (3, 75), (4, 50), (6, 150)], 5.2)
+    _, structured = build_strategy(activities=marathoner, today=TODAY, profile={
+        "running_since": "over24", "target_distance": "marathon", "target_date": "2027-06-20",
+        "target_time": "4:00:00", "training_frequency": "6 treningów"})
+    assert structured.test_10k_seconds[1] < 50 * 60 + 30
+
+
+def test_ambitious_5k_and_10k_generate_5k_check_criterion_and_28w_beginner_hm_works():
+    regular_5k = _weekly([(1, 40), (3, 45), (5, 35), (6, 60)], 5.0, weeks=8)
+    text_5k, s_5k = build_strategy(activities=regular_5k, today=TODAY, profile={
+        "running_since": "6to24", "target_distance": "5k", "target_date": "2027-03-15",
+        "target_time": "21:00", "training_frequency": "4 treningi"})
+    assert s_5k.test_5k_seconds is not None and s_5k == parse_strategy(text_5k)
+    text_10k, s_10k = build_strategy(activities=regular_5k, today=TODAY, profile={
+        "running_since": "6to24", "target_distance": "10k", "target_date": "2027-04-15",
+        "target_time": "44:00", "training_frequency": "4 treningi"})
+    assert s_10k.test_5k_seconds is not None and s_10k == parse_strategy(text_10k)
+
+    beginner_hm = _weekly([(1, 35), (3, 35), (6, 45)], 7.0, weeks=6)  # ~16 km/tydz., long 6,4 km
+    text_hm, s_hm = build_strategy(activities=beginner_hm, today=TODAY, profile={
+        "running_since": "under6", "target_distance": "hm", "target_date": "2027-06-20",
+        "training_frequency": "3 treningi"})
+    assert s_hm.phases[-2].long_km[1] >= 16 and "Uwaga na termin" not in text_hm

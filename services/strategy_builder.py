@@ -11,33 +11,18 @@ from pathlib import Path
 
 from services import strategy as strategy_service
 from services.runner_profile import WINDOW_DAYS, _number, _run_day, _runs, goal_distance, short_pause_days
+from services.training_specs import spec_for
 from trainer.files import write_atomic
 
-# dystans: (km, nazwa, szczytowy tydzień km, docelowy długi bieg km, tygodnie odpoczynku przed startem)
-# Szczyt dla poziomu „regularny”; dla innych poziomów nadpisuje go _PEAKS.
-_DISTANCES = {
-    "5k": (5.0, "5 km", 30, 12, 1),
-    "10k": (10.0, "10 km", 36, 16, 2),  # taper 2 tygodnie, jak TAPER_WEEKS w services/week_decision.py
-    "hm": (21.0975, "półmaraton", 42, 20, 2),
-    "marathon": (42.195, "maraton", 56, 32, 3),
-}
-# (szczytowy tydzień km, docelowy długi bieg km) zależnie od poziomu: osoba zaczynająca przed pierwszym 5 km
-# nie potrzebuje 30 km tygodniowo ani 12 km długiego biegu; zaawansowany maratończyk potrzebuje więcej.
-_PEAKS = {
-    "5k": {"poczatkujacy": (20, 6), "zaawansowany": (45, 14)},
-    "10k": {"poczatkujacy": (25, 10), "zaawansowany": (55, 18)},
-    "hm": {"poczatkujacy": (32, 16), "zaawansowany": (60, 24)},
-    "marathon": {"poczatkujacy": (45, 28), "zaawansowany": (80, 34)},
-}
 MIN_WEEKS = 4
 # Średni wzrost tygodnia w strategii: „dołóż” +5–10% i co czwarty tydzień cofnięcia dają w praktyce ok. 3%
 # tygodniowo (ok. 12–15% w miesiącu) — tyle, ile pozwolą decyzje tygodnia w aplikacji.
 _WEEKLY_GROWTH = 1.03
+# Przy małej objętości początkujących (10–15 km/tydz.) +3% to zaledwie ~300 m; realnie bezpieczny krok to min. 0,8 km/tydz.
+_WEEKLY_MIN_STEP_KM = 0.8
 # Długi bieg rośnie w praktyce szybciej niż cały tydzień (+10% albo +5 min na tydzień, z tygodniami cofnięcia):
 # średnio ok. 5% tygodniowo.
 _LONG_GROWTH = 1.05
-# Najkrótszy długi bieg, który zwykle wystarcza przed startem na danym dystansie (km); mniej — mówimy to wprost.
-_MIN_LONG_BEFORE_RACE = {"5k": 5, "10k": 10, "hm": 16, "marathon": 28}
 _DEFAULT_START_KM = 15
 _PHASES = (
     ("Baza", "łatwa objętość i przebieżki; kilka tygodni bez bólu i z {runs} biegami/tydz."),
@@ -46,24 +31,29 @@ _PHASES = (
 )
 # Co dzieje się w fazach budowania i startowej zależy od poziomu (te same zasady co limit akcentów w aplikacji).
 _LEVEL_HINTS = {
-    "poczatkujacy": ("bez mocnych akcentów: przebieżki i luźny fartlek; akcent dopiero, gdy aplikacja uzna "
-                     "poziom regularny", "spokojne biegi i przebieżki, oswojenie z dystansem startu"),
+    "poczatkujacy": ("bez mocnych akcentów: spokojne biegi i opcjonalnie luźne przebieżki; akcent dopiero, gdy "
+                     "aplikacja uzna poziom regularny", "spokojne biegi i przebieżki, oswojenie z dystansem startu"),
     "regularny": ("jeden akcent w tygodniu: odcinki progowe kontrolowane tętnem",
                   "odcinki w tempie startowym, zawsze jeden główny akcent"),
-    "zaawansowany": ("jeden główny akcent (odcinki progowe); przy dwóch w ustawieniach drugi lekki bodziec",
-                     "odcinki w tempie startowym jako główny akcent; drugi bodziec tylko lekki"),
+    "zaawansowany": ("jeden główny akcent (odcinki progowe); przy dwóch w ustawieniach i dobrej regeneracji "
+                     "drugi akcent dobrany do dystansu",
+                     "odcinki w tempie startowym jako główny akcent; przy dwóch w ustawieniach drugi bodziec "
+                     "dobrany do fazy"),
 }
 _TAPER = ("Szczyt formy i odpoczynek przed startem", "krótkie utrzymanie tempa startowego")
 
 
-def _weekly_volume(week: float, start_km: float, peak: int, growth: float | None = None) -> int:
+def _weekly_volume(week: float, start_km: float, peak: int, growth: float | None = None,
+                   min_step: float = 0.0) -> int:
     """Objętość tygodnia po danej liczbie tygodni: krzywa wzrostu, ograniczona szczytem.
 
     Faza dostaje tę objętość, do której biegacz dochodzi w swoim tempie, a nie co trzecią
     część różnicy między startem a szczytem. Dzięki temu pierwsza faza zaczyna się tam,
     gdzie biegacz jest dziś, zamiast skakać o kilkanaście kilometrów.
     """
-    return min(peak, round(start_km * (growth or _WEEKLY_GROWTH) ** max(week, 0)))
+    w = max(week, 0)
+    grown = max(start_km * (growth or _WEEKLY_GROWTH) ** w, start_km + min_step * w)
+    return min(peak, round(grown))
 
 
 _MONTHS = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
@@ -76,7 +66,7 @@ def _long_share_cap(week_km, share, needed) -> int:
     cap = round(week_km * share)
     if needed:
         cap = max(cap, min(needed, int(week_km * 0.5)))  # połowa tygodnia w dół: nigdy ponad limit kodu
-    return max(cap, 6)
+    return max(cap, 3)
 
 
 def _km_range(low, high) -> str:
@@ -96,7 +86,7 @@ def _monthly_steps(monday: date, until: date, start_km: float, peak: int) -> str
     """Zwykły tydzień na początku kolejnych miesięcy, aż objętość dojdzie do szczytu; pusty, gdy nie ma czego rozpisać."""
     steps, day = [], date(monday.year + monday.month // 12, monday.month % 12 + 1, 1)
     while day < until:
-        km = _weekly_volume((day - monday).days / 7, start_km, peak)
+        km = _weekly_volume((day - monday).days / 7, start_km, peak, min_step=_WEEKLY_MIN_STEP_KM)
         steps.append(f"{_MONTHS[day.month - 1]} ok. {km} km")
         if km >= peak:
             break
@@ -163,15 +153,16 @@ def build_strategy(*, profile: dict, activities, today: date):
     from services.strategy import Phase, Strategy
 
     profile = profile or {}
-    distance = _DISTANCES.get(goal_distance(profile))
-    if distance is None:
+    goal_key = goal_distance(profile)
+    spec = spec_for(goal_key)
+    if spec is None:
         raise ValueError("Fazy przygotowań układam dla 5 km, 10 km, półmaratonu i maratonu. "
                          "Przy innym celu plan tygodnia działa bez strategii.")
-    kilometres, label, peak_target, long_target, taper_weeks = distance
-    from services.runner_profile import build_runner_profile, goal_distance as _goal
+    kilometres, label, taper_weeks = spec.km, spec.label, len(spec.taper_weeks)
+    from services.runner_profile import build_runner_profile
 
     level = build_runner_profile(activities=activities, profile=profile, today=today)["level"]
-    peak_target, long_target = _PEAKS.get(_goal(profile), {}).get(level, (peak_target, long_target))
+    peak_target, long_target = spec.peaks_by_level.get(level, spec.peaks_by_level["regularny"])
     build_hint, specific_hint = _LEVEL_HINTS[level]
     run_pace = recent_pace(activities, today)
     try:
@@ -195,31 +186,39 @@ def build_strategy(*, profile: dict, activities, today: date):
 
     weekly_km, longest_km = recent_volume(activities, today)
     start_km = max(round(weekly_km), 8) if weekly_km else _DEFAULT_START_KM
-    peak = max(start_km, min(peak_target, round(start_km * _WEEKLY_GROWTH ** max(weeks, 1))))
-    long_start = max(round(longest_km), 5) if longest_km else max(round(start_km * 0.3), 5)
+    if goal_key == "marathon" and level == "zaawansowany" and start_km >= peak_target:
+        peak_target = min(110, round(start_km * 1.15))
+    peak = max(start_km, min(peak_target, _weekly_volume(max(weeks, 1), start_km, peak_target,
+                                                         min_step=_WEEKLY_MIN_STEP_KM)))
+    long_start = max(round(longest_km), 2) if longest_km else max(round(start_km * 0.3), 4)
     frequency = next((int(ch) for ch in str(profile.get("training_frequency") or "") if ch.isdigit()), 4)
     runs = f"{max(frequency - 1, 1)}-{frequency}"
 
+    max_long_min = spec.max_long_min_by_level.get(level)
+    time_cap_km = max(round(max_long_min / run_pace), 8) if (max_long_min and run_pace) else None
+    if time_cap_km:
+        long_target = min(long_target, time_cap_km)
+
     # Udział długiego biegu w tygodniu jak w prompcie (core/04): zależny od liczby biegów.
     long_share = 0.3 if frequency >= 5 else 0.35 if frequency == 4 else 0.45
-    needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
-    # Maraton: długi bieg ma prawo dojść do celu dla poziomu (_PEAKS), nie tylko do minimum — inaczej strategia
-    # stała w miejscu, a limit planu tygodnia pozwalał rosnąć dalej.
-    long_goal = max(needed or 0, long_target) if _goal(profile) == "marathon" else needed
-    rows, phases, long_range = [], [], (long_start, long_start + 2)
+    needed = spec.min_long_km
+    # Maraton: długi bieg ma prawo dojść do celu dla poziomu, nie tylko do minimum — inaczej strategia stała w miejscu.
+    long_goal = max(needed or 0, long_target) if goal_key == "marathon" else needed
+    if time_cap_km and long_goal:
+        long_goal = min(long_goal, time_cap_km)
+    rows, phases, long_range = [], [], (long_start, max(long_start, 3))
     for name, hint, start, end in stages:
-        # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
-        # więc długa faza bazy zaczynała się „od szczytu”, choć biegacz jest dziś daleko niżej.
+        # Zakres fazy: od objętości na jej początku do objętości na końcu.
         first, last = (start - monday).days / 7, (end - monday).days / 7
-        low, top = _weekly_volume(first, start_km, peak), _weekly_volume(last, start_km, peak)
+        low = _weekly_volume(first, start_km, peak, min_step=_WEEKLY_MIN_STEP_KM)
+        top = _weekly_volume(last, start_km, peak, min_step=_WEEKLY_MIN_STEP_KM)
         long_cap = max(long_target, long_start)
         # Udział w tygodniu ogranicza wzrost długiego biegu, ale nigdy nie skraca go poniżej tego, co osoba już biega.
-        # Gdy dystans wymaga dłuższego biegu, udział może dojść do połowy tygodnia (twardy limit kodu).
         long_low = max(long_start, min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH),
                                        _long_share_cap(low, long_share, long_goal)))
         long_top = max(long_start, min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH),
                                        _long_share_cap(top, long_share, long_goal)))
-        long_range = (max(long_low, 4), max(long_top, 6))
+        long_range = (max(long_low, 2), max(long_top, long_low))
         # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
         longs = (f"long {long_range[0]}-{long_range[1]} km" if long_range[1] > long_range[0]
@@ -228,13 +227,17 @@ def build_strategy(*, profile: dict, activities, today: date):
         hint = hint.format(runs=runs, build=build_hint, specific=specific_hint)
         rows.append(f"| {name} | {_span(start, end)} | {volume}{_minutes_note(low, top, run_pace)}, "
                     f"{longs}{_minutes_note(long_range[0], long_range[1], run_pace)} | {hint} |")
-    # Taper: długi bieg o ok. 20–40% krótszy (procentowo, nie o stałe km — przy krótkich długich biegach to była połowa).
-    low_share, high_share = (0.5, 0.6) if _goal(profile) in ("5k", "10k") else (0.6, 0.8)
-    taper_long = (max(round(long_range[1] * low_share), 4), max(round(long_range[1] * high_share), 5))
+    # Taper: długi bieg o ok. 20–40% krótszy.
+    low_share, high_share = (0.5, 0.6) if spec.category == "short" else (0.6, 0.8)
+    taper_long = (max(round(long_range[1] * low_share), 3), max(round(long_range[1] * high_share), 4))
     steps = _monthly_steps(monday, taper_start, start_km, peak)
-    reachable = long_range[1]  # najdłuższy bieg przed taperem: wzrost, udział w tygodniu, nie krócej niż dziś
+    reachable = long_range[1]
     realism = ""
-    if needed and reachable < needed:
+    if time_cap_km and goal_key == "marathon" and time_cap_km < spec.min_long_km:
+        realism = (f"**Uwaga na czas długiego biegu:** przy Twoim obecnym tempie 3 godziny to ok. {time_cap_km} km. "
+                   "Nie wydłużaj pojedynczego biegu ponad 3 godziny (ryzyko przeciążeń gwałtownie rośnie); "
+                   "buduj wytrzymałość przez regularne spokojne biegi w tygodniu i rozważ spokojne ukończenie lub marszobieg.")
+    elif needed and reachable < needed:
         minutes = _minutes_note(reachable, reachable, run_pace).strip()
         realism = (f"**Uwaga na termin:** przy bezpiecznym tempie budowania najdłuższy bieg dojdzie do ok. {reachable} km"
                    f"{' ' + minutes if minutes else ''}, a przed tym dystansem zwykle potrzeba ok. {needed} km. "
@@ -249,14 +252,25 @@ def build_strategy(*, profile: dict, activities, today: date):
     target_seconds = _seconds(target)
     title = " ".join(part for part in (label.capitalize(), target) if part) + f" — {race.year}"
     pace = f" (~{_clock(target_seconds / kilometres)}/km)" if target_seconds else ""
-    test, test_seconds = "", None
-    if target_seconds and kilometres > 10:
-        # Wzór Riegla: czas rośnie z dystansem do potęgi 1,06.
-        ten = target_seconds * (10 / kilometres) ** 1.06
+    test, test_seconds, test_5k_seconds = "", None, None
+    if target_seconds and goal_key in ("hm", "marathon"):
+        # Vickers & Vertosick (2016): klasyczny wykładnik 1,06 zawyża tempo maratonu u wolniejszych amatorów.
+        exp = (1.06 if goal_key == "hm" or target_seconds <= 11700
+               else 1.08 if target_seconds <= 14399 else 1.10)
+        ten = target_seconds * (10 / kilometres) ** exp
         test = f" Potwierdzeniem powinien być test 10 km około **{_clock(ten - 30)}-{_clock(ten + 30)}**."
         test_seconds = (_seconds(_clock(ten - 30)), _seconds(_clock(ten + 30)))
+    elif target_seconds and goal_key == "10k":
+        five = target_seconds * (5 / 10) ** 1.06
+        low_5k, high_5k = _clock(five - 15), _clock(five + 15)
+        test = f" Potwierdzeniem powinien być sprawdzian 5 km około **{low_5k}-{high_5k}**."
+        test_5k_seconds = (_seconds(low_5k), _seconds(high_5k))
+    elif target_seconds and goal_key == "5k" and level != "poczatkujacy":
+        low_5k, high_5k = _clock(target_seconds), _clock(max(target_seconds * 1.03, target_seconds + 30))
+        test = f" Potwierdzeniem powinien być sprawdzian 5 km około **{low_5k}-{high_5k}**."
+        test_5k_seconds = (_seconds(low_5k), _seconds(high_5k))
     structured = Strategy(title="", phases=tuple(phases), long_run_target=long_range, test_10k_seconds=test_seconds,
-                          runs_per_week=(max(frequency - 1, 1), frequency))
+                          runs_per_week=(max(frequency - 1, 1), frequency), test_5k_seconds=test_5k_seconds)
     basis = (f"ostatnie 4 tygodnie to średnio {str(round(weekly_km, 1)).replace('.', ',')} km tygodniowo, "
              f"najdłuższy bieg {str(round(longest_km, 1)).replace('.', ',')} km" if weekly_km
              else "zegarek nie ma jeszcze biegów z ostatnich 4 tygodni, więc punkt wyjścia jest ostrożny")
@@ -275,7 +289,8 @@ def build_strategy(*, profile: dict, activities, today: date):
         f"1. **Cel główny:** {label}{' ' + target if target else ''}{pace}, **{race.isoformat()}**.",
         "2. Łatwe, regeneracyjne i długie biegi prowadzimy po tętnie. "
         + ("Bez mocnych akcentów, dopóki aplikacja nie uzna poziomu regularnego." if level == "poczatkujacy"
-           else "Jeden główny akcent tygodniowo; przy dwóch w ustawieniach drugi tylko lekki (przebieżki, krótkie podbiegi)."
+           else "Jeden główny akcent tygodniowo; przy dwóch w ustawieniach i dobrej regeneracji drugi akcent przy "
+                "zachowaniu większości spokojnych biegów."
            if level == "zaawansowany" else "Jeden główny akcent tygodniowo."),
         *([f"3. Minuty w nawiasach liczone przy Twoim średnim tempie z ostatnich biegów "
            f"(ok. {_clock(run_pace * 60)}/km); limity tygodnia w aplikacji są w minutach."] if run_pace else []),

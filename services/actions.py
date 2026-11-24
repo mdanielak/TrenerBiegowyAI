@@ -146,7 +146,16 @@ def review_workout(*, review_key, report_provider, profile_loader=None, provider
         raise ValueError(REVIEW_DISABLED_MESSAGE)
 
     from ai.workout_review import get_workout_comment, runner_text
-    from services.runner_profile import address_form
+    from services.runner_profile import address_form, build_runner_profile
+    runner_profile = None
+    try:
+        from datetime import datetime
+        from services.data_extract import SnapshotStatus, read_snapshot_status
+        snap = read_snapshot_status()
+        activities = (snap.data or {}).get("activities") if snap.status is not SnapshotStatus.MISSING else []
+        runner_profile = build_runner_profile(activities=activities, profile=profile, today=datetime.now().date())
+    except Exception:  # noqa: BLE001 - bez snapshotu komentarz nadal działa na samym profilu
+        runner_profile = build_runner_profile(activities=[], profile=profile, today=datetime.now().date())
     if provider_factory is None:
         from ai.openai_compatible import OpenAICompatibleProvider
         provider = OpenAICompatibleProvider(config.AI_BASE_URL, config.AI_API_KEY, config.AI_MODEL)
@@ -162,6 +171,7 @@ def review_workout(*, review_key, report_provider, profile_loader=None, provider
         hr_zones_text=profile.get("hr_zones"),
         runner=runner_text(profile),
         address_form=address_form(profile),
+        runner_profile=runner_profile,
     )
     save(review_key=review_key, score=score, comment=comment.komentarz)
     return {"score": score, "comment": comment.komentarz}
@@ -503,18 +513,19 @@ _LONGEST_RUN_MIN = 240
 
 
 def _fit_day_window(workout, availability) -> None:
-    """Po przeniesieniu: okno dostępności nowego dnia tylko skraca bieg spokojny, nigdy go nie wydłuża."""
-    from services.plan import AEROBIC_KINDS, _append_note
+    """Po przeniesieniu: okno dostępności nowego dnia tylko skraca trening, nigdy go nie wydłuża."""
+    from services.plan import _append_note, _fit_intervals_to_duration
 
     limit = int((availability.get(workout.get("day")) or {}).get("max_minutes") or 0)
     minutes = workout.get("duration_min")
-    if workout.get("type") not in AEROBIC_KINDS or not limit or not minutes or minutes <= limit:
+    if workout.get("type") == "rest" or not limit or not minutes or minutes <= limit:
         return
     if workout.get("distance_km"):
         workout["distance_km"] = round(workout["distance_km"] * limit / minutes, 1)
     workout["name"] = str(workout.get("name") or "").replace(f"{minutes} min", f"{limit} min")
     workout["duration_min"] = limit
     workout["notes"] = _append_note(workout.get("notes"), f"Skrócono do {limit} min (limit dostępności w tym dniu).")
+    _fit_intervals_to_duration(workout)
 
 
 def edit_plan_workout(*, week_start, day, action, target=None, minutes_new=None, workout_deleter=None,
@@ -601,7 +612,7 @@ def edit_plan_workout(*, week_start, day, action, target=None, minutes_new=None,
             floors = None
         minutes = minutes or 30
         before = workout.get("name") or "mocny trening"
-        for key in ("repetitions", "work_seconds", "rest_seconds"):
+        for key in ("repetitions", "work_seconds", "work_meters", "rest_seconds"):
             workout.pop(key, None)
         workout.update(
             type="easy", name=f"Bieg łatwy {minutes} min", duration_min=minutes, distance_km=None, pace_target=None,

@@ -62,3 +62,19 @@ def test_system_prompt_names_the_json_field():
     provider = Provider()
     get_workout_comment(provider, **data())
     assert '{"komentarz":' in provider.system
+
+
+def test_get_workout_comment_passes_runner_profile_modules_and_intervals_note():
+    class Provider:
+        def chat(self, system, message, *args, **kwargs):
+            self.system = system
+            self.message = message
+            return WorkoutComment(komentarz="A. B. C. D.")
+
+    provider = Provider()
+    values = data()
+    values["planned"] = {"name": "Odcinki", "spec": {"kind": "threshold_intervals", "duration_min": 45, "zone_number": 4}}
+    get_workout_comment(provider, **values, runner_profile={"level": "poczatkujacy", "health_notes": "operacja lewej rzepki 2024"})
+    assert "# Zdrowie: przebyty uraz" in provider.system
+    assert "operacja lewej rzepki" not in provider.system  # moduł kontuzji bez prywatnej notatki w system prompcie
+    assert "w interwalach naturalnie jest nizsze" in provider.message

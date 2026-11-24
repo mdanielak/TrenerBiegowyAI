@@ -42,6 +42,7 @@ class PlanWorkout(BaseModel):
     pace_target: str | None = None
     repetitions: int | None = None
     work_seconds: int | None = None
+    work_meters: int | None = None
     rest_seconds: int | None = None
     notes: Text = ""
 
@@ -122,9 +123,10 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    i odcinków od 3 minut. Tętno nie nadąża za odcinkami krótszymi niż ok. 3 minuty: bez tempa z danych planuj
    odcinki od 3 minut w strefie 4, a krótkie szybkie fragmenty opisz jako przebieżki w biegu łatwym.
    Wysiłek opisz oddechem i odczuciem. Akcent bez obu celów aplikacja zamieni na bieg łatwy.
-   Odcinki z przerwami (np. 3 × 8 min z 2 min truchtu) to zawsze kind="intervals" z `repetitions`,
-   `work_seconds` i `rest_seconds`; kind="tempo" i "threshold" to jeden ciągły odcinek.
-5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
+   Odcinki z przerwami (np. 3 × 8 min z 2 min truchtu albo 6 × 400 m z 90 s przerwy) to zawsze kind="intervals"
+   z `repetitions`, `rest_seconds` oraz `work_seconds` (dla czasu) lub `work_meters` (dla dystansu, np. 400 lub 1000);
+   kind="tempo" i "threshold" to jeden ciągły odcinek.
+5. `repetitions`, `rest_seconds` oraz `work_seconds` albo `work_meters` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
    Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR, wliczonymi w `duration_min`:
    w opisie części mają się sumować do całości (np. 85 min = 6 min rozgrzewki + 79 min w strefie 2).
@@ -175,6 +177,7 @@ Zwróć obiekt JSON o dokładnie takich kluczach:
       "pace_target": "M:SS-M:SS albo null (akcent bez podstawy w danych: null i hr_zone 3-5)",
       "repetitions": 5,
       "work_seconds": 180,
+      "work_meters": null,
       "rest_seconds": 90,
       "notes": ""
     }
