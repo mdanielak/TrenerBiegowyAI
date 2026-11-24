@@ -107,7 +107,7 @@
             <text class="chart-axis" x="{{ bar.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
           {% endfor %}
         </svg></div>
-        <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.{% if chart.has_bands %} Zielony pas to zakres kilometrów z fazy strategii.{% endif %}</p>
+        <p class="tile-foot">Podpis pod słupkiem to poniedziałek tygodnia. Jaśniejszy słupek to bieżący, niezakończony tydzień.{% if chart.has_bands %} Zielony pas to zakres kilometrów z fazy strategii{% if chart.band_label %} ({{ chart.band_label }}){% endif %}.{% endif %}</p>
         <details class="chart-data"><summary>Dane wykresu kilometrów</summary>
           <table><caption>Kilometry biegowe w kolejnych tygodniach</caption><thead><tr><th scope="col">Początek tygodnia</th><th scope="col">Dystans</th></tr></thead><tbody>
             {% for bar in chart.bars %}<tr><th scope="row">{{ format_date(bar.date) }}{% if bar.is_current %} (w toku){% endif %}</th><td>{{ bar.km|num }} km</td></tr>{% endfor %}

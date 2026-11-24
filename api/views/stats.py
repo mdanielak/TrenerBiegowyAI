@@ -10,10 +10,10 @@ from services.stats import trend_direction
 _CHART_WIDTH = 760
 # Wykres tygodni zajmuje całą kartę, więc szerszy viewBox trzyma etykiety przy ok. 11 px.
 _WEEKLY_WIDTH = 1060
-_CHART_HEIGHT = 170
+_CHART_HEIGHT = 178
 _PAD_LEFT = 36
 _PAD_RIGHT = 14
-_PAD_TOP = 18
+_PAD_TOP = 26
 _PAD_BOTTOM = 28
 
 _METRIC_META = {
@@ -22,7 +22,7 @@ _METRIC_META = {
                   "hint": "Ocena z nocnych pomiarów, ta sama co na stronie głównej."},
     "rhr": {"label": "Tętno spoczynkowe", "unit": "bpm", "min_span": 10, "asset": "02_health_status/resting_hr.png",
             "hint": "Niższe zwykle oznacza lepszą regenerację."},
-    "hrv": {"label": "HRV ostatniej nocy", "unit": "ms", "min_span": 20, "asset": "02_health_status/hrv.png",
+    "hrv": {"label": "Zmienność tętna (HRV)", "unit": "ms", "min_span": 20, "asset": "02_health_status/hrv.png",
             "hint": "Wyższe zwykle oznacza lepszą regenerację."},
     "sleep": {"label": "Sen — ocena", "unit": "/100", "domain": (0, 100), "min_span": 30, "asset": "02_health_status/sleep.png",
               "hint": "Ocena snu wyliczona przez zegarek."},
@@ -82,6 +82,7 @@ def _weekly_chart(weekly) -> dict | None:
             "label": _short_date(week.monday.isoformat()),
             "is_current": week.is_current,
         })
+    current_band = next((w.phase_km for w in reversed(weekly) if w.phase_km), None)
     return {
         "width": _WEEKLY_WIDTH,
         "height": _CHART_HEIGHT,
@@ -91,6 +92,8 @@ def _weekly_chart(weekly) -> dict | None:
         "grid_end": _WEEKLY_WIDTH - _PAD_RIGHT,
         "bars": bars,
         "has_bands": any(bar["band"] for bar in bars),
+        "band_label": f"cel fazy: {current_band[0]}–{current_band[1]} km/tydz." if current_band else None,
+        "band_label_y": round(y_of(current_band[1]) - 6, 2) if current_band else None,
     }
 
 

@@ -105,8 +105,8 @@
     {% if strategy_notice %}<div class="banner info" role="status">{{ ico.check() }}<div class="banner-body"><p class="banner-title">{{ strategy_notice }}</p></div></div>{% endif %}
     {% if strategy_mismatch %}
       <div class="banner warn" role="status">{{ ico.info() }}<div class="banner-body">
-        <p class="banner-title">Data Twojego celu różni się od końca strategii.</p>
-        <p class="mid">Fazy poniżej nie zostały dopasowane do nowej daty.{% if can_build_strategy %} Możesz ułożyć je od nowa z zapisanego celu i ostatnich biegów — obecna strategia zostanie zachowana jako kopia w folderze <code>training-plans/long-term</code>.{% endif %}</p>
+        <p class="banner-title">{{ strategy_mismatch_title or 'Data Twojego celu różni się od końca strategii.' }}</p>
+        <p class="mid">Fazy poniżej nie zostały dopasowane do nowego celu.{% if can_build_strategy %} Możesz ułożyć je od nowa z zapisanego celu i ostatnich biegów — obecna strategia zostanie zachowana jako kopia w folderze <code>training-plans/long-term</code>.{% endif %}</p>
         {% if can_build_strategy %}{{ strategy_form('Ułóż fazy od nowa', 'btn-secondary') }}{% endif %}
       </div></div>
     {% endif %}
@@ -169,7 +169,7 @@
             <text class="phase-num {{ segment.state }}" x="{{ segment.center }}" y="{{ track.text_y }}" text-anchor="middle">{{ segment.number }}</text>
           {% endfor %}
           {% if track.marker is not none %}
-            <line class="phase-marker" x1="{{ track.marker }}" x2="{{ track.marker }}" y1="2" y2="{{ track.y + track.bar + 8 }}"/>
+            <line class="phase-marker" x1="{{ track.marker }}" x2="{{ track.marker }}" y1="{{ track.y + track.bar + 2 }}" y2="{{ track.y + track.bar + 12 }}"/>
             <text class="phase-today" x="{{ track.marker_label_x }}" y="{{ track.marker_label_y }}" text-anchor="middle">dziś</text>
           {% endif %}
         </svg>
@@ -206,7 +206,7 @@
           </div>
         {% endfor %}
       </div>
-      <p class="tile-foot">Kryteria są przybliżone: zegarek zapisuje całe biegi bez podziału na odcinki, więc „test 10 km” to najszybszy bieg o długości około 10 km z ostatnich 120 dni.</p>
+      <p class="tile-foot">Kryteria są przybliżone: zegarek zapisuje całe biegi bez podziału na odcinki{% if goal.has_5k_test and goal.has_10k_test %}, więc „sprawdzian 5 km” i „test 10 km” to najszybsze biegi o odpowiedniej długości z ostatnich 120 dni{% elif goal.has_5k_test %}, więc „sprawdzian 5 km” to najszybszy bieg o długości około 5 km z ostatnich 120 dni{% elif goal.has_10k_test %}, więc „test 10 km” to najszybszy bieg o długości około 10 km z ostatnich 120 dni{% else %}, więc oceny pochodzą z pełnych biegów zapisanych z ostatnich 120 dni{% endif %}.</p>
     </section>
 
     <footer>To nie jest porada medyczna. Fazy i kryteria pochodzą z Twojego pliku strategii.</footer>

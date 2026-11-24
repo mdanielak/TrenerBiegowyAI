@@ -158,7 +158,10 @@ def get_settings_router(
             context.update(
                 runner_rows=_profile_rows(profile, _PROFILE_RUNNER_FIELDS),
                 heart_rows=_profile_rows(profile, _PROFILE_HEART_FIELDS),
-                goal_rows=_profile_rows(profile, _PROFILE_GOAL_FIELDS),
+                goal_rows=[
+                    row for row in _profile_rows(profile, _PROFILE_GOAL_FIELDS)
+                    if not (row["label"] == "Cel (dystans i czas)" and row["value"] is None and profile.get("target_race"))
+                ],
                 zone_rows=_hr_zone_rows(profile),
                 zones_source=profile.get("hr_zones_source") or None,
             )

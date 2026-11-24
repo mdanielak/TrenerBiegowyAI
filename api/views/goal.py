@@ -7,8 +7,8 @@ import re
 from api.views.common import _MONTHS_GENITIVE, _plural
 
 _TRACK_WIDTH = 1060
-# Pod paskiem jest miejsce na podpis „dziś” przy znaczniku.
-_TRACK_HEIGHT = 62
+# Pod paskiem jest miejsce na znacznik i podpis „dziś” bez przecinania numeru fazy.
+_TRACK_HEIGHT = 68
 _TRACK_Y = 8
 _TRACK_BAR = 22
 _GAP = 4
@@ -46,7 +46,7 @@ def _timeline(report) -> dict | None:
             "text_y": _TRACK_Y + _TRACK_BAR / 2 + 5, "segments": segments, "marker": marker,
             # Podpis nie może wyjść poza wykres, gdy „dziś” jest na samym początku lub końcu osi.
             "marker_label_x": None if marker is None else min(max(marker, 18), _TRACK_WIDTH - 18),
-            "marker_label_y": _TRACK_Y + _TRACK_BAR + 24}
+            "marker_label_y": _TRACK_Y + _TRACK_BAR + 28}
 
 
 # Żargon z plików strategii (pisanych dla trenera) w zwykłych słowach; kolejność ma znaczenie — najpierw całe frazy.
@@ -88,6 +88,8 @@ def _goal_view(report) -> dict:
         "current": _plain_phase_name(report.current_phase.name) if report.current_phase else None,
         "week_number": report.week_number,
         "total_weeks": report.total_weeks,
+        "has_5k_test": any("5 km" in (c.label or "") for c in report.criteria),
+        "has_10k_test": any("10 km" in (c.label or "") for c in report.criteria),
         "criteria": [{
             "label": criterion.label,
             "target": criterion.target,

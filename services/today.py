@@ -135,7 +135,8 @@ def build_today_report(*, snapshot: SnapshotReadResult | None, planned, availabi
         day = (now.date() - timedelta(days=offset)).isoformat()
         result = readiness if offset == 0 else readiness_for_day(data, day)
         measured = result and result.get("level") != "no_data"
-        readiness_week.append({"date": day, "score": result["score"] if measured else None})
+        readiness_week.append({"date": day, "score": result["score"] if measured else None,
+                               "level": result.get("level") if measured else None})
     signals = {
         "sleep_score": sleep.get("score"),
         "hrv_status": hrv.get("status"),

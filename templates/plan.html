@@ -294,10 +294,6 @@
               <span class="day-corner">
                 {% if plan_day.garmin_upload %}<span class="day-garmin" role="img" aria-label="Trening jest na zegarku Garmin" title="Na zegarku Garmin">{{ ico.watch(16) }}</span>
                 {% elif not plan_day.is_rest and not plan_day.is_past %}<span class="day-garmin is-pending" role="img" aria-label="Trening nie jest jeszcze na zegarku Garmin" title="Jeszcze nie wysłano na zegarek">{{ ico.watch(16) }}</span>{% endif %}
-                {% if not plan_day.is_rest and not plan_day.is_past %}
-                  <a class="day-remove" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun"
-                     aria-label="Usuń trening {{ plan_day.name }}" title="Usuń trening">{{ ico.x(14) }}</a>
-                {% endif %}
               </span>
             </div>
 
@@ -320,7 +316,10 @@
                 <img class="asset day-block-icon" src="{{ plan_day.icon }}" width="64" height="64" alt="">
               {% endif %}
               {% if plan_day.is_rest %}
-                {# Pigułka „Odpoczynek” i ikona już to mówią; bez drugiego „Dzień bez treningu”. #}
+                {% set rest_name = (plan_day.name or '')|trim %}
+                {% if rest_name and rest_name|lower not in ('odpoczynek', 'dzień bez treningu', 'dzien bez treningu', 'rest') %}
+                  <span class="day-block-title">{{ rest_name }}</span>
+                {% endif %}
               {% else %}
                 <span class="day-block-title">{{ plan_day.name or '—' }}</span>
               {% endif %}
@@ -381,15 +380,18 @@
                           <button type="submit" name="action" value="move" class="btn-secondary">Przenieś</button>
                         </form>
                         {% if plan_day.kind in ('easy', 'recovery', 'long') and plan_day.duration_min %}
+                        {% set resize_cap = ([plan_day.max_minutes, plan_day.duration_min|int, 20]|max) if (plan_day.available and plan_day.max_minutes) else 180 %}
+                        {% set resize_max = [resize_cap, 240]|min %}
                         <form method="post" action="/actions/plan/edit" class="row">
                           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                           <input type="hidden" name="week_start" value="{{ week_start }}">
                           <input type="hidden" name="date" value="{{ plan_day.date }}">
                           <label class="field inline">Zmień długość na
-                            <input class="text-input mini" type="number" name="minutes" inputmode="numeric" min="20" max="240" step="1" value="{{ plan_day.duration_min|int }}" required> min
+                            <input class="text-input mini" type="number" name="minutes" inputmode="numeric" min="20" max="{{ resize_max }}" step="1" value="{{ plan_day.duration_min|int }}" required> min
                           </label>
                           <button type="submit" name="action" value="resize" class="btn-secondary">Zmień</button>
                         </form>
+                        {% if plan_day.available and plan_day.max_minutes %}<p class="tile-foot">Dostępność w ten dzień: {{ plan_day.min_minutes }}–{{ plan_day.max_minutes }} min.</p>{% endif %}
                         {% endif %}
                         {% if plan_day.kind not in ('easy', 'recovery') %}
                         <form method="post" action="/actions/plan/edit" class="row">
@@ -399,6 +401,7 @@
                           <button type="submit" name="action" value="easier" class="btn-secondary">Zamień na spokojny bieg</button>
                         </form>
                         {% endif %}
+                        <p><a class="btn btn-danger-outline" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun" aria-label="Usuń trening {{ plan_day.name }}">Usuń trening z planu</a></p>
                       </div>
                     {% endif %}
                   </div>
@@ -521,15 +524,15 @@
           <text class="chart-axis" x="{{ load_chart.plot_left - 6 }}" y="{{ tick.y + 4 }}" text-anchor="end">{{ tick.minutes }}</text>
           {% if has_km %}<text class="chart-axis" x="{{ load_chart.plot_right + 6 }}" y="{{ tick.y + 4 }}" text-anchor="start">{{ tick.km|num }}</text>{% endif %}
           {% endfor %}
-          <text class="chart-axis chart-unit" x="{{ load_chart.plot_left - 6 }}" y="9" text-anchor="end">min</text>
-          {% if has_km %}<text class="chart-axis chart-unit" x="{{ load_chart.plot_right + 6 }}" y="9" text-anchor="start">km</text>{% endif %}
+          <text class="chart-axis chart-unit" x="{{ load_chart.plot_left - 6 }}" y="16" text-anchor="end">min</text>
+          {% if has_km %}<text class="chart-axis chart-unit" x="{{ load_chart.plot_right + 6 }}" y="16" text-anchor="start">km</text>{% endif %}
           {% for bar in load_chart.bars %}
-          {% if bar.planned %}<rect class="chart-bar" x="{{ bar.x }}" y="{{ 120 - bar.plan_height }}" width="26" height="{{ bar.plan_height }}" rx="3"><title>{{ bar.label }}: plan {{ bar.planned|num }} min</title></rect>{% endif %}
-          {% if bar.actual is not none %}<rect class="chart-bar actual-time" x="{{ bar.x + 30 }}" y="{{ 120 - bar.actual_height }}" width="26" height="{{ bar.actual_height }}" rx="3"><title>{{ bar.label }}: przebiegnięte {{ bar.actual|num }} min</title></rect>{% endif %}
-          <text class="chart-axis" x="{{ bar.center }}" y="138" text-anchor="middle">{{ bar.label }}</text>
+          {% if bar.planned %}<rect class="chart-bar" x="{{ bar.x }}" y="{{ load_chart.baseline - bar.plan_height }}" width="26" height="{{ bar.plan_height }}" rx="3"><title>{{ bar.label }}: plan {{ bar.planned|num }} min</title></rect>{% endif %}
+          {% if bar.actual is not none %}<rect class="chart-bar actual-time" x="{{ bar.x + 30 }}" y="{{ load_chart.baseline - bar.actual_height }}" width="26" height="{{ bar.actual_height }}" rx="3"><title>{{ bar.label }}: przebiegnięte {{ bar.actual|num }} min</title></rect>{% endif %}
+          <text class="chart-axis" x="{{ bar.center }}" y="{{ load_chart.label_y }}" text-anchor="middle">{{ bar.label }}</text>
           {% endfor %}
           {% for bar in load_chart.bars %}{% if not loop.first %}{% set previous = load_chart.bars[loop.index0 - 1] %}{% if previous.km is not none and bar.km is not none %}<line class="chart-line distance" x1="{{ previous.center }}" y1="{{ previous.distance_y }}" x2="{{ bar.center }}" y2="{{ bar.distance_y }}"/>{% endif %}{% endif %}{% endfor %}
-          {% for bar in load_chart.bars %}{% if bar.km is not none %}<circle class="chart-dot distance" cx="{{ bar.center }}" cy="{{ bar.distance_y }}" r="5"><title>{{ bar.label }}: {{ bar.km|num }} km</title></circle><text class="chart-bar-value" x="{{ bar.center }}" y="{{ bar.distance_y - 9 }}" text-anchor="middle">{{ bar.km|num }} km</text>{% endif %}{% endfor %}
+          {% for bar in load_chart.bars %}{% if bar.km is not none %}<circle class="chart-dot distance" cx="{{ bar.center }}" cy="{{ bar.distance_y }}" r="5"><title>{{ bar.label }}: {{ bar.km|num }} km</title></circle><text class="chart-bar-value" x="{{ bar.center }}" y="{{ bar.km_label_y }}" text-anchor="middle">{{ bar.km|num }} km</text>{% endif %}{% endfor %}
         </svg></div>
         <p class="tile-foot">Słupki: minuty (lewa oś). Punkty: kilometry (prawa oś). Minuty i dystans biegów w danym dniu nie oznaczają automatycznego dopasowania do konkretnego treningu; brak słupka lub punktu to brak zapisanych danych.</p>
         <details class="chart-data"><summary>Dane wykresu</summary><table><caption>Czas planowany, biegi z zegarka i dystans</caption><thead><tr><th scope="col">Dzień</th><th scope="col">Plan (min)</th><th scope="col">Biegi (min)</th><th scope="col">Dystans</th></tr></thead><tbody>{% for bar in load_chart.bars %}<tr><th scope="row">{{ bar.label }}</th><td>{{ bar.planned|num }}</td><td>{% if bar.actual is not none %}{{ bar.actual|num }}{% else %}Brak danych{% endif %}</td><td>{% if bar.km is not none %}{{ bar.km|num }} km{% else %}Brak danych{% endif %}</td></tr>{% endfor %}</tbody></table></details>

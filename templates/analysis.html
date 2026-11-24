@@ -55,7 +55,7 @@
         </span>
       </div>
       <div class="analysis-summary">
-        <p class="analysis-title">Gotowość {{ readiness_score }}/{{ readiness_max_score }}</p>
+        <p class="analysis-title">Dzisiejsza gotowość</p>
         <span class="verdict {{ level }}">
           {% if level == 'ready' %}{{ ico.check(15) }}
           {% elif level == 'ready_with_reserves' %}{{ ico.info(15) }}
@@ -70,7 +70,7 @@
           {% for bar in week %}
             <div class="week-bar{% if bar.today %} today{% endif %}">
               <span class="week-bar-value">{{ bar.text }}</span>
-              <span class="week-bar-track"><span class="week-bar-fill" style="height: {{ bar.height }}%"></span></span>
+              <span class="week-bar-track"><span class="week-bar-fill {{ bar.level }}" style="height: {{ bar.height }}%"></span></span>
               <span class="week-bar-label">{{ bar.label }}</span>
             </div>
           {% endfor %}
@@ -89,7 +89,7 @@
             {# Cały wiersz rozwija objaśnienie pod sobą; wcześniej tekst wskakiwał w linię z nazwą i przesuwał ikonę oraz punkty. #}
             <details class="analysis-row">
             <summary class="list-item">
-              <span class="item-icon">
+              <span class="item-icon {{ row.pill_class }}">
                 {% if row.icon == 'moon' %}<img class="asset" src="/assets/02_health_status/sleep.png" width="28" height="28" alt="">
                 {% elif row.icon == 'pulse' %}<img class="asset" src="/assets/02_health_status/hrv.png" width="28" height="28" alt="">
                 {% elif row.icon == 'heart' %}<img class="asset" src="/assets/02_health_status/resting_hr.png" width="28" height="28" alt="">

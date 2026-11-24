@@ -54,6 +54,21 @@ def _analysis_reason(rows: list[dict]) -> str | None:
     return f"Ocenę najbardziej {'obniżają' if len(weakest) > 1 else 'obniża'}: {names}."
 
 
+def _bar_level(day: dict) -> str:
+    """Poziom gotowości dla koloru słupka; fallback po wyniku, gdy dane nie niosą jawnego `level`."""
+    level = day.get("level")
+    if level in ("ready", "ready_with_reserves", "not_ready", "no_data"):
+        return level
+    score = day.get("score")
+    if score is None:
+        return "no_data"
+    if score >= 8:
+        return "ready"
+    if score >= 5:
+        return "ready_with_reserves"
+    return "not_ready"
+
+
 def _readiness_week(days: list[dict], weekdays_short) -> list[dict]:
     """Słupki gotowości z 7 dni (dziś na końcu); brak pomiaru zostaje brakiem, nie zerem."""
     from datetime import date
@@ -63,5 +78,6 @@ def _readiness_week(days: list[dict], weekdays_short) -> list[dict]:
         score = day.get("score")
         bars.append({"label": "dziś" if index == len(days) - 1 else weekdays_short[date.fromisoformat(day["date"]).weekday()],
                      "score": score, "text": _points(score) if score is not None else "brak",
-                     "height": round(score * 10) if score is not None else 0, "today": index == len(days) - 1})
+                     "height": round(score * 10) if score is not None else 0, "today": index == len(days) - 1,
+                     "level": _bar_level(day)})
     return bars

@@ -73,10 +73,21 @@ def get_goal_router(*, goal_report_provider: Callable[[], GoalReport], templates
         except (OSError, ValueError):
             profile = {}
         saved_goal = {key: profile.get(key) or '' for key in ('target_race', 'target_date', 'target_time')}
-        strategy_mismatch = bool(
+        date_mismatch = bool(
             saved_goal['target_date'] and report.phases
             and saved_goal['target_date'] != report.phases[-1].end.isoformat()
         )
+        time_mismatch = bool(
+            saved_goal['target_time'] and report.target_time
+            and saved_goal['target_time'] != report.target_time
+        )
+        strategy_mismatch = date_mismatch or time_mismatch
+        if date_mismatch and not time_mismatch:
+            mismatch_title = "Data Twojego celu różni się od końca strategii."
+        elif time_mismatch and not date_mismatch:
+            mismatch_title = "Czas docelowy różni się od strategii poniżej."
+        else:
+            mismatch_title = "Zapisany cel różni się od strategii poniżej."
         if report.status != "ok":
             status_code, message, hint = _ERRORS[report.status]
             return page(request, {"error_message": message, "error_hint": hint, "active_nav": "goal",
@@ -84,6 +95,7 @@ def get_goal_router(*, goal_report_provider: Callable[[], GoalReport], templates
                                   "wizard_done": request.query_params.get("wizard") == "done"}, status_code)
         return page(request, {"goal": _goal_view(report), "active_nav": "goal", "saved_goal": saved_goal,
                               "strategy_mismatch": strategy_mismatch,
+                              "strategy_mismatch_title": mismatch_title,
                               "wizard_done": request.query_params.get("wizard") == "done"})
 
     return router

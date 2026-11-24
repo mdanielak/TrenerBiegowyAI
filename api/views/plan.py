@@ -171,14 +171,19 @@ def _plan_load_chart(days, activities=None):
         row["actual_height"] = round(_PLOT_HEIGHT * (row["actual"] or 0) / peak, 2)
         row["distance_y"] = (round(_BASELINE - _PLOT_HEIGHT * row["km"] / distance_peak, 2)
                              if row["km"] is not None else None)
+        if row["distance_y"] is not None:
+            bar_top = _BASELINE - max(row["plan_height"], row["actual_height"])
+            row["km_label_y"] = max(16, round(min(row["distance_y"], bar_top) - 10, 2))
+        else:
+            row["km_label_y"] = None
     ticks = [{"y": round(_BASELINE - _PLOT_HEIGHT * step / 4, 2), "minutes": peak * step // 4,
               "km": distance_peak * step / 4} for step in range(5)]
-    return {"width": _PLOT_LEFT * 2 + 7 * _GROUP, "height": 146, "baseline": _BASELINE, "label_y": 138, "bars": rows, "ticks": ticks,
+    return {"width": _PLOT_LEFT * 2 + 7 * _GROUP, "height": 166, "baseline": _BASELINE, "label_y": 156, "bars": rows, "ticks": ticks,
             "plot_left": _PLOT_LEFT, "plot_right": _PLOT_LEFT + 7 * _GROUP}
 
 
 # Podstawa ~1040 jednostek: na desktopie wykres skaluje się prawie 1:1, więc napisy osi mają ~12 px, a nie ~18.
-_PLOT_LEFT, _GROUP, _BASELINE, _PLOT_HEIGHT = 44, 136, 120, 100
+_PLOT_LEFT, _GROUP, _BASELINE, _PLOT_HEIGHT = 44, 136, 138, 100
 
 
 def _nice_top(value, steps):
