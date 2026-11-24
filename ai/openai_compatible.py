@@ -152,7 +152,11 @@ class OpenAICompatibleProvider(AIProvider):
         content = response.choices[0].message.content
         if response_model is not None and getattr(response.choices[0], "finish_reason", None) == "length":
             # Długi JSON ucięty limitem długości odpowiedzi nie da się odczytać; plan zapyta ponownie.
-            logger.warning("AI answer was cut off by the length limit (%d characters)", len(content or ""))
+            usage = getattr(response, "usage", None)
+            details = getattr(usage, "completion_tokens_details", None)
+            logger.warning("AI answer was cut off by the length limit (%d characters; %s completion tokens, "
+                           "%s of them reasoning)", len(content or ""), getattr(usage, "completion_tokens", "?"),
+                           getattr(details, "reasoning_tokens", "?"))
             raise AIResponseError(f"AI answer was cut off ({len(content or '')} characters)")
         if not content and response_model is not None:
             # DeepSeek w trybie JSON bywa, że zwraca pustą treść — to też odpowiedź do ponowienia.

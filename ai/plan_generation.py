@@ -18,7 +18,9 @@ from services.strategy import STRATEGY_PATH
 
 logger = logging.getLogger(__name__)
 # Plan z opisami siedmiu dni potrafi przekroczyć domyślny limit odpowiedzi; ucięty JSON jest nieczytelny.
-PLAN_MAX_TOKENS = 8000
+# Modele „rozumujące” (np. deepseek-flash) liczą myślenie do tego limitu: przy 8000 zdarzało się, że całe
+# myślenie zjadało limit i z odpowiedzi zostawało kilkadziesiąt znaków. Ponowienie dostaje dwa razy więcej.
+PLAN_MAX_TOKENS = 12000
 
 
 # Prompt każe wpisywać null, gdy czegoś nie ma; model robi tak też z tekstami. null w tekście = pusty tekst.
@@ -402,12 +404,11 @@ def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
         quality_limit=(context or {}).get("max_quality_sessions"),
     ), build_plan_message(context)
     for seed in (7, 8):
-        # Druga próba inaczej: bez trybu JSON dostawcy i z odrobiną losowości — gdy model zapętlił się w trybie
-        # JSON do końca limitu długości, ta sama prośba zwykle kończy się tak samo.
-        retry = {} if seed == 7 else {"json_mode": False}
+        # Druga próba z dwa razy większym limitem: ucięcie bierze się zwykle z długiego myślenia modelu,
+        # a nie z długiego planu (tryb JSON zostaje — bez niego model potrafi myśleć do końca limitu).
         try:
-            return provider.chat(system, message, response_model=WeekPlanResponse,
-                                 temperature=0.0 if seed == 7 else 0.3, seed=seed, max_tokens=PLAN_MAX_TOKENS, **retry)
+            return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed,
+                                 max_tokens=PLAN_MAX_TOKENS if seed == 7 else PLAN_MAX_TOKENS * 2)
         except AIResponseError:
             if seed == 8:
                 raise

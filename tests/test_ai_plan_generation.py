@@ -275,7 +275,7 @@ def test_the_prompt_examples_survive_the_app_rules_unchanged():
             assert all(example.get(key) for key in ("repetitions", "work_seconds", "rest_seconds"))
 
 
-def test_a_cut_off_answer_is_retried_without_the_providers_json_mode():
+def test_a_cut_off_answer_is_retried_with_a_larger_length_limit():
     from ai.openai_compatible import AIResponseError
     from ai.plan_generation import generate_week_plan
     calls = []
@@ -288,7 +288,7 @@ def test_a_cut_off_answer_is_retried_without_the_providers_json_mode():
             return WeekPlanResponse(workouts=[])
 
     generate_week_plan(Provider(), _context())
-    assert "json_mode" not in calls[0] and calls[1]["json_mode"] is False and calls[1]["temperature"] > 0
+    assert calls[1]["max_tokens"] == 2 * calls[0]["max_tokens"] and "json_mode" not in calls[1]
 
 
 def test_each_day_shows_days_to_race_close_to_the_start():
