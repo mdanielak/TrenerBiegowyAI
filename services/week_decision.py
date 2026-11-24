@@ -241,8 +241,10 @@ def _taper_phrase(runner) -> str:
     percent, reference = runner.get("taper_percent"), runner.get("week_reference_min")
     if not percent:
         return "wyraźnie mniej niż zwykle"
-    minutes = f" (ok. {round(reference * percent / 100 / 5) * 5} min)" if reference else ""
-    return f"około {percent}% zwykłego tygodnia{minutes}"
+    if not reference:
+        return f"około {percent}% zwykłego tygodnia"
+    target, floor = (round(reference * share / 100 / 5) * 5 for share in (percent, percent - 15))
+    return f"około {percent}% zwykłego tygodnia (ok. {target} min, nie mniej niż ok. {floor} min)"
 
 
 def decision_reason(runner: dict) -> str:

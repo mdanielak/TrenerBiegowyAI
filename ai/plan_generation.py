@@ -233,6 +233,9 @@ def _availability_rows(week_days) -> list[str]:
         window = (f"{_minutes(day.get('min_minutes'))}-{_minutes(day.get('max_minutes'))}"
                   if available else "—")
         row = f"- {weekday}, {_value(day.get('date'))}: {state}, {window}"
+        if day.get("days_to_race") is not None and 0 <= day["days_to_race"] <= 21:
+            left = day["days_to_race"]
+            row += " — dzień startu" if left == 0 else f" — {left} {'dzień' if left == 1 else 'dni'} do startu"
         reason = day.get("pause_reason")
         if reason:
             row += f", powód przerwy: {reason}"
@@ -399,9 +402,12 @@ def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
         quality_limit=(context or {}).get("max_quality_sessions"),
     ), build_plan_message(context)
     for seed in (7, 8):
+        # Druga próba inaczej: bez trybu JSON dostawcy i z odrobiną losowości — gdy model zapętlił się w trybie
+        # JSON do końca limitu długości, ta sama prośba zwykle kończy się tak samo.
+        retry = {} if seed == 7 else {"json_mode": False}
         try:
-            return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed,
-                                 max_tokens=PLAN_MAX_TOKENS)
+            return provider.chat(system, message, response_model=WeekPlanResponse,
+                                 temperature=0.0 if seed == 7 else 0.3, seed=seed, max_tokens=PLAN_MAX_TOKENS, **retry)
         except AIResponseError:
             if seed == 8:
                 raise

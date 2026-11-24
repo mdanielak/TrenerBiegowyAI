@@ -273,3 +273,28 @@ def test_the_prompt_examples_survive_the_app_rules_unchanged():
             assert _quality_target(example) is not None
         if example["kind"] == "intervals":
             assert all(example.get(key) for key in ("repetitions", "work_seconds", "rest_seconds"))
+
+
+def test_a_cut_off_answer_is_retried_without_the_providers_json_mode():
+    from ai.openai_compatible import AIResponseError
+    from ai.plan_generation import generate_week_plan
+    calls = []
+
+    class Provider:
+        def chat(self, *args, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise AIResponseError("AI answer was cut off (38 characters)")
+            return WeekPlanResponse(workouts=[])
+
+    generate_week_plan(Provider(), _context())
+    assert "json_mode" not in calls[0] and calls[1]["json_mode"] is False and calls[1]["temperature"] > 0
+
+
+def test_each_day_shows_days_to_race_close_to_the_start():
+    from ai.plan_generation import _availability_rows
+    rows = _availability_rows([{"weekday": "niedziela", "date": "2026-11-29", "available": True, "min_minutes": 0,
+                                "max_minutes": 0, "days_to_race": 0},
+                               {"weekday": "sobota", "date": "2026-11-28", "available": True, "min_minutes": 0,
+                                "max_minutes": 0, "days_to_race": 1}])
+    assert rows[0].endswith("dzień startu") and rows[1].endswith("1 dzień do startu")

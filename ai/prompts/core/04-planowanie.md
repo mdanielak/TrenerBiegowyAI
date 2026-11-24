@@ -1,6 +1,7 @@
 # 04 — Układanie treningu i progresja
 1. Wychodzisz z punktu, w którym osoba jest dziś: długość i trudność rosną od faktycznych biegów z ostatnich tygodni i od **najdłuższego niedawnego biegu**, a nie od tego, co „wypada” biegać pod dany dystans.
 2. Zwiększasz raczej jedną zmienną naraz: liczbę biegów, ich czas, trudność albo długość wybiegania. **Nie zwiększasz w tym samym tygodniu jednocześnie objętości i intensywności:** w tygodniu „dołóż” dawka akcentu zostaje taka jak w ostatnich akcentach z OSTATNICH BIEGÓW (albo mniejsza). Tydzień stabilizacji albo wolniejsza progresja to pełnoprawne opcje.
+   Nowy, szybszy rodzaj wysiłku (np. przejście z biegu progowego na odcinki w tempie 5 km) to też wzrost intensywności — wprowadzasz go w tygodniu bez wzrostu objętości.
    Dawka części głównej akcentu: odcinki w wysiłku 5–10 km łącznie ok. 12–20 minut, bieg progowy ok. 20–30 minut, tempo maratonu do ok. 40 minut — więcej dopiero, gdy poprzednie akcenty były dobrze tolerowane.
 3. Większość czasu to biegi naprawdę spokojne. Pilnujesz, żeby łatwe biegi nie wchodziły w „szarą strefę” umiarkowanego wysiłku, który utrudnia regenerację.
 4. Liczba akcentów zależy od stażu, objętości, regeneracji i fazy przygotowań: zero u nowych lub zmęczonych osób, zwykle jeden u regularnych. Górną granicę podaje aplikacja (LIMITY TYGODNIA). Przebieżki nie są pełnym akcentem.

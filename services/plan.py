@@ -172,6 +172,16 @@ def _plan_trends(data, today) -> dict:
     return {"metrics": metrics, "weekly_km": completed[-4:]}
 
 
+def _mark_days_to_race(days, target_date) -> dict:
+    try:
+        race = _date.fromisoformat(str(target_date or "")[:10])
+    except ValueError:
+        return {}
+    for day in days:
+        day["days_to_race"] = (race - _date.fromisoformat(day["date"])).days
+    return {}
+
+
 def _hard_day_before(previous_plan, activities, monday) -> str | None:
     """Data dnia tuż przed planowanym tygodniem, jeśli był mocny (akcent albo długi bieg w planie, albo bieg
     z wyraźnym efektem beztlenowym z zegarka); inaczej None."""
@@ -286,6 +296,8 @@ def build_plan_context(*, snapshot_data, profile, preferences, today=None, week_
         "journal": training.get("journal"),
         "user_note": user_note,
         "hard_day_before": _hard_day_before(previous_plan, data.get("activities"), monday.date()),
+        # Każdy dzień zna odległość do startu: model nie liczy tego sam (zdarzały mu się pomyłki o tydzień).
+        **_mark_days_to_race(days, (profile or {}).get("target_date")),
         "race_date": str((profile or {}).get("target_date") or "")[:10] or None,
         "race_name": (profile or {}).get("target_race"),
         "snapshot_status": snapshot_status,
@@ -518,19 +530,36 @@ def _settle_aerobic(entry, notes, max_minutes, default_zone=2) -> None:
 
 
 _REPEATS = re.compile(r"(\d{1,2})\s*[×x]\s*(\d{1,2}(?:[.,]5)?)\s*min", re.IGNORECASE)
-_REST = re.compile(r"(\d{1,2}(?:[.,]5)?)\s*min\w*\s+(?:spokojnego\s+|luźnego\s+|swobodnego\s+)?(?:truchtu|marszu|przerwy)",
-                   re.IGNORECASE)
+# Przerwa: „2 min truchtu”, „90 s marszu”, „2-minutową przerwą”, „przerwa 90 s”.
+_REST = re.compile(r"(?:(\d{1,3}(?:[.,]5)?)\s*(s|sek\w*|min\w*|-minutow\w*|-sekundow\w*)\s*(?:\w+\s+){0,2}?"
+                   r"(?:truchtu|marszu|przerw\w*|truchtem|w\s+truchcie))"
+                   r"|(?:przerw\w*\s+(?:\w+\s+)?(\d{1,3}(?:[.,]5)?)\s*(s|sek\w*|min\w*))", re.IGNORECASE)
+
+
+def _seconds_of(value, unit) -> int:
+    number = float(value.replace(",", "."))
+    return round(number if unit.lower().lstrip("-").startswith("s") else number * 60)
 
 
 def _repeats_in_text(entry):
-    """(powtórzenia, sekundy pracy, sekundy przerwy) z „3 × 8 min … 2 min truchtu” w nazwie lub opisie; inaczej None."""
-    text = " ".join(str(entry.get(key) or "") for key in ("name", "description"))
-    match = _REPEATS.search(text)
+    """(powtórzenia, sekundy pracy, sekundy przerwy), gdy NAZWA akcentu mówi „N × M min”; inaczej None.
+
+    Tylko nazwa: opis zawiera też wariant awaryjny („przy zmęczeniu 2 × 12 min”), którego nie wolno brać
+    za trening główny. Przerwę szukamy w opisie tuż po odcinkach, przed schłodzeniem; bez niej 2 minuty.
+    """
+    match = _REPEATS.search(str(entry.get("name") or ""))
     if not match or int(match.group(1)) < 2:
         return None
-    rest = _REST.search(text[match.end():])
-    minutes = lambda value: round(float(value.replace(",", ".")) * 60)  # noqa: E731
-    return int(match.group(1)), minutes(match.group(2)), minutes(rest.group(1)) if rest else 120
+    work = _seconds_of(match.group(2), "min")
+    description = str(entry.get("description") or "")
+    start = description.find(match.group(0).split()[0]) if match.group(0).split() else -1
+    window = description[max(start, 0):]
+    window = re.split(r"schłodz|na koniec|cool", window, maxsplit=1, flags=re.IGNORECASE)[0][:160]
+    rest = _REST.search(window)
+    if rest:
+        value, unit = (rest.group(1), rest.group(2)) if rest.group(1) else (rest.group(3), rest.group(4))
+        return int(match.group(1)), work, _seconds_of(value, unit)
+    return int(match.group(1)), work, 120
 
 
 def _normalize_day(day, workout, floors):

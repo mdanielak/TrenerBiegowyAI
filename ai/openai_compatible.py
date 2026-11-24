@@ -108,7 +108,8 @@ class OpenAICompatibleProvider(AIProvider):
 
     def chat(self, system_prompt: str, user_message: str, response_model=None, *,
              temperature: float | None = None, seed: int | None = None,
-             top_p: float | None = None, max_tokens: int | None = None) -> Union[str, dict]:
+             top_p: float | None = None, max_tokens: int | None = None,
+             json_mode: bool = True) -> Union[str, dict]:
         """Send a chat completion request.
 
         If response_model is a Pydantic BaseModel class, requests JSON output
@@ -123,7 +124,9 @@ class OpenAICompatibleProvider(AIProvider):
         }
 
         # Request JSON output for structured responses
-        if response_model is not None:
+        # ``json_mode=False``: bez trybu JSON dostawcy (prompt i tak wymaga samego JSON-a) — ponowienie po tym,
+        # jak tryb JSON zapętlił model do końca limitu długości.
+        if response_model is not None and json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         for name, value in (("temperature", temperature), ("seed", seed), ("top_p", top_p),
                             ("max_tokens", max_tokens)):

@@ -3,6 +3,8 @@
 import csv
 from datetime import datetime
 
+import pytest
+
 from ai.plan_generation import PlanWorkout, WeekPlanResponse
 from services import plan as plan_service
 
@@ -342,3 +344,18 @@ def test_a_threshold_described_as_repeats_goes_to_the_watch_as_intervals():
     continuous = _normalize([_workout("2026-10-26", "tempo", duration_min=50, pace_target=None, hr_zone=3,
                                       name="Tempo maratonu 30 min", description="Ciągle w tempie maratonu.")])
     assert continuous["workouts"][0]["type"] == "tempo"
+
+
+@pytest.mark.parametrize(("name", "description", "expected"), [
+    ("Odcinki 3 × 8 min", "10 min rozgrzewki, 3 × 8 min z 2-minutową przerwą w truchcie, na koniec 10 min spokojnego truchtu.",
+     ("intervals", 3, 480, 120)),
+    ("Odcinki 5 × 4 min", "Rozgrzewka, 5 × 4 min mocno, przerwy 90 s truchtu, schłodzenie 10 min truchtu.",
+     ("intervals", 5, 240, 90)),
+    ("Tempo maratonu 30 min", "Potem 30 min w tempie maratonu. Przy zmęczeniu zrób 2 × 12 min z przerwą 3 min truchtu.",
+     ("tempo", None, None, None)),
+])
+def test_repeats_come_from_the_name_and_the_rest_from_the_text_before_the_cool_down(name, description, expected):
+    plan = _normalize([_workout("2026-10-26", "threshold" if "Odcinki" in name else "tempo", duration_min=50,
+                                pace_target=None, hr_zone=4 if "Odcinki" in name else 3, name=name, description=description)])
+    monday = plan["workouts"][0]
+    assert (monday["type"], monday.get("repetitions"), monday.get("work_seconds"), monday.get("rest_seconds")) == expected
