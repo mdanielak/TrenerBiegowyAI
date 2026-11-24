@@ -30,6 +30,7 @@ LIGHT_DECISIONS = ("regeneracja", "odpusc")
 FATIGUE_CAUSES = ("pain", "rhr_high", "rhr_up", "struggling", "hrv_rhr", "after_race")
 # Długi bieg w lekkim tygodniu: część najdłuższego niedawnego biegu (zamiast wzrostu).
 LIGHT_LONG_RUN = {"regeneracja": 0.6, "odpusc": 0.75, "step_back": 0.8}
+AFTER_RACE_EASY_MAX = 45  # tydzień po starcie: krótkie spokojne biegi, długi bieg też nie dłuższy
 # Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
 # i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
 # Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu), zależnie od dystansu:
@@ -81,6 +82,8 @@ def long_run_limit(runner, longest) -> int:
     co objętość tygodnia, po tygodniu cofnięcia do 80%, w „odpuść” do 75%, w regeneracji do 60%.
     """
     runner = runner or {}
+    if runner.get("decision_cause") == "after_race":
+        return min(AFTER_RACE_EASY_MAX, round(longest * LIGHT_LONG_RUN["regeneracja"]))
     if runner.get("taper_percent"):
         return round(longest * runner["taper_percent"] / 100)
     if runner.get("decision_cause") == "step_back":
@@ -91,9 +94,6 @@ def long_run_limit(runner, longest) -> int:
     growth = LONG_RUN_REQUEST_GROWTH if asked else LONG_RUN_GROWTH
     limit = max(round(longest * growth), longest + LONG_RUN_MIN_STEP)
     return max(min(limit, LONG_RUN_MAX_MIN), min(longest, limit))
-
-
-AFTER_RACE_EASY_MAX = 45  # tydzień po starcie: krótkie spokojne biegi
 
 
 def easy_run_limit(runner, longest) -> int:

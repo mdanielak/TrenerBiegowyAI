@@ -622,3 +622,21 @@ def test_a_hard_sunday_is_detected_from_the_watch_without_a_saved_plan():
     assert _hard_day_before(None, history + [long_run], TODAY) == str(sunday)
     easy = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 50}
     assert _hard_day_before(None, history + [easy], TODAY) is None
+
+
+# --- Trzecia recenzja ---------------------------------------------------------------------------------
+
+def test_after_a_race_the_long_run_is_short_too():
+    from services.week_decision import long_run_limit
+    assert long_run_limit({"decision": "regeneracja", "decision_cause": "after_race"}, 150) == 45
+    assert long_run_limit({"decision": "odpusc", "decision_cause": "after_race"}, 60) == 36
+
+
+def test_a_sunday_long_run_without_a_plan_is_a_hard_day_even_under_ninety_minutes():
+    from services.plan import _hard_day_before
+    sunday = TODAY - timedelta(days=1)
+    history = [{"date": f"{TODAY - timedelta(days=d)} 07:00", "type": "running", "duration_min": 80} for d in (8, 15)]
+    long_run = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 80}
+    assert _hard_day_before(None, history + [long_run], TODAY) == str(sunday)
+    short = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 35}
+    assert _hard_day_before(None, history + [short], TODAY) is None

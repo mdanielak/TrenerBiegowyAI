@@ -33,6 +33,11 @@ MIN_WEEKS = 4
 # Średni wzrost tygodnia w strategii: „dołóż” +5–10% i co czwarty tydzień cofnięcia dają w praktyce ok. 3%
 # tygodniowo (ok. 12–15% w miesiącu) — tyle, ile pozwolą decyzje tygodnia w aplikacji.
 _WEEKLY_GROWTH = 1.03
+# Długi bieg rośnie w praktyce szybciej niż cały tydzień (+10% albo +5 min na tydzień, z tygodniami cofnięcia):
+# średnio ok. 5% tygodniowo.
+_LONG_GROWTH = 1.05
+# Najkrótszy długi bieg, który zwykle wystarcza przed startem na danym dystansie (km); mniej — mówimy to wprost.
+_MIN_LONG_BEFORE_RACE = {"5k": 5, "10k": 10, "hm": 16, "marathon": 28}
 _DEFAULT_START_KM = 15
 _PHASES = (
     ("Baza", "łatwa objętość i przebieżki; kilka tygodni bez bólu i z {runs} biegami/tydz."),
@@ -51,14 +56,14 @@ _LEVEL_HINTS = {
 _TAPER = ("Szczyt formy i odpoczynek przed startem", "krótkie utrzymanie tempa startowego")
 
 
-def _weekly_volume(week: float, start_km: float, peak: int) -> int:
+def _weekly_volume(week: float, start_km: float, peak: int, growth: float | None = None) -> int:
     """Objętość tygodnia po danej liczbie tygodni: krzywa wzrostu, ograniczona szczytem.
 
     Faza dostaje tę objętość, do której biegacz dochodzi w swoim tempie, a nie co trzecią
     część różnicy między startem a szczytem. Dzięki temu pierwsza faza zaczyna się tam,
     gdzie biegacz jest dziś, zamiast skakać o kilkanaście kilometrów.
     """
-    return min(peak, round(start_km * _WEEKLY_GROWTH ** max(week, 0)))
+    return min(peak, round(start_km * (growth or _WEEKLY_GROWTH) ** max(week, 0)))
 
 
 _MONTHS = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
@@ -193,8 +198,8 @@ def build_strategy(*, profile: dict, activities, today: date):
         first, last = (start - monday).days / 7, (end - monday).days / 7
         low, top = _weekly_volume(first, start_km, peak), _weekly_volume(last, start_km, peak)
         long_cap = max(long_target, long_start)
-        long_low = min(_weekly_volume(first, long_start, long_cap), max(round(low * 0.5), 6))
-        long_top = min(_weekly_volume(last, long_start, long_cap), max(round(top * 0.5), 6))
+        long_low = min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH), max(round(low * 0.5), 6))
+        long_top = min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH), max(round(top * 0.5), 6))
         long_range = (max(long_low, 4), max(long_top, 6))
         # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
@@ -204,8 +209,17 @@ def build_strategy(*, profile: dict, activities, today: date):
         hint = hint.format(runs=runs, build=build_hint, specific=specific_hint)
         rows.append(f"| {name} | {_span(start, end)} | {volume}{_minutes_note(low, top, run_pace)}, "
                     f"{longs}{_minutes_note(long_range[0], long_range[1], run_pace)} | {hint} |")
-    taper_long = (max(long_range[1] - 6, 4), max(long_range[1] - 4, 6))
+    # Taper: długi bieg o ok. 20–40% krótszy (procentowo, nie o stałe km — przy krótkich długich biegach to była połowa).
+    taper_long = (max(round(long_range[1] * 0.6), 4), max(round(long_range[1] * 0.8), 5))
     steps = _monthly_steps(monday, taper_start, start_km, peak)
+    needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
+    realism = ""
+    if needed and long_range[1] < needed:
+        minutes = _minutes_note(long_range[1], long_range[1], run_pace).strip()
+        realism = (f"**Uwaga na termin:** przy bezpiecznym tempie budowania najdłuższy bieg dojdzie do ok. {long_range[1]} km"
+                   f"{' ' + minutes if minutes else ''}, a przed tym dystansem zwykle potrzeba ok. {needed} km. "
+                   "Rozważ późniejszy start albo cel „ukończyć spokojnie”, z marszem w razie potrzeby — "
+                   "nie przyspieszaj budowania, żeby zdążyć.")
     taper_hint = "krótkie spokojne biegi, bez nowych bodźców" if level == "poczatkujacy" else _TAPER[1]
     phases.append(Phase(_TAPER[0], taper_start, race, None, taper_long))
     rows.append(f"| {_TAPER[0]} | {_span(taper_start, race)} | redukcja objętości, "
@@ -263,6 +277,7 @@ def build_strategy(*, profile: dict, activities, today: date):
         "",
         "## Kryteria gotowości do celu",
         "",
+        *([realism, ""] if realism else []),
         f"Cel pozostaje warunkowy. Potrzebne są: stabilne tygodnie w docelowym zakresie, regularne long runy "
         f"{_km_range(*long_range)}, brak narastającego bólu oraz kilka tygodni z rzędu z {runs} biegami/tydz.{test}",
         "",

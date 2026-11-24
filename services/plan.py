@@ -20,6 +20,7 @@ from services.plan_files import week_bounds
 PLAN_KINDS = ("easy", "recovery", "long", "tempo", "threshold", "intervals", "rest")
 QUALITY_KINDS = ("tempo", "threshold", "intervals")
 AEROBIC_KINDS = ("easy", "recovery", "long")
+LONG_RUN_DAY_MIN = 40  # krótszy bieg nie jest „długim biegiem” na styku tygodni, nawet u początkujących
 # Akcent bez tempa celuje w strefę tętna; poniżej Z3 to nie jest akcent.
 QUALITY_MIN_ZONE = 3
 
@@ -178,10 +179,16 @@ def _hard_day_before(previous_plan, activities, monday) -> str | None:
     for workout in (previous_plan or {}).get("workouts") or []:
         if isinstance(workout, dict) and workout.get("date") == day_before and workout.get("type") in _HARD_KINDS:
             return day_before
-    from services.readiness import yesterday_load
-    # Bez zapisanego planu (np. pierwszy plan w aplikacji) decyduje zegarek: mocny trening albo bieg tak długi
-    # jak najdłuższy z ostatnich tygodni — te same progi, co ocena gotowości.
+    from services.readiness import longest_before, yesterday_load
+    # Bez zapisanego planu (np. pierwszy plan w aplikacji) decyduje zegarek: mocny trening (progi oceny gotowości)
+    # albo bieg co najmniej w 3/4 tak długi jak najdłuższy z ostatnich tygodni — to był długi bieg.
     if yesterday_load(activities, monday.isoformat()) == "hard":
+        return day_before
+    longest = longest_before(activities, day_before) or 0
+    sunday_runs = [a.get("duration_min") or 0 for a in activities or []
+                   if isinstance(a, dict) and str(a.get("date") or "")[:10] == day_before
+                   and str(a.get("type") or "").startswith("running")]
+    if sunday_runs and longest and max(sunday_runs) >= max(LONG_RUN_DAY_MIN, 0.75 * longest):
         return day_before
     return None
 

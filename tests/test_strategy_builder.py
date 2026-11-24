@@ -128,3 +128,19 @@ def test_the_app_reads_the_structure_and_falls_back_to_text_after_a_manual_edit(
     # Zapis bez struktury (np. tekst z innego źródła) usuwa nieaktualny JSON.
     save_strategy(edited, path=path)
     assert not structured_path(path).exists()
+
+
+def test_a_goal_too_far_for_the_time_left_is_named_plainly():
+    beginner = {"running_since": "under6", "target_distance": "hm", "target_date": "2027-05-30",
+                "training_frequency": "3 treningi"}
+    runs = [{"date": f"{TODAY - timedelta(days=7 * week + day)} 07:00", "type": "running", "duration_min": 27,
+             "distance_km": 3.8} for week in range(1, 9) for day in (1, 3, 6)]  # 3 × 27 min, jak osoba zaczynająca
+    text = build_strategy_markdown(profile=beginner, activities=runs, today=TODAY)
+    assert "Uwaga na termin" in text and "16 km" in text
+
+
+def test_the_taper_long_run_is_a_share_of_the_peak_not_a_fixed_cut():
+    text, structured = build_strategy(profile=PROFILE, activities=_runs(), today=TODAY)
+    peak = structured.phases[-2].long_km[1]
+    taper = structured.phases[-1].long_km
+    assert taper == (max(round(peak * 0.6), 4), max(round(peak * 0.8), 5))
