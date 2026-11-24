@@ -765,6 +765,9 @@ details[open] > summary .disclosure-cue { transform: rotate(90deg); }
 .workout-dialog-head p { margin: 0; }
 .workout-edit { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
 .workout-edit h4, .workout-edit p { margin: 0; }
+.workout-edit .field.inline { white-space: nowrap; flex: 1 1 auto; }
+.workout-edit select.text-input { flex: 1 1 180px; min-width: 0; }
+.workout-delete { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
 .workout-dialog h3 { margin: 2px 0 0; font-size: 1.25rem; }
 .workout-dialog h4 { margin: 18px 0 6px; font-size: 0.875rem; color: var(--fg-mid); text-transform: uppercase; letter-spacing: 0.04em; }
 .workout-dialog p { font-size: 16px; line-height: 1.6; max-width: 62ch; white-space: pre-line; margin: 0; }
@@ -797,6 +800,8 @@ details[open] > summary .disclosure-cue { transform: rotate(90deg); }
 .chart-dot.distance { fill: var(--fg); stroke: var(--surface); stroke-width: 2; }
 .legend-swatch.distance { background: var(--fg); border-radius: 999px; }
 .chart-band { fill: var(--ok-icon); fill-opacity: 0.12; stroke: none; }
+.chart-band-label { fill: var(--ok-fg); font-weight: 600; }
+.chart-hit { fill: transparent; }
 .chart-avg { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 4 4; }
 .chart-data { margin-top: 12px; overflow-x: auto; }
 .chart-data summary { cursor: pointer; }

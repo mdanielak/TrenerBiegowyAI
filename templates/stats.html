@@ -98,6 +98,7 @@
           {% for bar in chart.bars if bar.band %}
             <rect class="chart-band" x="{{ bar.band.x }}" y="{{ bar.band.y }}" width="{{ bar.band.width }}" height="{{ bar.band.height }}"/>
           {% endfor %}
+          {% if chart.band_label %}<text class="chart-axis chart-band-label" x="{{ chart.grid_end }}" y="{{ chart.band_label_y }}" text-anchor="end">{{ chart.band_label }}</text>{% endif %}
           {% for bar in chart.bars %}
             <rect class="chart-bar{% if bar.is_current %} current{% endif %}"
                   x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" rx="6"/>
@@ -209,6 +210,7 @@
                 {% for points in chart.lines %}<polyline class="chart-line" points="{{ points }}"/>{% endfor %}
                 {% for dot in chart.dots %}<circle class="chart-dot" cx="{{ dot.x }}" cy="{{ dot.y }}" r="3"/>{% endfor %}
                 <circle class="chart-dot today" cx="{{ chart.last.x }}" cy="{{ chart.last.y }}" r="4"/>
+                {% for pt in chart.hover_points %}<circle class="chart-hit" cx="{{ pt.x }}" cy="{{ pt.y }}" r="6"><title>{{ pt.label }}: {{ pt.value }}{% if metric.unit %} {{ metric.unit }}{% endif %}</title></circle>{% endfor %}
                 {% for label in chart.labels %}
                   <text class="chart-axis" x="{{ label.x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ label.text }}</text>
                 {% endfor %}

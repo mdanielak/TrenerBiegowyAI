@@ -101,6 +101,13 @@ def _next_workout_view(workout, today: str) -> dict | None:
             "hr_zone": workout.get("hr_zone"), "garmin_upload": bool(workout.get("garmin_upload"))}
 
 
+def _signal_description(metric: str, message: str | None) -> str | None:
+    """Rozwiń skrót HRV w opisie kafelka na stronie głównej, bez ruszania tekstów silnika."""
+    if metric == "HRV" and isinstance(message, str) and message.startswith("HRV "):
+        return f"Zmienność tętna (HRV): {message[4:]}"
+    return message
+
+
 def _signal_cards(report) -> list:
     """Zbuduj kafelki sygnałów z tej samej oceny, która wyznaczyła wynik gotowości."""
     readiness_data = cast(dict, report.readiness) or {}
@@ -126,7 +133,7 @@ def _signal_cards(report) -> list:
             "icon": meta["icon"],
             "asset": meta["asset"],
             "value": value,
-            "description": details.get(metric, {}).get("message"),
+            "description": _signal_description(metric, details.get(metric, {}).get("message")),
             "state_class": _SIGNAL_STATE_CLASSES.get(status, "none"),
             "state_label": _SIGNAL_STATE_LABELS.get(status, "brak danych"),
             "trend": _trend_view(trends.get(trend_key)) if trend_key else None,

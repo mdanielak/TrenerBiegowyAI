@@ -401,7 +401,7 @@
                           <button type="submit" name="action" value="easier" class="btn-secondary">Zamień na spokojny bieg</button>
                         </form>
                         {% endif %}
-                        <p><a class="btn btn-danger-outline" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun" aria-label="Usuń trening {{ plan_day.name }}">Usuń trening z planu</a></p>
+                        <p class="workout-delete"><a class="btn btn-danger-outline" href="/plan?week={{ week_start }}&amp;remove={{ plan_day.date }}#usun" aria-label="Usuń trening {{ plan_day.name }}">Usuń trening z planu</a></p>
                       </div>
                     {% endif %}
                   </div>

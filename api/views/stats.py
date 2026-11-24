@@ -93,7 +93,7 @@ def _weekly_chart(weekly) -> dict | None:
         "bars": bars,
         "has_bands": any(bar["band"] for bar in bars),
         "band_label": f"cel fazy: {current_band[0]}–{current_band[1]} km/tydz." if current_band else None,
-        "band_label_y": round(y_of(current_band[1]) - 6, 2) if current_band else None,
+        "band_label_y": max(14, round(y_of(current_band[1]) - 6, 2)) if current_band else None,
     }
 
 
@@ -184,7 +184,7 @@ def _line_chart(trend, domain=None, min_span=0) -> dict | None:
     def y_of(value):
         return round(_PAD_TOP + (1 - (value - low) / (high - low)) * inner_height, 2)
 
-    segments, current, dots, labels = [], [], [], []
+    segments, current, dots, labels, hover_points = [], [], [], [], []
     for index, (day, value) in enumerate(trend.points):
         x = round(_PAD_LEFT + inner_width * index / steps, 2)
         if index % 7 == 0:
@@ -194,7 +194,9 @@ def _line_chart(trend, domain=None, min_span=0) -> dict | None:
                 segments.append(current)
             current = []
             continue
-        current.append((x, y_of(value)))
+        y = y_of(value)
+        current.append((x, y))
+        hover_points.append({"x": x, "y": y, "label": _short_date(day), "value": _format_number(value)})
     if current:
         segments.append(current)
 
@@ -217,6 +219,7 @@ def _line_chart(trend, domain=None, min_span=0) -> dict | None:
         "gridlines": [{"y": y_of(value), "label": _format_number(value, 0)} for value in (low, middle, high)],
         "lines": lines,
         "dots": dots,
+        "hover_points": hover_points,
         "last": {"x": last_x, "y": last_y},
         "average_y": y_of(trend.average) if trend.average is not None else None,
         "labels": labels,

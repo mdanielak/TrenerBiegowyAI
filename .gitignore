@@ -102,3 +102,7 @@ trener_biegowy_ai_assets/_generated/
 .agents/
 .codex/
 .claude/
+.playwright-mcp/
+node_modules/
+package.json
+package-lock.json
