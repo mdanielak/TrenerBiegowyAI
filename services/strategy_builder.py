@@ -75,7 +75,7 @@ def _long_share_cap(week_km, share, needed) -> int:
     dłuższego biegu — do tej potrzebnej długości, ale nie więcej niż połowa tygodnia (twardy limit kodu)."""
     cap = round(week_km * share)
     if needed:
-        cap = max(cap, min(needed, round(week_km * 0.5)))
+        cap = max(cap, min(needed, int(week_km * 0.5)))  # połowa tygodnia w dół: nigdy ponad limit kodu
     return max(cap, 6)
 
 
@@ -203,6 +203,9 @@ def build_strategy(*, profile: dict, activities, today: date):
     # Udział długiego biegu w tygodniu jak w prompcie (core/04): zależny od liczby biegów.
     long_share = 0.3 if frequency >= 5 else 0.35 if frequency == 4 else 0.45
     needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
+    # Maraton: długi bieg ma prawo dojść do celu dla poziomu (_PEAKS), nie tylko do minimum — inaczej strategia
+    # stała w miejscu, a limit planu tygodnia pozwalał rosnąć dalej.
+    long_goal = max(needed or 0, long_target) if _goal(profile) == "marathon" else needed
     rows, phases, long_range = [], [], (long_start, long_start + 2)
     for name, hint, start, end in stages:
         # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
@@ -213,9 +216,9 @@ def build_strategy(*, profile: dict, activities, today: date):
         # Udział w tygodniu ogranicza wzrost długiego biegu, ale nigdy nie skraca go poniżej tego, co osoba już biega.
         # Gdy dystans wymaga dłuższego biegu, udział może dojść do połowy tygodnia (twardy limit kodu).
         long_low = max(long_start, min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH),
-                                       _long_share_cap(low, long_share, needed)))
+                                       _long_share_cap(low, long_share, long_goal)))
         long_top = max(long_start, min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH),
-                                       _long_share_cap(top, long_share, needed)))
+                                       _long_share_cap(top, long_share, long_goal)))
         long_range = (max(long_low, 4), max(long_top, 6))
         # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"

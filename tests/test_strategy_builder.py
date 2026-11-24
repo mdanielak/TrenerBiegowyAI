@@ -172,3 +172,16 @@ def test_a_prepared_runner_never_gets_a_shorter_long_run_or_a_false_date_warning
         "running_since": "6to24", "target_distance": "hm", "target_date": "2027-06-20",
         "target_time": "1:55:00", "training_frequency": "4 treningi"})
     assert "Uwaga na termin" not in text and structured.phases[-2].long_km[1] >= 14
+
+
+def test_the_long_run_never_exceeds_half_the_week_and_a_marathoner_can_grow_to_the_goal():
+    beginner = _weekly([(1, 25), (3, 25), (6, 30)], 7.2, weeks=8)
+    _, structured = build_strategy(activities=beginner, today=TODAY, profile={
+        "running_since": "under6", "target_distance": "hm", "target_date": "2027-05-30", "training_frequency": "3 treningi"})
+    for phase in structured.phases[:-1]:
+        assert phase.long_km[1] <= max(int(phase.km[1] * 0.5), 6)
+    marathoner = _weekly([(0, 50), (1, 70), (2, 60), (3, 75), (4, 50), (6, 150)], 5.0)
+    _, structured = build_strategy(activities=marathoner, today=TODAY, profile={
+        "running_since": "over24", "target_distance": "marathon", "target_date": "2027-06-20",
+        "training_frequency": "6 treningów"})
+    assert structured.phases[-2].long_km[1] >= 32  # dochodzi do celu dla poziomu, nie stoi na obecnych 30 km

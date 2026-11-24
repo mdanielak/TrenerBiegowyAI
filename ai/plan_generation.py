@@ -118,6 +118,8 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    i odcinków od 3 minut. Tętno nie nadąża za odcinkami krótszymi niż ok. 3 minuty: bez tempa z danych planuj
    odcinki od 3 minut w strefie 4, a krótkie szybkie fragmenty opisz jako przebieżki w biegu łatwym.
    Wysiłek opisz oddechem i odczuciem. Akcent bez obu celów aplikacja zamieni na bieg łatwy.
+   Odcinki z przerwami (np. 3 × 8 min z 2 min truchtu) to zawsze kind="intervals" z `repetitions`,
+   `work_seconds` i `rest_seconds`; kind="tempo" i "threshold" to jeden ciągły odcinek.
 5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
    Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR.

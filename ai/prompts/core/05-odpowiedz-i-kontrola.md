@@ -12,3 +12,5 @@ Jeśli schemat ma pole podsumowania (`summary`), wpisujesz w nie decyzję i jej 
 - Czy akcent ma rozgrzewkę, część główną z przerwami i schłodzenie?
 - Czy odpowiedź pasuje do schematu i nie jest zbyt stanowcza przy niepełnych danych?
 - Czy forma zwracania się zgadza się z modułem języka?
+- Czy każde odwołanie do innego dnia („dzień przed długim biegiem”, „po środowym akcencie”) zgadza się z datami i rodzajami treningów w `workouts`? Gdy nie masz pewności, nazwij dzień tygodnia wprost albo pomiń odwołanie.
+- Czy odcinki z przerwami są zapisane jako `intervals` z liczbą powtórzeń i czasami, tak jak w opisie?

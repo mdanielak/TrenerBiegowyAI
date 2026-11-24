@@ -517,6 +517,22 @@ def _settle_aerobic(entry, notes, max_minutes, default_zone=2) -> None:
     _clip_to_window(entry, notes, max_minutes)
 
 
+_REPEATS = re.compile(r"(\d{1,2})\s*[×x]\s*(\d{1,2}(?:[.,]5)?)\s*min", re.IGNORECASE)
+_REST = re.compile(r"(\d{1,2}(?:[.,]5)?)\s*min\w*\s+(?:spokojnego\s+|luźnego\s+|swobodnego\s+)?(?:truchtu|marszu|przerwy)",
+                   re.IGNORECASE)
+
+
+def _repeats_in_text(entry):
+    """(powtórzenia, sekundy pracy, sekundy przerwy) z „3 × 8 min … 2 min truchtu” w nazwie lub opisie; inaczej None."""
+    text = " ".join(str(entry.get(key) or "") for key in ("name", "description"))
+    match = _REPEATS.search(text)
+    if not match or int(match.group(1)) < 2:
+        return None
+    rest = _REST.search(text[match.end():])
+    minutes = lambda value: round(float(value.replace(",", ".")) * 60)  # noqa: E731
+    return int(match.group(1)), minutes(match.group(2)), minutes(rest.group(1)) if rest else 120
+
+
 def _normalize_day(day, workout, floors):
     """Zastosuj reguły dnia i zwróć finalny zapis treningu."""
     available = bool(day.get("available"))
@@ -574,6 +590,13 @@ def _normalize_day(day, workout, floors):
     if kind in AEROBIC_KINDS:
         _settle_aerobic(entry, notes, max_minutes, default_zone=2 if kind in ("easy", "long") else 1)
 
+    if kind in ("tempo", "threshold"):
+        reps = _repeats_in_text(entry)
+        if reps is not None:
+            # „3 × 8 min z przerwami” to odcinki: na zegarku mają być powtórzenia z przerwami, nie jeden ciągły bieg.
+            entry["kind"] = kind = "intervals"
+            entry["repetitions"], entry["work_seconds"], entry["rest_seconds"] = reps
+            notes.append("Zapisano jako odcinki z przerwami, tak jak w opisie.")
     if kind in ("tempo", "threshold"):
         if _quality_target(entry) is None:
             notes.append("Zmieniono na bieg łatwy (brak tempa i strefy tętna dla części głównej).")

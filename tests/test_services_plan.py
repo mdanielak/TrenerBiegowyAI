@@ -328,3 +328,17 @@ def test_plan_prompt_names_the_longest_recent_run_and_the_gradual_rule():
     from ai.prompts import coach_prompt
     shipped = coach_prompt(None, private_path=Path("brak.md"))
     assert "half-marathon" not in shipped and "2027" not in shipped and "local/" not in shipped  # bez danych autora
+
+
+def test_a_threshold_described_as_repeats_goes_to_the_watch_as_intervals():
+    from services.plan import plan_workout_to_garmin
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=50, pace_target=None, hr_zone=4,
+                                name="Odcinki progowe 3 × 8 min",
+                                description="10 min rozgrzewki, 3 × 8 min komfortowo trudno, między odcinkami 2 minuty truchtu.")])
+    monday = plan["workouts"][0]
+    assert (monday["type"], monday["repetitions"], monday["work_seconds"], monday["rest_seconds"]) == ("intervals", 3, 480, 120)
+    kind, args = plan_workout_to_garmin(monday)
+    assert kind == "intervals" and args["repeats"] == 3 and args["zone_number"] == 4
+    continuous = _normalize([_workout("2026-10-26", "tempo", duration_min=50, pace_target=None, hr_zone=3,
+                                      name="Tempo maratonu 30 min", description="Ciągle w tempie maratonu.")])
+    assert continuous["workouts"][0]["type"] == "tempo"
