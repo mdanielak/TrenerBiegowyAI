@@ -144,3 +144,10 @@ def test_the_taper_long_run_is_a_share_of_the_peak_not_a_fixed_cut():
     peak = structured.phases[-2].long_km[1]
     taper = structured.phases[-1].long_km
     assert taper == (max(round(peak * 0.6), 4), max(round(peak * 0.8), 5))
+
+
+@pytest.mark.parametrize(("frequency", "share"), [("3 treningi", 0.45), ("4 treningi", 0.35), ("6 treningów", 0.3)])
+def test_the_strategy_long_run_share_follows_the_prompt(frequency, share):
+    _, structured = build_strategy(profile={**PROFILE, "training_frequency": frequency}, activities=_runs(), today=TODAY)
+    for phase in structured.phases[:-1]:
+        assert phase.long_km[1] <= max(round(phase.km[1] * share), 6)

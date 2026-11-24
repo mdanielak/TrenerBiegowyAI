@@ -505,7 +505,7 @@ def quality_sessions_limit(runner: dict, configured=None) -> int:
     # dniami nie ma miejsca na spokojne biegi (tak też mówi moduł poziomu w prompcie).
     if level == "regularny" and (runner.get("runs_per_week") or 0) < REGULAR_SECOND_QUALITY_RUNS:
         return min(wanted, 1)
-    if (runner or {}).get("decision_cause") in ("step_back", "taper", "race_week"):
+    if (runner or {}).get("decision_cause") in ("step_back", "taper", "race_week", "after_short_race"):
         return min(wanted, 1)  # tydzień cofnięcia i taper: najwyżej jeden krótszy akcent
     return wanted
 

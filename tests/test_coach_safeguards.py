@@ -640,3 +640,17 @@ def test_a_sunday_long_run_without_a_plan_is_a_hard_day_even_under_ninety_minute
     assert _hard_day_before(None, history + [long_run], TODAY) == str(sunday)
     short = {"date": f"{sunday} 07:00", "type": "running", "duration_min": 35}
     assert _hard_day_before(None, history + [short], TODAY) is None
+
+
+# --- Czwarta recenzja ---------------------------------------------------------------------------------
+
+def test_race_week_long_run_is_short_before_a_5k_and_the_week_after_is_not_lost():
+    from services.runner_profile import quality_sessions_limit
+    from services.week_decision import long_run_limit
+    race_week = build_runner_profile(activities=_weeks([300, 300, 300, 300]), today=TODAY, previous_plan=_done_last_week(),
+                                     profile=_profile(target_date=str(TODAY + timedelta(days=5)), target_distance="5k"))
+    assert race_week["decision_cause"] == "race_week" and long_run_limit(race_week, 100) == 55
+    after = build_runner_profile(activities=_weeks([300, 300, 300, 300]), today=TODAY, previous_plan=_done_last_week(),
+                                 profile=_profile(target_date=str(TODAY - timedelta(days=1)), target_distance="5k"))
+    assert (after["decision"], after["decision_cause"]) == ("utrzymaj", "after_short_race")
+    assert quality_sessions_limit(after, 2) == 1 and long_run_limit(after, 100) == 110  # zwykły tydzień, bez 45 min

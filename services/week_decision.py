@@ -31,6 +31,9 @@ FATIGUE_CAUSES = ("pain", "rhr_high", "rhr_up", "struggling", "hrv_rhr", "after_
 # Długi bieg w lekkim tygodniu: część najdłuższego niedawnego biegu (zamiast wzrostu).
 LIGHT_LONG_RUN = {"regeneracja": 0.6, "odpusc": 0.75, "step_back": 0.8}
 AFTER_RACE_EASY_MAX = 45  # tydzień po starcie: krótkie spokojne biegi, długi bieg też nie dłuższy
+# Tydzień startu na krótkim dystansie: długi bieg najwyżej tę część najdłuższego niedawnego (świeże nogi na start).
+RACE_WEEK_LONG_RUN = {"5k": 0.55, "10k": 0.6}
+SHORT_RACES = ("5k", "10k")
 # Taper przed startem (Bosquet 2007, przegląd 2023): około 2 tygodni, objętość w dół o 41–60%, intensywność
 # i częstotliwość bez zmian. Tydzień przed startem ok. 80% zwykłego tygodnia, tydzień startu ok. 55%.
 # Część tygodnia zwykłego w kolejnych tygodniach przed startem (indeks 0 = tydzień startu), zależnie od dystansu:
@@ -40,6 +43,8 @@ TAPER_DEFAULT = TAPER_WEEKS["hm"]
 # Po starcie: tyle dni lżej (po maratonie dłużej, a pierwszy tydzień to regeneracja).
 AFTER_RACE_DAYS = {"marathon": 14}
 CAUSE_LABELS = {
+    "after_short_race": "utrzymaj po krótkim starcie — pierwsze 2–3 dni tylko spokojnie, potem zwykły tydzień; "
+                        "najwyżej jeden akcent, najwcześniej trzeciego dnia po starcie",
     "step_back": "tydzień cofnięcia — około 75% zwykłego tygodnia po trzech tygodniach wzrostu; to planowa przerwa "
                  "w budowaniu, nie zmęczenie: spokojne biegi i najwyżej jeden krótszy, lżejszy akcent",
     "taper": "odpuść przed startem — {taper}; mniej objętości, ale intensywność zostaje: "
@@ -85,7 +90,10 @@ def long_run_limit(runner, longest) -> int:
     if runner.get("decision_cause") == "after_race":
         return min(AFTER_RACE_EASY_MAX, round(longest * LIGHT_LONG_RUN["regeneracja"]))
     if runner.get("taper_percent"):
-        return round(longest * runner["taper_percent"] / 100)
+        share = runner["taper_percent"] / 100
+        if runner.get("decision_cause") == "race_week":
+            share = min(share, RACE_WEEK_LONG_RUN.get(runner.get("goal_distance"), 1.0))
+        return round(longest * share)
     if runner.get("decision_cause") == "step_back":
         return round(longest * LIGHT_LONG_RUN["step_back"])
     if runner.get("decision") in LIGHT_DECISIONS:
@@ -221,6 +229,8 @@ _CAUSE_TEXT = {
     "hrv_rhr": "HRV jest poniżej Twojego zakresu, a tętno spoczynkowe wyższe niż zwykle — organizm prosi o lżejszy tydzień.",
     "hrv_low": "HRV jest poniżej Twojego zakresu — ten tydzień objętość jak ostatnio, bez wzrostu.",
     "after_race": "Po starcie potrzebny jest lżejszy czas na regenerację (po maratonie dwa tygodnie).",
+    "after_short_race": "Po starcie na krótkim dystansie: 2–3 spokojne dni, akcent najwcześniej trzeciego dnia, "
+                        "objętość jak ostatnio.",
     "stabilise": "Poprzedni tydzień był wyraźnie lżejszy — najpierw wracasz do zwykłej objętości.",
 }
 
@@ -294,8 +304,11 @@ def decide_week(*, pain, rhr_up, struggling, hrv_low, adherence, returning, hr_t
         decision, cause = "odpusc", "hrv_rhr"
     elif taper_factor is not None:
         decision, cause = "odpusc", ("race_week" if weeks_before == 0 else "taper")
+    elif race_days is not None and -7 < race_days < 0 and goal in SHORT_RACES:
+        # Po 5 i 10 km wystarczą 2–3 spokojne dni: tydzień bez wzrostu, jeden akcent najwcześniej w 3. dniu.
+        decision, cause = "utrzymaj", "after_short_race"
     elif race_days is not None and -after_race < race_days < 0:
-        # Po maratonie pierwszy tydzień to regeneracja, drugi lżejszy; po krótszych startach jeden lżejszy tydzień.
+        # Po maratonie pierwszy tydzień to regeneracja, drugi lżejszy; po półmaratonie jeden lżejszy tydzień.
         decision, cause = ("regeneracja" if after_race > 7 and race_days > -7 else "odpusc"), "after_race"
     elif not short_history and _rising_weeks(week_minutes):
         decision, cause = "odpusc", "step_back"

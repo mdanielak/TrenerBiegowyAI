@@ -191,6 +191,8 @@ def build_strategy(*, profile: dict, activities, today: date):
     frequency = next((int(ch) for ch in str(profile.get("training_frequency") or "") if ch.isdigit()), 4)
     runs = f"{max(frequency - 1, 1)}-{frequency}"
 
+    # Udział długiego biegu w tygodniu jak w prompcie (core/04): zależny od liczby biegów.
+    long_share = 0.3 if frequency >= 5 else 0.35 if frequency == 4 else 0.45
     rows, phases, long_range = [], [], (long_start, long_start + 2)
     for name, hint, start, end in stages:
         # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
@@ -198,8 +200,8 @@ def build_strategy(*, profile: dict, activities, today: date):
         first, last = (start - monday).days / 7, (end - monday).days / 7
         low, top = _weekly_volume(first, start_km, peak), _weekly_volume(last, start_km, peak)
         long_cap = max(long_target, long_start)
-        long_low = min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH), max(round(low * 0.5), 6))
-        long_top = min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH), max(round(top * 0.5), 6))
+        long_low = min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH), max(round(low * long_share), 6))
+        long_top = min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH), max(round(top * long_share), 6))
         long_range = (max(long_low, 4), max(long_top, 6))
         # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
@@ -210,7 +212,8 @@ def build_strategy(*, profile: dict, activities, today: date):
         rows.append(f"| {name} | {_span(start, end)} | {volume}{_minutes_note(low, top, run_pace)}, "
                     f"{longs}{_minutes_note(long_range[0], long_range[1], run_pace)} | {hint} |")
     # Taper: długi bieg o ok. 20–40% krótszy (procentowo, nie o stałe km — przy krótkich długich biegach to była połowa).
-    taper_long = (max(round(long_range[1] * 0.6), 4), max(round(long_range[1] * 0.8), 5))
+    low_share, high_share = (0.5, 0.6) if _goal(profile) in ("5k", "10k") else (0.6, 0.8)
+    taper_long = (max(round(long_range[1] * low_share), 4), max(round(long_range[1] * high_share), 5))
     steps = _monthly_steps(monday, taper_start, start_km, peak)
     needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
     realism = ""
@@ -255,7 +258,8 @@ def build_strategy(*, profile: dict, activities, today: date):
         f"1. **Cel główny:** {label}{' ' + target if target else ''}{pace}, **{race.isoformat()}**.",
         "2. Łatwe, regeneracyjne i długie biegi prowadzimy po tętnie. "
         + ("Bez mocnych akcentów, dopóki aplikacja nie uzna poziomu regularnego." if level == "poczatkujacy"
-           else "Jeden główny akcent tygodniowo."),
+           else "Jeden główny akcent tygodniowo; przy dwóch w ustawieniach drugi tylko lekki (przebieżki, krótkie podbiegi)."
+           if level == "zaawansowany" else "Jeden główny akcent tygodniowo."),
         *([f"3. Minuty w nawiasach liczone przy Twoim średnim tempie z ostatnich biegów "
            f"(ok. {_clock(run_pace * 60)}/km); limity tygodnia w aplikacji są w minutach."] if run_pace else []),
         "",
