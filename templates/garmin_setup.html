@@ -7,6 +7,7 @@
 
   <div class="page-head">
     <div>
+      <p><a href="/settings">← Ustawienia</a></p>
       <h1>Połącz zegarek Garmin</h1>
       <p class="page-sub">Krok 1: konto Garmin Connect · krok 2: pobranie danych · krok 3: Twój cel</p>
     </div>
@@ -53,21 +54,29 @@
         </li>
         <li>
           <strong class="point">Potem działa token, nie hasło.</strong>
-          Na tym komputerze zostaje token Garmina (<code>{{ token_location }}</code>), który odnawia się sam — podobnie jak po logowaniu przez OAuth. Kolejne synchronizacje nie potrzebują już hasła. Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
-        </li>
-        <li>
-          <strong class="point">Wszystko zostaje u Ciebie.</strong>
-          Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
-        </li>
-        <li>
-          <strong class="point">Dlaczego w ogóle hasło?</strong>
-          Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+          Na tym komputerze zostaje token dostępu, który odnawia się sam. Kolejne synchronizacje nie potrzebują już hasła.
         </li>
         <li>
           <strong class="point">Włącz weryfikację dwuetapową.</strong>
           W ustawieniach konta Garmin Connect włącz kod weryfikacyjny przy logowaniu — wtedy samo hasło nie wystarczy, żeby ktoś wszedł na Twoje konto. Ta strona obsługuje taki kod.
         </li>
       </ul>
+      <details><summary>Szczegóły techniczne</summary>
+        <ul class="security-list">
+          <li>
+            <strong class="point">Lokalizacja tokenu i dostęp.</strong>
+            Token Garmina jest zapisany lokalnie w pliku <code>{{ token_location }}</code> (podobnie jak po logowaniu przez OAuth). Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
+          </li>
+          <li>
+            <strong class="point">Wszystko zostaje u Ciebie.</strong>
+            Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
+          </li>
+          <li>
+            <strong class="point">Dlaczego w ogóle hasło?</strong>
+            Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+          </li>
+        </ul>
+      </details>
     </section>
 
     {% elif stage == 'mfa' %}
@@ -86,7 +95,7 @@
       </section>
 
     {% else %}
-      <section class="card ai-state ok">
+      <section class="card ai-state ok stack">
         <div class="card-head"><h2><span class="ai-dot" aria-hidden="true"></span><span>Zegarek połączony</span></h2></div>
         {% if request.query_params.get('profile') == 'failed' %}
           <p class="mid">Połączenie działa, ale nie udało się teraz pobrać danych profilu. Spróbuj przyciskiem „Odśwież profil i strefy tętna”.</p>
@@ -132,21 +141,29 @@
         </li>
         <li>
           <strong class="point">Potem działa token, nie hasło.</strong>
-          Na tym komputerze zostaje token Garmina (<code>{{ token_location }}</code>), który odnawia się sam — podobnie jak po logowaniu przez OAuth. Kolejne synchronizacje nie potrzebują już hasła. Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
-        </li>
-        <li>
-          <strong class="point">Wszystko zostaje u Ciebie.</strong>
-          Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
-        </li>
-        <li>
-          <strong class="point">Dlaczego w ogóle hasło?</strong>
-          Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+          Na tym komputerze zostaje token dostępu, który odnawia się sam. Kolejne synchronizacje nie potrzebują już hasła.
         </li>
         <li>
           <strong class="point">Włącz weryfikację dwuetapową.</strong>
           W ustawieniach konta Garmin Connect włącz kod weryfikacyjny przy logowaniu — wtedy samo hasło nie wystarczy, żeby ktoś wszedł na Twoje konto. Ta strona obsługuje taki kod.
         </li>
       </ul>
+      <details><summary>Szczegóły techniczne</summary>
+        <ul class="security-list">
+          <li>
+            <strong class="point">Lokalizacja tokenu i dostęp.</strong>
+            Token Garmina jest zapisany lokalnie w pliku <code>{{ token_location }}</code> (podobnie jak po logowaniu przez OAuth). Na Windows inni użytkownicy tego komputera nie mają dostępu do jego folderu.
+          </li>
+          <li>
+            <strong class="point">Wszystko zostaje u Ciebie.</strong>
+            Ta strona działa wyłącznie na tym komputerze (adres 127.0.0.1) i jest chroniona przed sfałszowanymi żądaniami z innych stron (CSRF).
+          </li>
+          <li>
+            <strong class="point">Dlaczego w ogóle hasło?</strong>
+            Aplikacja łączy się przez bibliotekę <code>garminconnect</code>, która loguje się tak jak aplikacja mobilna Garmin Connect — a ta wymaga hasła. Oficjalne logowanie OAuth Garmin udostępnia tylko zatwierdzonym firmom, a nie prywatnym aplikacjom działającym na własnym komputerze.
+          </li>
+        </ul>
+      </details>
     </section>
 
     <section class="card danger-zone" id="ostroznie" aria-labelledby="danger-title">

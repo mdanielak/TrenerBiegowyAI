@@ -28,7 +28,7 @@
     <nav class="week-nav" aria-label="Zakres statystyk">
       {% for option in week_options %}
         <a class="btn btn-secondary{% if option == stats.weeks %} is-active{% endif %}" href="/stats?weeks={{ option }}"
-           {% if option == stats.weeks %}aria-current="page"{% endif %}>{{ option }} {{ option|plural('tydzień', 'tygodnie', 'tygodni') }}</a>
+           {% if option == stats.weeks %}aria-current="true"{% endif %}>{{ option }} {{ option|plural('tydzień', 'tygodnie', 'tygodni') }}</a>
       {% endfor %}
     </nav>
   </div>

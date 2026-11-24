@@ -10,6 +10,7 @@
     <p class="page-sub">Połączenie z dostawcą AI i zgoda na eksport danych</p>
   </div>
 </div>
+<div class="stack">
 {% if ai_status %}
 <section class="card ai-state {{ ai_status.tone }}" id="polaczenie" aria-labelledby="ai-state-heading">
   <div class="card-head">
@@ -41,9 +42,9 @@
   <div class="card-head"><h2 id="guide-heading"><img class="asset head-icon" src="/assets/07_ui_icons/tile_idea.png" width="28" height="28" alt=""><span>Jak podłączyć AI — krok po kroku</span></h2></div>
   <p class="mid">AI jest opcjonalne: bez niego działa wszystko poza układaniem planu, rekomendacją dnia i komentarzem do treningu. Wybierz jedną z opcji:</p>
   <nav class="guide-tabs" aria-label="Dostawca AI">
-    <a class="btn btn-secondary{% if ai_guide == 'gemini' %} is-active{% endif %}" href="/settings/ai?guide=gemini#samouczek"{% if ai_guide == 'gemini' %} aria-current="page"{% endif %}>Google Gemini — zalecane</a>
-    <a class="btn btn-secondary{% if ai_guide == 'deepseek' %} is-active{% endif %}" href="/settings/ai?guide=deepseek#samouczek"{% if ai_guide == 'deepseek' %} aria-current="page"{% endif %}>DeepSeek Flash — tani i szybki</a>
-    <a class="btn btn-secondary{% if ai_guide == 'ollama' %} is-active{% endif %}" href="/settings/ai?guide=ollama#samouczek"{% if ai_guide == 'ollama' %} aria-current="page"{% endif %}>Ollama — na Twoim komputerze</a>
+    <a class="btn btn-secondary{% if ai_guide == 'gemini' %} is-active{% endif %}" href="/settings/ai?guide=gemini#samouczek"{% if ai_guide == 'gemini' %} aria-current="true"{% endif %}>Google Gemini — zalecane</a>
+    <a class="btn btn-secondary{% if ai_guide == 'deepseek' %} is-active{% endif %}" href="/settings/ai?guide=deepseek#samouczek"{% if ai_guide == 'deepseek' %} aria-current="true"{% endif %}>DeepSeek Flash — tani i szybki</a>
+    <a class="btn btn-secondary{% if ai_guide == 'ollama' %} is-active{% endif %}" href="/settings/ai?guide=ollama#samouczek"{% if ai_guide == 'ollama' %} aria-current="true"{% endif %}>Ollama — na Twoim komputerze</a>
   </nav>
 
   {% if ai_guide == 'ollama' %}
@@ -77,7 +78,7 @@
   {% if ai_preset %}<p class="banner info" role="status">Adres i model są już w formularzu poniżej — dodaj klucz i kliknij „Zapisz ustawienia AI”.</p>{% endif %}
 </section>
 <section class="card" aria-labelledby="ai-heading">
-  <div class="card-head"><h2 id="ai-heading">Konfiguracja połączenia</h2></div>
+  <div class="card-head"><h2 id="ai-heading"><img class="asset head-icon" src="/assets/01_navigation/settings.png" width="24" height="24" alt=""><span>Konfiguracja połączenia</span></h2></div>
   <div>
     {% if ai_error %}<div class="banner bad" role="alert" tabindex="-1" autofocus><div>{{ ai_error }}{% if ai_settings %} <a href="#{{ error_field or 'ai-form' }}">Przejdź do {{ 'pola' if error_field else 'formularza' }}</a>{% endif %}</div></div>{% endif %}
     {% if ai_test_success %}
@@ -90,42 +91,38 @@
       <div class="banner info" role="status">Zapisano. Ustawienia działają od razu — teraz kliknij „Sprawdź połączenie” na górze strony.</div>
     {% endif %}
     {% if ai_settings %}
-    <details><summary>Zaawansowane: plik konfiguracji</summary><p>Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany działają od razu, bez restartu.
-       Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p></details>
-    <form method="post" action="/settings/ai" class="stack form-stack" id="ai-form" tabindex="-1">
+    <form method="post" action="/settings/ai" class="stack form-stack" id="ai-form" tabindex="-1" data-test-progress="ai-progress">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>Adres serwera AI<br>
+      <label class="field">Adres serwera AI
         <input type="url" name="base_url"{{ attrs('ai-base-url') }} value="{{ ai_settings.base_url }}" required maxlength="4096" class="text-input" placeholder="https://api.openai.com/v1">{{ field_error('ai-base-url') }}
       </label>
-      <label>Nazwa modelu<br>
+      <label class="field">Nazwa modelu
         <input type="text" name="model"{{ attrs('ai-model') }} value="{{ ai_settings.model }}" required maxlength="4096" class="text-input" placeholder="Nazwa modelu u dostawcy">{{ field_error('ai-model') }}
       </label>
-      <label>Klucz API — {{ 'ustawiony' if ai_settings.key_present else 'brak' }}<br>
+      <label class="field">Klucz API — {{ 'ustawiony' if ai_settings.key_present else 'brak' }}
         <input type="password" name="api_key"{{ attrs('ai-key') }} autocomplete="new-password" maxlength="4096" class="text-input" placeholder="Puste pole zachowuje dotychczasowy klucz">{{ field_error('ai-key') }}
       </label>
-      <label><input type="checkbox" name="clear_key"{{ attrs('ai-clear-key') }} value="true" {% if ai_settings.clear_key %}checked{% endif %}> Usuń klucz z pliku .env{{ field_error('ai-clear-key') }}</label>
-      <label><input type="checkbox" name="export_enabled" value="true" {% if ai_settings.export_enabled %}checked{% endif %}>
+      <label class="choice"><input type="checkbox" name="clear_key"{{ attrs('ai-clear-key') }} value="true" {% if ai_settings.clear_key %}checked{% endif %}> Usuń zapisany klucz{{ field_error('ai-clear-key') }}</label>
+      <label class="choice"><input type="checkbox" name="export_enabled" value="true" {% if ai_settings.export_enabled %}checked{% endif %}>
         Zezwalam na wysyłanie danych treningowych i zdrowotnych do wskazanego dostawcy AI.
       </label>
-      <p>Test używa aktualnych pól formularza, a przy pustym kluczu — zapisanego klucza dla tego samego serwera (domena, protokół i port).
-         Zmiana ścieżki, np. /v1 na /v2, zachowuje klucz także przy zapisie. Puste pole nie oznacza, że klucz został usunięty.
-         Wysyła tylko komunikat „Connection test. Reply only OK.”, bez profilu ani treningów, również przy wyłączonym eksporcie danych.
-         Może naliczyć niewielką opłatę u dostawcy. Test nie zapisuje ustawień.</p>
-      <p>Klucz jest przechowywany jawnie w lokalnym pliku .env — nie udostępniaj tego pliku.</p>
-      <div>
+      <p class="tile-foot">Klucz jest zapisywany wyłącznie lokalnie na tym komputerze. Test połączenia wysyła krótkie pytanie techniczne bez Twoich danych treningowych.</p>
+      <details><summary>Zaawansowane: plik konfiguracji i szczegóły testu</summary>
+        <div class="stack">
+          <p class="mid">Plik konfiguracji: <code>{{ ai_env_path }}</code>. Zapisane zmiany działają od razu, bez restartu. Zmienne środowiskowe systemu mają pierwszeństwo przed plikiem.</p>
+          <p class="mid">Test używa aktualnych pól formularza, a przy pustym kluczu — zapisanego klucza dla tego samego serwera (domena, protokół i port). Zmiana ścieżki, np. /v1 na /v2, zachowuje klucz także przy zapisie. Puste pole nie oznacza, że klucz został usunięty. Wysyła tylko komunikat „Connection test. Reply only OK.”, bez profilu ani treningów, również przy wyłączonym eksporcie danych. Może naliczyć niewielką opłatę u dostawcy. Test nie zapisuje ustawień.</p>
+          <p class="mid">Klucz jest przechowywany jawnie w lokalnym pliku .env — nie udostępniaj tego pliku.</p>
+        </div>
+      </details>
+      <div class="row">
         <button type="submit" formaction="/settings/ai/test" class="btn btn-secondary">Testuj połączenie</button>
         <button type="submit" class="btn">Zapisz ustawienia AI</button>
       </div>
       <p id="ai-progress" role="status" hidden>Testowanie połączenia… czekam na odpowiedź API.</p>
     </form>
-    <script>
-      document.getElementById('ai-form').addEventListener('submit', function (event) {
-        if (event.submitter && event.submitter.getAttribute('formaction') === '/settings/ai/test') {
-          document.getElementById('ai-progress').hidden = false;
-        }
-      });
-    </script>
     {% endif %}
   </div>
 </section>
+<footer>Ustawienia zapisywane są lokalnie na tym komputerze.</footer>
+</div>
 {% endblock %}

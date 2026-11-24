@@ -12,6 +12,7 @@ if (toggle) {
     }
   });
 }
+
 document.querySelectorAll('[data-password-toggle]').forEach(button => {
   button.addEventListener('click', () => {
     const field = document.getElementById(button.dataset.passwordToggle);
@@ -21,7 +22,33 @@ document.querySelectorAll('[data-password-toggle]').forEach(button => {
     button.textContent = show ? 'Ukryj hasło' : 'Pokaż hasło';
   });
 });
-document.querySelector('[role="alert"][autofocus]')?.focus();
+
+document.querySelector('[autofocus][tabindex="-1"]')?.focus();
+
+const otherDistance = document.getElementById('other-distance');
+if (otherDistance) {
+  const updateOtherDistance = () => {
+    const selected = document.querySelector('input[name="distance"]:checked');
+    otherDistance.hidden = !selected || selected.value !== 'other';
+  };
+  document.querySelectorAll('input[name="distance"]').forEach(input => input.addEventListener('change', updateOtherDistance));
+  updateOtherDistance();
+}
+
+function openHashDetails(hashValue = location.hash) {
+  const targetId = (hashValue || '').replace(/^#/, '');
+  if (!targetId) return;
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const details = target.tagName === 'DETAILS' ? target : target.closest('details');
+  if (details) details.open = true;
+}
+openHashDetails();
+window.addEventListener('hashchange', () => openHashDetails());
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', () => openHashDetails(anchor.getAttribute('href')));
+});
+
 async function pollJob() {
   const current = document.getElementById('job-status');
   if (!current || current.dataset.poll !== 'true') return;
@@ -43,7 +70,9 @@ async function pollJob() {
   }
   setTimeout(pollJob, 5000);
 }
-setTimeout(pollJob, 5000);
+if (document.getElementById('job-status')?.dataset.poll === 'true') {
+  setTimeout(pollJob, 5000);
+}
 
 // Po ułożeniu lub wysłaniu planu strona ma się odświeżyć sama, ale nie kosztem niezapisanego tekstu.
 async function reloadWhenDone() {
@@ -59,7 +88,10 @@ async function reloadWhenDone() {
       const banner = document.querySelector('[data-reload-when-done]');
       banner.removeAttribute('data-reload-when-done');
       const link = document.createElement('p');
-      link.innerHTML = '<a href="">Gotowe — odśwież stronę</a> (najpierw zapisz wpisany tekst).';
+      const reloadAnchor = document.createElement('a');
+      reloadAnchor.href = '';
+      reloadAnchor.textContent = 'Gotowe — odśwież stronę';
+      link.append(reloadAnchor, document.createTextNode(' (najpierw zapisz wpisany tekst).'));
       (banner.querySelector('.banner-body') || banner).append(link);
       return;
     }
@@ -74,17 +106,21 @@ async function reloadWhenDone() {
   }
   setTimeout(reloadWhenDone, 5000);
 }
-setTimeout(reloadWhenDone, 5000);
+if (document.querySelector('[data-reload-when-done]')) {
+  setTimeout(reloadWhenDone, 5000);
+}
 
 // Czas etapu tyka co sekundę w przeglądarce; serwer poprawia go przy każdym sprawdzeniu postępu.
-setInterval(() => {
-  document.querySelectorAll('[data-elapsed]').forEach(span => {
-    const seconds = Number(span.dataset.elapsed) + 1;
-    span.dataset.elapsed = seconds;
-    const minutes = Math.floor(seconds / 60);
-    span.textContent = minutes ? `${minutes} min ${seconds % 60} s` : `${seconds % 60} s`;
-  });
-}, 1000);
+if (document.querySelector('[data-elapsed]')) {
+  setInterval(() => {
+    document.querySelectorAll('[data-elapsed]').forEach(span => {
+      const seconds = Number(span.dataset.elapsed) + 1;
+      span.dataset.elapsed = seconds;
+      const minutes = Math.floor(seconds / 60);
+      span.textContent = minutes ? `${minutes} min ${seconds % 60} s` : `${seconds % 60} s`;
+    });
+  }, 1000);
+}
 
 // Odliczanie przerwy (np. po ułożeniu planu): co sekundę mniej, przy zerze komunikat znika.
 function secondsWord(count) {
@@ -106,7 +142,7 @@ document.querySelectorAll('[data-countdown]').forEach(span => {
 });
 
 // Keep submitter names intact for multi-action forms while preventing duplicate requests.
-document.querySelectorAll('form[method="post"]').forEach(form => {
+document.querySelectorAll('form[method="post"]:not([data-review-form])').forEach(form => {
   let submitting = false;
   window.addEventListener('pageshow', () => {
     submitting = false; form.removeAttribute('aria-busy');
@@ -116,6 +152,14 @@ document.querySelectorAll('form[method="post"]').forEach(form => {
     if (submitting) { event.preventDefault(); return; }
     submitting = true;
     form.setAttribute('aria-busy', 'true');
+    const customProgressId = form.dataset.testProgress;
+    if (customProgressId && event.submitter?.getAttribute('formaction') === '/settings/ai/test') {
+      const progress = document.getElementById(customProgressId);
+      if (progress) {
+        progress.hidden = false;
+        return;
+      }
+    }
     const feedback = document.createElement('p');
     feedback.dataset.submitFeedback = 'true';
     feedback.setAttribute('role', 'status');
@@ -135,12 +179,23 @@ if (painNote) {
 }
 
 // Szczegóły treningu: natywne okienko (Esc zamyka samo); kliknięcie w tło też zamyka.
+let lastDialogTrigger = null;
 document.querySelectorAll('[data-dialog]').forEach(button => {
-  button.addEventListener('click', () => document.getElementById(button.dataset.dialog)?.showModal());
+  button.addEventListener('click', () => {
+    const dialog = document.getElementById(button.dataset.dialog);
+    if (!dialog) return;
+    lastDialogTrigger = button;
+    dialog.showModal();
+  });
 });
-document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
-  if (event.target === dialog) dialog.close();
-}));
+document.querySelectorAll('dialog').forEach(dialog => {
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('close', () => {
+    lastDialogTrigger?.focus();
+  });
+});
 
 // Wiadomość do trenera nie ginie po przejściu na inną stronę: szkic w pamięci karty do czasu wysłania.
 document.querySelectorAll('form[data-draft-key]').forEach(form => {
@@ -149,9 +204,21 @@ document.querySelectorAll('form[data-draft-key]').forEach(form => {
   if (!field) return;
   try { const draft = sessionStorage.getItem(key); if (draft !== null && draft !== field.value) field.value = draft; } catch {}
   field.addEventListener('input', () => { try { sessionStorage.setItem(key, field.value); } catch {} });
+  const isCoachChat = form.classList.contains('coach-form');
   form.addEventListener('submit', () => {
-    try { sessionStorage.removeItem(key); sessionStorage.setItem(key + '-sent', field.value.trim()); } catch {}
+    try {
+      sessionStorage.removeItem(key);
+      if (isCoachChat) sessionStorage.setItem(key + '-sent', field.value.trim());
+    } catch {}
   });
+  // Ctrl+Enter (Cmd+Enter) wysyła; zwykły Enter zostaje nową linią.
+  field.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !form.querySelector('button[type="submit"]')?.disabled) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  if (!isCoachChat) return;
   // Pytanie zapisuje się razem z odpowiedzią; do tego czasu pokaż je nad „Trener odpowiada…”.
   const pending = document.querySelector('.coach-msg.is-pending');
   let sent = '';
@@ -161,13 +228,6 @@ document.querySelectorAll('form[data-draft-key]').forEach(form => {
     field.value = sent;
     try { sessionStorage.setItem(key, sent); sessionStorage.removeItem(key + '-sent'); } catch {}
   }
-  // Ctrl+Enter (Cmd+Enter) wysyła; zwykły Enter zostaje nową linią.
-  field.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !form.querySelector('button[type="submit"]').disabled) {
-      event.preventDefault();
-      form.requestSubmit();
-    }
-  });
   if (pending && sent) {
     const bubble = document.createElement('div');
     bubble.className = 'coach-msg is-you coach-sent';

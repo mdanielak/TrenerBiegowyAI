@@ -455,7 +455,7 @@
         </details>
       {% endif %}
       </div>
-      {% if not ai_ready %}<p class="tile-foot">Rekomendacja AI wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
+      {% if not ai_ready and not ai_off_notice %}<p class="tile-foot">Rekomendacja AI wymaga połączenia z AI w <a href="/settings/ai">ustawieniach</a>.</p>{% endif %}
     </section>
 
     {# Bez wczorajszych aktywności pusta karta zajmowała pół rzędu: wtedy tylko jedna cicha linia pod dostępnością. #}
@@ -491,7 +491,7 @@
       <details class="card activity-disclosure">
         <summary class="card-head">
           <h2><img class="asset head-icon" src="/assets/03_activity/kind_easy.png" width="28" height="28" alt=""><span>Wczorajsze aktywności</span></h2>
-          <span class="tile-foot">{% if report.yesterday_activities %}{{ report.yesterday_activities|length }}{% else %}brak{% endif %}</span>
+          <span class="tile-foot">{% if report.yesterday_activities %}{{ report.yesterday_activities|length }}{% else %}brak{% endif %}<span class="disclosure-cue" aria-hidden="true">▸</span></span>
         </summary>
       {% if report.yesterday_activities %}
         <div class="list">

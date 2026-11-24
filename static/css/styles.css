@@ -27,12 +27,12 @@
     --accent-soft-2: #DBEAFE;
 
     /* --- znaczenia: tekst ciemny, ikona jasna --- */
-    --ok-fg: #15803D;     /* 4.57:1 na --ok-bg, 4.81:1 na --ok-soft */
+    --ok-fg: #137336;     /* 5.14:1 na --ok-bg, 5.41:1 na --ok-soft, 4.84:1 na --surface-alt */
     --ok-bg: #DCFCE7;
     --ok-soft: #F0FDF4;
     --ok-icon: #16A34A;
 
-    --warn-fg: #B45309;   /* 4.51:1 na --warn-bg, 4.98:1 na --warn-soft */
+    --warn-fg: #9A4507;   /* 5.82:1 na --warn-bg, 6.42:1 na --warn-soft, 5.47:1 na --surface-alt */
     --warn-bg: #FEF3C7;
     --warn-soft: #FFFBEB;
     --warn-icon: #D97706;
@@ -41,6 +41,8 @@
     --danger-bg: #FEE2E2;
     --danger-soft: #FEF2F2;
     --danger-icon: #DC2626;
+    --on-danger: #FFFFFF; /* 6.47:1 na --danger-fg */
+    --control-border: #7A899C; /* 3.47:1 na --surface (WCAG 1.4.11 >= 3:1) */
 
     /* --- kształt i głębia --- */
     --radius: 12px;
@@ -85,6 +87,7 @@
       --ok-fg: #4ADE80; --ok-bg: #163A25; --ok-soft: #12301E; --ok-icon: #22C55E; --ok-border: #1F5C36;
       --warn-fg: #FBBF24; --warn-bg: #3D2E10; --warn-soft: #30240D; --warn-icon: #F59E0B; --warn-border: #6B4E12;
       --danger-fg: #F87171; --danger-bg: #3F1A1D; --danger-soft: #311517; --danger-icon: #EF4444; --danger-border: #6B2426;
+      --on-danger: #1B0A0C; --control-border: #5E7391;
       --fg-disabled: #64748B;
       --z1-bg: #0F3550; --z1-fg: #7DD3FC; --z4-bg: #42230F; --z4-fg: #FDBA74;
       --seg-base: #7C8BA1; --seg-work: #FB923C; --seg-rest: #68798F; --seg-main: #60A5FA;
@@ -107,6 +110,7 @@
     --ok-fg: #4ADE80; --ok-bg: #163A25; --ok-soft: #12301E; --ok-icon: #22C55E; --ok-border: #1F5C36;
     --warn-fg: #FBBF24; --warn-bg: #3D2E10; --warn-soft: #30240D; --warn-icon: #F59E0B; --warn-border: #6B4E12;
     --danger-fg: #F87171; --danger-bg: #3F1A1D; --danger-soft: #311517; --danger-icon: #EF4444; --danger-border: #6B2426;
+    --on-danger: #1B0A0C; --control-border: #5E7391;
     --fg-disabled: #64748B;
     --z1-bg: #0F3550; --z1-fg: #7DD3FC; --z4-bg: #42230F; --z4-fg: #FDBA74;
     --seg-base: #7C8BA1; --seg-work: #FB923C; --seg-rest: #68798F; --seg-main: #60A5FA;
@@ -300,10 +304,11 @@
   /* Pola formularza: obramowanie 3:1 (#CBD5E1 na bieli to 1,48:1, więc --fg-muted 4,76:1), wysokość 44 px. */
   .form-stack { margin-top: 16px; }
   .text-input {
-    width: 100%; min-height: 44px; padding: 10px; font: inherit; color: var(--fg);
+    width: 100%; min-height: 44px; padding: 10px; font: inherit; font-weight: 400; color: var(--fg);
     background: var(--surface); border: 1px solid var(--fg-muted); border-radius: 8px;
   }
   .text-input.narrow { width: 120px; }
+  .text-input.narrow-select { max-width: 320px; }
   .field-row { flex-wrap: wrap; align-items: flex-end; }
   .ask-form { flex-wrap: wrap; align-items: flex-end; margin-top: 12px; }
   .note-actions { flex-wrap: wrap; }
@@ -356,7 +361,7 @@
   .danger-zone { background: var(--danger-bg); border: 2px solid var(--danger-icon); }
   .danger-label { margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; color: var(--danger-fg); }
   .danger-title { margin: 0 0 8px; font-size: 17px; }
-  .btn-danger, button.btn-danger { background: var(--danger-fg); color: var(--surface); border: 0; }
+  .btn-danger, button.btn-danger { background: var(--danger-fg); color: var(--on-danger); border: 0; }
   .btn-danger:hover, button.btn-danger:hover { filter: brightness(0.92); }
   /* .btn.… — reguła .btn stoi niżej w arkuszu i bez tego nadpisywała obrys. */
   .btn.btn-danger-outline { background: var(--surface); color: var(--danger-fg); border: 1px solid var(--danger-fg); }
@@ -540,9 +545,11 @@
   .signal-state.warn { background: var(--warn-bg); color: var(--warn-fg); }
   .signal-state.bad { background: var(--danger-bg); color: var(--danger-fg); }
   .signal-state.none { background: var(--surface); color: var(--fg-muted); border: 1px solid var(--border); }
-  .activity-disclosure > summary { cursor: pointer; margin-bottom: 0; }
+  .activity-disclosure > summary { list-style: none; cursor: pointer; margin-bottom: 0; }
+  .activity-disclosure > summary::-webkit-details-marker { display: none; }
   .activity-disclosure[open] > summary { margin-bottom: 14px; }
-  .activity-disclosure > summary::marker { color: var(--accent-strong); }
+  .disclosure-cue { display: inline-block; margin-left: 6px; color: var(--fg-mid); transition: transform var(--motion); }
+  details[open] > summary .disclosure-cue { transform: rotate(90deg); }
 
   /* strzałka trendu: kolor niesie ocenę, tekst obok niesie znaczenie */
   .trend { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; }
@@ -725,9 +732,9 @@
   /* Oś faz celu: bieżąca faza w akcencie (biel na #2563EB 5,17:1), przeszłe przygaszone, przyszłe obrysowane. */
   .phase-seg.past { fill: var(--surface-alt); }
   .phase-seg.current { fill: var(--accent); }
-  .phase-seg.future { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+  .phase-seg.future { fill: var(--surface); stroke: var(--control-border); stroke-width: 1; }
   .phase-num { font-size: 12px; font-weight: 650; fill: var(--fg-mid); }
-  .phase-num.current { fill: var(--surface); }
+  .phase-num.current { fill: var(--on-accent); }
   .phase-marker { stroke: var(--fg); stroke-width: 2; }
   .phase-today { fill: var(--fg); font-size: 13px; font-weight: 700; }
   .goal-phase { font-size: 17px; }
@@ -773,7 +780,7 @@
   .btn-secondary, button.secondary {
     background: var(--surface);
     color: var(--fg-mid);
-    border-color: var(--border-strong);
+    border-color: var(--control-border);
   }
   .btn-secondary:hover, button.secondary:hover { background: var(--surface-alt); color: var(--fg); }
 
@@ -807,6 +814,7 @@
   .banner.ok { background: var(--ok-bg); border-color: var(--ok-border); color: var(--fg); }
 
   .banner a { font-weight: 600; }
+  .banner a, .health-alert a, .coach-msg a, .empty-art a, .nav-note a { color: var(--accent-strong); }
 
   .suggestion {
     display: flex; align-items: flex-start; gap: 11px;
@@ -986,8 +994,8 @@ details[open] > summary { margin-bottom: 12px; }
 .journal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .journal-fields .text-input { width: 100%; }
 .journal-fields .tile-foot { margin-top: 6px; font-size: 12px; }
-.journal-editor .journal-choice { padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); cursor: pointer; min-height: 44px; }
-.journal-editor .journal-choice:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.journal-editor .journal-choice { padding: 8px 12px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--surface); cursor: pointer; min-height: 44px; }
+.journal-editor .journal-choice:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 .journal-editor .journal-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .journal-editor .field-group { gap: 8px; }
 .journal-editor .row .tile-foot { flex-basis: 100%; }
@@ -1159,8 +1167,8 @@ p { text-wrap: pretty; }
 .card .empty-art.compact .asset { width: 40px; height: 40px; }
 
 /* Jeden poziom powierzchni: w karcie nie ma już kart. Kafelki liczb rozdziela linia, sygnały w normie nie mają tła. */
-.card .grid-4 .tile { border: 0; box-shadow: none; background: none; border-radius: 0; padding: 4px 0 4px 18px; border-left: 1px solid var(--border); }
-.card .grid-4 .tile:first-child { border-left: 0; padding-left: 0; }
+.card .grid-4 .tile, .card .grid-2 .tile { border: 0; box-shadow: none; background: none; border-radius: 0; padding: 4px 0 4px 18px; border-left: 1px solid var(--border); }
+.card .grid-4 .tile:first-child, .card .grid-2 .tile:first-child { border-left: 0; padding-left: 0; }
 .signal.ok, .signal.none { background: none; border-color: transparent; }
 
 /* Plan: dni jako kolumny tygodnia, nie karty w karcie; dziś wyróżnia delikatne tło i niebieska liczba. */
@@ -1273,7 +1281,7 @@ p { text-wrap: pretty; }
 .coach-scope-option { position: relative; display: inline-flex; }
 .coach-scope-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .coach-scope-option span { padding: 6px 12px; min-height: 32px; display: inline-flex; align-items: center; border-radius: var(--radius-pill);
-  border: 1px solid var(--border-strong); font-size: 14px; color: var(--fg-mid); background: var(--surface); }
+  border: 1px solid var(--control-border); font-size: 14px; color: var(--fg-mid); background: var(--surface); }
 .coach-scope-option input:checked + span { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); font-weight: 600; }
 .coach-scope-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .coach-saved-note { margin-top: 6px !important; font-size: 13px; color: var(--fg-mid); }
@@ -1287,3 +1295,13 @@ p { text-wrap: pretty; }
 @media (hover: none) { .coach-kbd { display: none; } }
 /* Wąski ekran: link w nagłówku karty pod tytułem, zamiast łamać oba na dwa wiersze. */
 @media (max-width: 560px) { .card-head { flex-wrap: wrap; row-gap: 4px; } }
+
+/* Spójne odstępy pionowe w kartach i poprawa widoczności cienkiej ikony żarówki w motywie ciemnym. */
+.week + .tile-foot, .list + .tile-foot, .empty-art + .tile-foot { margin-top: 12px; }
+.review-box { margin-top: 14px; }
+.card > p + .guide-tabs, .card > p + form, .card > p + .row, .card > .row + form, .card > form + .tile-foot { margin-top: 12px; }
+.card .metric-row:first-child { margin-top: 12px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) img[src*="tile_idea.png"] { filter: brightness(1.5) contrast(1.15); }
+}
+:root[data-theme="dark"] img[src*="tile_idea.png"] { filter: brightness(1.5) contrast(1.15); }

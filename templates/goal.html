@@ -42,7 +42,7 @@
   </form>
 {% endmacro %}
 {% if no_strategy and has_goal %}
-
+  <div class="stack">
   {% if can_build_strategy and saved_goal.target_date %}
   <section class="card" aria-labelledby="fazy-naglowek">
     <div class="card-head"><h2 id="fazy-naglowek"><img class="asset head-icon" src="/assets/07_ui_icons/tile_phase.png" width="28" height="28" alt=""><span>Fazy przygotowań</span></h2></div>
@@ -57,6 +57,7 @@
       <code>training-plans/long-term/przyklad-strategii.md</code> jako
       <code>training-plans/long-term/strategia.md</code> i wpisz własne daty oraz cele. Plik zostaje na tym komputerze.</p>
   </details>
+  </div>
 
 {% elif error_message %}
 
