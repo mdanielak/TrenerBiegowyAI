@@ -677,6 +677,18 @@ def normalize_plan(response, *, context) -> dict:
 
     workouts = [_normalize_day(day, by_date.get(day.get("date")), floors) for day in week_days]
 
+    race_date = context.get("race_date")
+    if runner.get("decision_cause") == "after_short_race" and race_date:
+        recovery_days = {str(_date.fromisoformat(race_date) + timedelta(days=n)) for n in (1, 2)}
+        for workout in workouts:
+            if workout["type"] in QUALITY_KINDS and workout.get("date") in recovery_days:
+                workout["type"] = "easy"
+                workout["pace_target"] = None
+                workout["hr_zone"] = "Z2"
+                for key in ("repetitions", "work_seconds", "rest_seconds"):
+                    workout.pop(key, None)
+                workout["notes"] = _append_note(workout["notes"], "Zmieniono na spokojny bieg: 1–2 dni po starcie "
+                                                                  "tylko spokojnie, akcent najwcześniej trzeciego dnia.")
     # Początkujący (także po powrocie z przerwy): bez mocnych akcentów; przebieżki w opisie biegu łatwego są w porządku.
     beginner = runner.get("level") == "poczatkujacy"
     quality = [index for index, workout in enumerate(workouts) if workout["type"] in QUALITY_KINDS]

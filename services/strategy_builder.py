@@ -70,6 +70,15 @@ _MONTHS = ("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec
            "październik", "listopad", "grudzień")
 
 
+def _long_share_cap(week_km, share, needed) -> int:
+    """Sufit długiego biegu w tygodniu o danej objętości: udział z promptu (core/04), a gdy dystans wymaga
+    dłuższego biegu — do tej potrzebnej długości, ale nie więcej niż połowa tygodnia (twardy limit kodu)."""
+    cap = round(week_km * share)
+    if needed:
+        cap = max(cap, min(needed, round(week_km * 0.5)))
+    return max(cap, 6)
+
+
 def _km_range(low, high) -> str:
     """„12-16 km” albo „ok. 6 km”, gdy oba końce są równe."""
     return f"{low}-{high} km" if high > low else f"ok. {high} km"
@@ -193,6 +202,7 @@ def build_strategy(*, profile: dict, activities, today: date):
 
     # Udział długiego biegu w tygodniu jak w prompcie (core/04): zależny od liczby biegów.
     long_share = 0.3 if frequency >= 5 else 0.35 if frequency == 4 else 0.45
+    needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
     rows, phases, long_range = [], [], (long_start, long_start + 2)
     for name, hint, start, end in stages:
         # Zakres fazy: od objętości na jej początku do objętości na końcu. Wcześniej wiersz pokazywał sam koniec,
@@ -200,8 +210,12 @@ def build_strategy(*, profile: dict, activities, today: date):
         first, last = (start - monday).days / 7, (end - monday).days / 7
         low, top = _weekly_volume(first, start_km, peak), _weekly_volume(last, start_km, peak)
         long_cap = max(long_target, long_start)
-        long_low = min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH), max(round(low * long_share), 6))
-        long_top = min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH), max(round(top * long_share), 6))
+        # Udział w tygodniu ogranicza wzrost długiego biegu, ale nigdy nie skraca go poniżej tego, co osoba już biega.
+        # Gdy dystans wymaga dłuższego biegu, udział może dojść do połowy tygodnia (twardy limit kodu).
+        long_low = max(long_start, min(_weekly_volume(first, long_start, long_cap, _LONG_GROWTH),
+                                       _long_share_cap(low, long_share, needed)))
+        long_top = max(long_start, min(_weekly_volume(last, long_start, long_cap, _LONG_GROWTH),
+                                       _long_share_cap(top, long_share, needed)))
         long_range = (max(long_low, 4), max(long_top, 6))
         # Format czyta parser strategii (services/strategy.py): „od-do km” albo „ok. N km”, gdy faza stoi w miejscu.
         volume = f"zwykle {low}-{top} km" if top > low else f"ok. {top} km"
@@ -215,11 +229,11 @@ def build_strategy(*, profile: dict, activities, today: date):
     low_share, high_share = (0.5, 0.6) if _goal(profile) in ("5k", "10k") else (0.6, 0.8)
     taper_long = (max(round(long_range[1] * low_share), 4), max(round(long_range[1] * high_share), 5))
     steps = _monthly_steps(monday, taper_start, start_km, peak)
-    needed = _MIN_LONG_BEFORE_RACE.get(_goal(profile))
+    reachable = long_range[1]  # najdłuższy bieg przed taperem: wzrost, udział w tygodniu, nie krócej niż dziś
     realism = ""
-    if needed and long_range[1] < needed:
-        minutes = _minutes_note(long_range[1], long_range[1], run_pace).strip()
-        realism = (f"**Uwaga na termin:** przy bezpiecznym tempie budowania najdłuższy bieg dojdzie do ok. {long_range[1]} km"
+    if needed and reachable < needed:
+        minutes = _minutes_note(reachable, reachable, run_pace).strip()
+        realism = (f"**Uwaga na termin:** przy bezpiecznym tempie budowania najdłuższy bieg dojdzie do ok. {reachable} km"
                    f"{' ' + minutes if minutes else ''}, a przed tym dystansem zwykle potrzeba ok. {needed} km. "
                    "Rozważ późniejszy start albo cel „ukończyć spokojnie”, z marszem w razie potrzeby — "
                    "nie przyspieszaj budowania, żeby zdążyć.")

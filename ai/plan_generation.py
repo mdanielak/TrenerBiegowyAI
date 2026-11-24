@@ -126,6 +126,8 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
 9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu.
 10. Wszystkie teksty, także `name`, pisz poprawną polszczyzną z polskimi znakami
    (np. "Łatwy 40 min – Z2", nie "Latwy 40 min - Z2"), nawet jeśli wcześniejsze treningi ich nie mają.
+   Uważaj na częste pomyłki: „tempo” i „zwolnij tempo” (nie „tępo”, „z tępa”); dni tygodnia w opisach
+   („dzień przed startem”, „po wtorkowym akcencie”) muszą zgadzać się z datami w planie.
 11. Ból zgłoszony w sekcji DZIENNIK ma pierwszeństwo przed metrykami: przez kolejne dni nie planuj
    akcentu ani długiego biegu, a przy narastającym bólu zaleć przerwę i konsultację ze specjalistą.
 12. Sekcja TRENDY pokazuje kierunek z wielu tygodni; pojedynczy dzień nie powinien go przeważać.

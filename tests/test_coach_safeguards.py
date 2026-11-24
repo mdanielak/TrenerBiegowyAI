@@ -654,3 +654,15 @@ def test_race_week_long_run_is_short_before_a_5k_and_the_week_after_is_not_lost(
                                  profile=_profile(target_date=str(TODAY - timedelta(days=1)), target_distance="5k"))
     assert (after["decision"], after["decision_cause"]) == ("utrzymaj", "after_short_race")
     assert quality_sessions_limit(after, 2) == 1 and long_run_limit(after, 100) == 110  # zwykły tydzień, bez 45 min
+
+
+def test_no_quality_session_in_the_two_days_after_a_short_race():
+    runner = build_runner_profile(activities=_weeks([300, 300, 300, 300]), today=TODAY, previous_plan=_done_last_week(),
+                                  profile=_profile(target_date=str(TODAY - timedelta(days=1)), target_distance="5k"))
+    context = _context(runner, max_quality=2)
+    context["race_date"] = str(TODAY - timedelta(days=1))
+    workouts = plan_service.normalize_plan({"workouts": [_intervals("2026-11-17"), _tempo("2026-11-19")]},
+                                           context=context)["workouts"]
+    tuesday, thursday = workouts[1], workouts[3]
+    assert tuesday["type"] == "easy" and "trzeciego dnia" in tuesday["notes"]
+    assert thursday["type"] == "tempo"  # czwartego dnia akcent już wolno

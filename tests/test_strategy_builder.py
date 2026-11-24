@@ -149,5 +149,26 @@ def test_the_taper_long_run_is_a_share_of_the_peak_not_a_fixed_cut():
 @pytest.mark.parametrize(("frequency", "share"), [("3 treningi", 0.45), ("4 treningi", 0.35), ("6 treningów", 0.3)])
 def test_the_strategy_long_run_share_follows_the_prompt(frequency, share):
     _, structured = build_strategy(profile={**PROFILE, "training_frequency": frequency}, activities=_runs(), today=TODAY)
+    longest_now = 13.8  # _runs(): najdłuższy bieg — strategia nie skraca poniżej tego
     for phase in structured.phases[:-1]:
-        assert phase.long_km[1] <= max(round(phase.km[1] * share), 6)
+        allowed = max(round(phase.km[1] * share), min(16, round(phase.km[1] * 0.5)), 6, round(longest_now))
+        assert phase.long_km[1] <= allowed and phase.long_km[1] <= max(round(phase.km[1] * 0.5), round(longest_now))
+
+
+def _weekly(pattern, pace, weeks=12):
+    return [{"date": f"{TODAY - timedelta(days=7 * week + day)} 07:00", "type": "running", "duration_min": minutes,
+             "distance_km": round(minutes / pace, 2)} for week in range(1, weeks + 1) for day, minutes in pattern]
+
+
+def test_a_prepared_runner_never_gets_a_shorter_long_run_or_a_false_date_warning():
+    marathoner = _weekly([(0, 50), (1, 70), (2, 60), (3, 75), (4, 50), (6, 150)], 5.0)  # długi 150 min = 30 km
+    text, structured = build_strategy(activities=marathoner, today=TODAY, profile={
+        "running_since": "over24", "target_distance": "marathon", "target_date": "2027-06-20",
+        "target_time": "3:20:00", "training_frequency": "6 treningów"})
+    assert "Uwaga na termin" not in text
+    assert all(phase.long_km[0] >= 30 for phase in structured.phases[:-1])  # nie krócej niż dziś
+    half = _weekly([(1, 45), (2, 50), (4, 45), (6, 80)], 5.8)  # długi 80 min ≈ 13,8 km
+    text, structured = build_strategy(activities=half, today=TODAY, profile={
+        "running_since": "6to24", "target_distance": "hm", "target_date": "2027-06-20",
+        "target_time": "1:55:00", "training_frequency": "4 treningi"})
+    assert "Uwaga na termin" not in text and structured.phases[-2].long_km[1] >= 14
