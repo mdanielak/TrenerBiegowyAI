@@ -460,6 +460,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "decision_cause": cause,
         "taper_percent": round(taper_factor * 100) if taper_factor is not None else None,
         "user_request": bool(user_request),
+        "last_quality_kinds": sorted({w.get("type") for w in (previous_plan or {}).get("workouts") or []
+                                      if isinstance(w, dict) and w.get("type") in ("tempo", "threshold", "intervals")}),
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
@@ -566,6 +568,11 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
     if runner["longest_min"]:
         limits.append(f"długi bieg najwyżej {long_run_limit(runner, runner['longest_min'])} min, "
                       f"bieg łatwy i akcent najwyżej {easy_run_limit(runner, runner['longest_min'])} min")
+    quality_names = {"tempo": "bieg tempowy", "threshold": "bieg progowy", "intervals": "odcinki"}
+    if runner.get("last_quality_kinds") and runner.get("decision") in ("doloz", "odbuduj"):
+        names = ", ".join(quality_names[kind] for kind in runner["last_quality_kinds"])
+        lines.append(f"- ostatnie akcenty: {names} — w tym tygodniu rośnie objętość, więc akcent zostaje tego samego "
+                     "rodzaju i dawki; nowy, szybszy rodzaj (np. odcinki w tempie 5 km) w tygodniu bez wzrostu")
     if runner.get("frequency"):
         count = runner["frequency"]
         limits.append(f"najwyżej {count} " + ("trening" if count == 1 else "treningi" if count <= 4 else "treningów")

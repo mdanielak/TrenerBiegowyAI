@@ -359,3 +359,24 @@ def test_repeats_come_from_the_name_and_the_rest_from_the_text_before_the_cool_d
                                 pace_target=None, hr_zone=4 if "Odcinki" in name else 3, name=name, description=description)])
     monday = plan["workouts"][0]
     assert (monday["type"], monday.get("repetitions"), monday.get("work_seconds"), monday.get("rest_seconds")) == expected
+
+
+@pytest.mark.parametrize(("name", "description", "rest"), [
+    ("Odcinki 5 × 4 min", "15 min truchtu na rozgrzewkę, potem 5 × 4 min mocno, między nimi 2 min truchtu.", 120),
+    ("Odcinki 10 × 1 min", "10 min truchtu, potem 10 × 1 min żwawo, przerwa 1 min marszu.", 60),
+])
+def test_a_warm_up_with_the_same_digit_is_not_taken_for_the_break(name, description, rest):
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=50, pace_target=None, hr_zone=4,
+                                name=name, description=description)])
+    assert plan["workouts"][0]["rest_seconds"] == rest
+
+
+def test_a_wrong_day_before_reference_is_corrected():
+    plan = _normalize([_workout("2026-10-26", "easy", duration_min=30, hr_zone=2,
+                                description="To dzień przed długim biegiem, bardzo luźno."),
+                       _workout("2026-10-27", "long", duration_min=50, hr_zone=2),
+                       _workout("2026-10-29", "easy", duration_min=40, hr_zone=2,
+                                description="Dzień przed długim biegiem: spokojnie.")])
+    by_date = {w["date"]: w for w in plan["workouts"]}
+    assert "dzień przed długim biegiem" in by_date["2026-10-26"]["description"]     # poniedziałek: zgadza się
+    assert by_date["2026-10-29"]["description"].startswith("Przed długim biegiem")  # czwartek: w piątek przerwa

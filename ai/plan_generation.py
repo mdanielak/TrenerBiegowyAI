@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 # Modele „rozumujące” (np. deepseek-flash) liczą myślenie do tego limitu: przy 8000 zdarzało się, że całe
 # myślenie zjadało limit i z odpowiedzi zostawało kilkadziesiąt znaków. Ponowienie dostaje dwa razy więcej.
 PLAN_MAX_TOKENS = 12000
+# Plan z modelem rozumującym trwa dłużej niż zwykłe pytanie (limit 60 s): 12000 tokenów potrzebuje kilku minut.
+PLAN_TIMEOUT_SECONDS = 240
 
 
 # Prompt każe wpisywać null, gdy czegoś nie ma; model robi tak też z tekstami. null w tekście = pusty tekst.
@@ -124,7 +126,8 @@ _PLAN_RULES = """ZASADY UKŁADANIA TYGODNIA
    `work_seconds` i `rest_seconds`; kind="tempo" i "threshold" to jeden ciągły odcinek.
 5. `repetitions`, `work_seconds` i `rest_seconds` są wymagane dla kind="intervals".
 6. Bieg łatwy, regeneracyjny i długi prowadzi się według strefy tętna.
-   Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR.
+   Każdy taki bieg zaczyna się 5-6 minutami spokojnej rozgrzewki bez alarmu HR, wliczonymi w `duration_min`:
+   w opisie części mają się sumować do całości (np. 85 min = 6 min rozgrzewki + 79 min w strefie 2).
 7. __QUALITY_RULE__
 8. Nie stosuj wartości domyślnych w miejscu nieznanych danych. Brak wartości oznacz `null`.
 9. Odpowiedź zwróć wyłącznie jako JSON zgodny ze schematem, bez Markdown i bez bloku kodu.
@@ -392,6 +395,16 @@ def build_plan_message(context: dict) -> str:
     return "\n".join(lines)
 
 
+def _timeout_for(provider, seconds) -> dict:
+    """Limit czasu tylko dla dostawcy, który go obsługuje (testy podstawiają proste atrapy)."""
+    import inspect
+    try:
+        accepts = "timeout" in inspect.signature(provider.chat).parameters
+    except (TypeError, ValueError):
+        accepts = False
+    return {"timeout": seconds} if accepts else {}
+
+
 def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
     """Poproś model o plan tygodnia i zwróć jego odpowiedź w ustalonym schemacie.
 
@@ -408,7 +421,8 @@ def generate_week_plan(provider, context: dict) -> WeekPlanResponse:
         # a nie z długiego planu (tryb JSON zostaje — bez niego model potrafi myśleć do końca limitu).
         try:
             return provider.chat(system, message, response_model=WeekPlanResponse, temperature=0.0, seed=seed,
-                                 max_tokens=PLAN_MAX_TOKENS if seed == 7 else PLAN_MAX_TOKENS * 2)
+                                 max_tokens=PLAN_MAX_TOKENS if seed == 7 else PLAN_MAX_TOKENS * 2,
+                                 **_timeout_for(provider, PLAN_TIMEOUT_SECONDS if seed == 7 else PLAN_TIMEOUT_SECONDS * 2))
         except AIResponseError:
             if seed == 8:
                 raise

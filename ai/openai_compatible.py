@@ -106,10 +106,17 @@ class OpenAICompatibleProvider(AIProvider):
             max_retries=AI_MAX_RETRIES,
         )
 
+    def _client_for(self, timeout):
+        """Klient z dłuższym limitem czasu dla długich odpowiedzi (plan tygodnia z modelem rozumującym);
+        bez cichych ponowień SDK — ponawia aplikacja, z większym limitem odpowiedzi."""
+        if timeout is None or not hasattr(self.client, "with_options"):
+            return self.client
+        return self.client.with_options(timeout=timeout, max_retries=0)
+
     def chat(self, system_prompt: str, user_message: str, response_model=None, *,
              temperature: float | None = None, seed: int | None = None,
              top_p: float | None = None, max_tokens: int | None = None,
-             json_mode: bool = True) -> Union[str, dict]:
+             json_mode: bool = True, timeout: float | None = None) -> Union[str, dict]:
         """Send a chat completion request.
 
         If response_model is a Pydantic BaseModel class, requests JSON output
@@ -134,7 +141,7 @@ class OpenAICompatibleProvider(AIProvider):
                 kwargs[name] = value
 
         try:
-            response = self.client.chat.completions.create(**kwargs)
+            response = self._client_for(timeout).chat.completions.create(**kwargs)
         except Exception as e:
             # Nie każdy dostawca zgodny z OpenAI (np. Gemini) przyjmuje tryb JSON i `seed`.
             # Prompt i tak wymaga samego JSON-a, więc jedna ponowna próba bez nich jest bezpieczna.
@@ -145,7 +152,7 @@ class OpenAICompatibleProvider(AIProvider):
             for name in optional:
                 kwargs.pop(name)
             try:
-                response = self.client.chat.completions.create(**kwargs)
+                response = self._client_for(timeout).chat.completions.create(**kwargs)
             except Exception as retry_error:
                 raise _provider_error(retry_error) from retry_error
 

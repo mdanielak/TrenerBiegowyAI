@@ -298,3 +298,17 @@ def test_each_day_shows_days_to_race_close_to_the_start():
                                {"weekday": "sobota", "date": "2026-11-28", "available": True, "min_minutes": 0,
                                 "max_minutes": 0, "days_to_race": 1}])
     assert rows[0].endswith("dzień startu") and rows[1].endswith("1 dzień do startu")
+
+
+def test_the_plan_request_gets_a_longer_timeout_than_ordinary_questions():
+    from ai.plan_generation import PLAN_TIMEOUT_SECONDS, generate_week_plan
+    seen = {}
+
+    class Provider:
+        def chat(self, system, message, response_model=None, *, temperature=None, seed=None, max_tokens=None,
+                 timeout=None):
+            seen["timeout"] = timeout
+            return WeekPlanResponse(workouts=[])
+
+    generate_week_plan(Provider(), _context())
+    assert seen["timeout"] == PLAN_TIMEOUT_SECONDS > 60

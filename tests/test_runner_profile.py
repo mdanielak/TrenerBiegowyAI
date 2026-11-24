@@ -370,3 +370,12 @@ def test_a_second_quality_session_needs_four_runs_a_week_on_the_regular_level():
     advanced = {"level": "zaawansowany", "runs_per_week": 3}
     assert (quality_sessions_limit(three, 2), quality_sessions_limit(four, 2), quality_sessions_limit(advanced, 2)) == (1, 2, 2)
     assert quality_sessions_limit(None, 2) == 2  # bez profilu: ustawienie z kreatora
+
+
+def test_in_a_growing_week_the_model_is_told_to_keep_the_last_kind_of_quality_session():
+    last_week = {"workouts": [{"date": "2026-10-28", "type": "threshold", "duration_min": 45},
+                              {"date": "2026-10-31", "type": "long", "duration_min": 40}]}
+    runner = build_runner_profile(activities=_tester(), profile=_profile(running_since="6to24"), today=TODAY,
+                                  previous_plan=last_week)
+    runner["decision"] = "doloz"
+    assert "ostatnie akcenty: bieg progowy" in "\n".join(profile_lines(runner))

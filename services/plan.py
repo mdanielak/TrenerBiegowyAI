@@ -364,6 +364,30 @@ def _space_hard_days(workouts, hard_day_before=None) -> None:
         previous_hard = day
 
 
+_DAY_REFERENCE = re.compile(r"\b([Dd])zień (przed|po) (długim biegiem|długim biegu|akcentem|akcencie|startem|starcie)")
+_REFERENCE_KINDS = {"długim biegiem": ("long",), "długim biegu": ("long",), "akcentem": QUALITY_KINDS,
+                    "akcencie": QUALITY_KINDS, "startem": ("race",), "starcie": ("race",)}
+
+
+def _fix_day_references(workouts) -> None:
+    """„Dzień przed długim biegiem” tylko wtedy, gdy następny dzień naprawdę jest długim biegiem.
+
+    Model myli dni mimo reguły w prompcie; przy niezgodności zostaje ogólne „przed długim biegiem”.
+    """
+    kinds = ["race" if str(w.get("name") or "").startswith("Start:") else w["type"] for w in workouts]
+    for index, workout in enumerate(workouts):
+        def check(match, index=index):
+            neighbour = index + (1 if match.group(2) == "przed" else -1)
+            ok = 0 <= neighbour < len(kinds) and kinds[neighbour] in _REFERENCE_KINDS[match.group(3)]
+            if ok:
+                return match.group(0)
+            lead = "P" if match.group(1) == "D" else "p"
+            return f"{lead}{match.group(2)[1:]} {match.group(3)}"
+        for key in ("description", "notes", "name"):
+            if workout.get(key):
+                workout[key] = _DAY_REFERENCE.sub(check, workout[key])
+
+
 def _limit_long_run_share(workouts) -> None:
     """Długi bieg nie dłuższy niż wszystkie pozostałe biegi tygodnia razem (najwyżej połowa tygodnia).
 
@@ -552,8 +576,9 @@ def _repeats_in_text(entry):
         return None
     work = _seconds_of(match.group(2), "min")
     description = str(entry.get("description") or "")
-    start = description.find(match.group(0).split()[0]) if match.group(0).split() else -1
-    window = description[max(start, 0):]
+    # Okno zaczyna się po całym zapisie „N × M min” w opisie — nie od pierwszej cyfry (ta bywa w rozgrzewce „15 min”).
+    in_text = _REPEATS.search(description)
+    window = description[in_text.end():] if in_text else ""
     window = re.split(r"schłodz|na koniec|cool", window, maxsplit=1, flags=re.IGNORECASE)[0][:160]
     rest = _REST.search(window)
     if rest:
@@ -812,6 +837,7 @@ def normalize_plan(response, *, context) -> dict:
     _limit_training_days(workouts, runner)
     _limit_long_run_share(workouts)
     _limit_week_minutes(workouts, runner)
+    _fix_day_references(workouts)
 
     start_date = _field(response, "start_date") or context.get("week_start")
     end_date = _field(response, "end_date") or context.get("week_end")
