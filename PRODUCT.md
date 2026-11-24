@@ -41,7 +41,7 @@ Lokalny trener biegowy łączący dane Garmin, ocenę gotowości, plan tygodniow
 
 ## Brand Commitments
 
-Nazwa produktu: TrenerBiegowyAI. Istniejące logo i zasoby aplikacji znajdują się w `static/`, `trener_biegowy_ai_assets/` i `docs/images/`. Zasady istniejącego interfejsu opisują `DESIGN.md` i `docs/UI_STYLE.md`; w przypadku rozbieżności z aktualną implementacją należy sprawdzić kod i stan dokumentacji.
+Nazwa produktu: TrenerBiegowyAI. Istniejące logo i zasoby aplikacji znajdują się w `static/`, `trener_biegowy_ai_assets/` i `docs/images/`. Zasady istniejącego interfejsu opisuje `DESIGN.md`; w przypadku rozbieżności z aktualną implementacją należy sprawdzić kod i stan dokumentacji.
 
 ## Evidence on Hand
 

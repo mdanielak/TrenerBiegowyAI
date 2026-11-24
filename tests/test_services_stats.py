@@ -87,7 +87,7 @@ def test_stats_page_renders_trends_with_polish_numbers():
     assert requested == [4]
     assert "Kilometry tydzień po tygodniu" in response.text
     assert "Ostatnie 4 tygodnie" in response.text
-    assert 'aria-current="page">4 tygodnie' in response.text
+    assert 'aria-current="true">4 tygodnie' in response.text
     assert "niżej niż średnia" in response.text
     assert "Za mało pomiarów, żeby narysować wykres." in response.text
 
