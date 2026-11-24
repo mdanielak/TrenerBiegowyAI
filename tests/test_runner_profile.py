@@ -379,3 +379,12 @@ def test_in_a_growing_week_the_model_is_told_to_keep_the_last_kind_of_quality_se
                                   previous_plan=last_week)
     runner["decision"] = "doloz"
     assert "ostatnie akcenty: bieg progowy" in "\n".join(profile_lines(runner))
+
+
+def test_the_last_quality_line_names_the_dose():
+    last_week = {"workouts": [{"date": "2026-10-28", "type": "intervals", "duration_min": 50, "hr_zone": "Z4",
+                               "repetitions": 3, "work_seconds": 480, "rest_seconds": 120}]}
+    runner = build_runner_profile(activities=_tester(), profile=_profile(running_since="6to24"), today=TODAY,
+                                  previous_plan=last_week)
+    runner["decision"] = "doloz"
+    assert "ostatnie akcenty: odcinki 3 × 8 min (strefa 4)" in "\n".join(profile_lines(runner))

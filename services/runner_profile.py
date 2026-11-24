@@ -319,6 +319,18 @@ def _race_date(target_date) -> date | None:
         return None
 
 
+def _quality_dose(workout) -> str:
+    """„bieg progowy 30 min” albo „odcinki 3 × 8 min (strefa 4)” — rodzaj i dawka ostatniego akcentu."""
+    zone = f" (strefa {str(workout.get('hr_zone')).lstrip('Zz')})" if workout.get("hr_zone") else ""
+    if workout.get("type") == "intervals" and workout.get("repetitions") and workout.get("work_seconds"):
+        work = workout["work_seconds"]
+        length = f"{work // 60} min" if work % 60 == 0 else f"{work} s"
+        return f"odcinki {workout['repetitions']} × {length}{zone}"
+    names = {"tempo": "bieg tempowy", "threshold": "bieg progowy", "intervals": "odcinki"}
+    main = (workout.get("duration_min") or 0) - 20
+    return f"{names[workout['type']]}" + (f" {main} min" if main > 0 and workout["type"] != "intervals" else "") + zone
+
+
 def goal_distance(profile) -> str | None:
     """Dystans celu: z pola kreatora, a przy starszym profilu (samo „półmaraton” w nazwie celu) — z nazwy."""
     profile = profile or {}
@@ -462,6 +474,8 @@ def build_runner_profile(*, activities, profile, today: date, rhr_trend=None, pr
         "user_request": bool(user_request),
         "last_quality_kinds": sorted({w.get("type") for w in (previous_plan or {}).get("workouts") or []
                                       if isinstance(w, dict) and w.get("type") in ("tempo", "threshold", "intervals")}),
+        "last_quality": [_quality_dose(w) for w in (previous_plan or {}).get("workouts") or []
+                         if isinstance(w, dict) and w.get("type") in ("tempo", "threshold", "intervals")],
         "week_cap_min": cap,
         "easy_runs_with_hr": len(with_hr),
         "runs_above_z2": too_hard,
@@ -570,7 +584,7 @@ def profile_lines(runner: dict, *, weekly: bool = True) -> list[str]:
                       f"bieg łatwy i akcent najwyżej {easy_run_limit(runner, runner['longest_min'])} min")
     quality_names = {"tempo": "bieg tempowy", "threshold": "bieg progowy", "intervals": "odcinki"}
     if runner.get("last_quality_kinds") and runner.get("decision") in ("doloz", "odbuduj"):
-        names = ", ".join(quality_names[kind] for kind in runner["last_quality_kinds"])
+        names = ", ".join(runner.get("last_quality") or [quality_names[k] for k in runner["last_quality_kinds"]])
         lines.append(f"- ostatnie akcenty: {names} — w tym tygodniu rośnie objętość, więc akcent zostaje tego samego "
                      "rodzaju i dawki; nowy, szybszy rodzaj (np. odcinki w tempie 5 km) w tygodniu bez wzrostu")
     if runner.get("frequency"):

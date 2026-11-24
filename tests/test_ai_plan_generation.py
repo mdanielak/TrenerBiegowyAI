@@ -312,3 +312,16 @@ def test_the_plan_request_gets_a_longer_timeout_than_ordinary_questions():
 
     generate_week_plan(Provider(), _context())
     assert seen["timeout"] == PLAN_TIMEOUT_SECONDS > 60
+
+
+def test_the_plan_client_keeps_one_retry_for_network_errors():
+    from ai.openai_compatible import OpenAICompatibleProvider
+    provider = OpenAICompatibleProvider.__new__(OpenAICompatibleProvider)
+
+    class Client:
+        def with_options(self, **options):
+            self.options = options
+            return self
+    provider.client = Client()
+    provider._client_for(240)
+    assert provider.client.options == {"timeout": 240, "max_retries": 1}

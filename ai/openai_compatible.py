@@ -107,11 +107,13 @@ class OpenAICompatibleProvider(AIProvider):
         )
 
     def _client_for(self, timeout):
-        """Klient z dłuższym limitem czasu dla długich odpowiedzi (plan tygodnia z modelem rozumującym);
-        bez cichych ponowień SDK — ponawia aplikacja, z większym limitem odpowiedzi."""
+        """Klient z dłuższym limitem czasu dla długich odpowiedzi (plan tygodnia z modelem rozumującym).
+
+        Jedno ponowienie SDK zostaje: chwilowy błąd sieci, przeciążenie (429) albo 5xx nie kończy planu.
+        """
         if timeout is None or not hasattr(self.client, "with_options"):
             return self.client
-        return self.client.with_options(timeout=timeout, max_retries=0)
+        return self.client.with_options(timeout=timeout, max_retries=1)
 
     def chat(self, system_prompt: str, user_message: str, response_model=None, *,
              temperature: float | None = None, seed: int | None = None,

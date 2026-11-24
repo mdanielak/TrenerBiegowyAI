@@ -380,3 +380,19 @@ def test_a_wrong_day_before_reference_is_corrected():
     by_date = {w["date"]: w for w in plan["workouts"]}
     assert "dzień przed długim biegiem" in by_date["2026-10-26"]["description"]     # poniedziałek: zgadza się
     assert by_date["2026-10-29"]["description"].startswith("Przed długim biegiem")  # czwartek: w piątek przerwa
+
+
+def test_a_continuous_session_goes_to_the_watch_with_the_main_part_from_the_description():
+    from services.plan import plan_workout_to_garmin
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=75, pace_target=None, hr_zone=4,
+                                name="Bieg progowy 30 min",
+                                description="10 min rozgrzewki, 15 min swobodnego biegu, 30 min biegu progowego, "
+                                            "10 min truchtu i 10 min schłodzenia. Całość 75 min.")])
+    monday = plan["workouts"][0]
+    kind, args = plan_workout_to_garmin(monday)
+    assert monday["duration_min"] == 50 and args["minutes"] == 30  # nie 55 min progu na zegarku
+
+
+def test_a_continuous_session_is_capped_at_the_dose_even_without_a_description():
+    plan = _normalize([_workout("2026-10-26", "threshold", duration_min=70, pace_target=None, hr_zone=4, name="Próg")])
+    assert plan["workouts"][0]["duration_min"] == 50  # 30 min progu + 20 min rozgrzewki i schłodzenia

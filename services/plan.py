@@ -364,6 +364,28 @@ def _space_hard_days(workouts, hard_day_before=None) -> None:
         previous_hard = day
 
 
+# Dawka części głównej ciągłego akcentu (core/04): bieg progowy do ok. 30 min, tempo (maratonu) do ok. 40 min.
+CONTINUOUS_DOSE_MAX = {"threshold": 30, "tempo": 40}
+_MAIN_PART = re.compile(r"(\d{1,2})\s*min\w*\s+(?:\w+\s+){0,2}?(?:biegu\s+progow\w*|progow\w*|w\s+tempie|tempem|"
+                        r"„?komfortowo\s+trudno)", re.IGNORECASE)
+WARMUP_COOLDOWN_MIN = 20  # tyle zegarek dokłada do części głównej tempa i progu (10 + 10 min)
+
+
+def _fit_continuous_quality(workout) -> None:
+    """Zegarek dostaje część główną = czas − 20 min. Gdy opis podaje krótszą część główną albo przekracza dawkę,
+    czas treningu skracamy, żeby zegarek i opis mówiły to samo (wcześniej: opis 30 min progu, zegarek 55 min)."""
+    if workout["type"] not in CONTINUOUS_DOSE_MAX or not workout.get("duration_min"):
+        return
+    main = workout["duration_min"] - WARMUP_COOLDOWN_MIN
+    described = _MAIN_PART.search(str(workout.get("description") or ""))
+    wanted = min(main, int(described.group(1))) if described else main
+    wanted = min(wanted, CONTINUOUS_DOSE_MAX[workout["type"]])
+    if wanted < main and wanted >= 10:
+        workout["duration_min"] = wanted + WARMUP_COOLDOWN_MIN
+        workout["notes"] = _append_note(workout["notes"], (
+            f"Część główna {wanted} min (zegarek: 10 min rozgrzewki, {wanted} min, 10 min schłodzenia)."))
+
+
 _DAY_REFERENCE = re.compile(r"\b([Dd])zień (przed|po) (długim biegiem|długim biegu|akcentem|akcencie|startem|starcie)")
 _REFERENCE_KINDS = {"długim biegiem": ("long",), "długim biegu": ("long",), "akcentem": QUALITY_KINDS,
                     "akcencie": QUALITY_KINDS, "startem": ("race",), "starcie": ("race",)}
@@ -378,10 +400,13 @@ def _fix_day_references(workouts) -> None:
     for index, workout in enumerate(workouts):
         def check(match, index=index):
             neighbour = index + (1 if match.group(2) == "przed" else -1)
-            ok = 0 <= neighbour < len(kinds) and kinds[neighbour] in _REFERENCE_KINDS[match.group(3)]
-            if ok:
+            wanted = _REFERENCE_KINDS[match.group(3)]
+            if 0 <= neighbour < len(kinds) and kinds[neighbour] in wanted:
                 return match.group(0)
             lead = "P" if match.group(1) == "D" else "p"
+            if not any(kind in wanted for kind in kinds):  # np. długi bieg zamieniony przy bólu: odwołanie neutralne
+                return f"{lead}{match.group(2)[1:]} " + ("kolejnym treningiem" if match.group(2) == "przed"
+                                                         else "poprzednim treningu")
             return f"{lead}{match.group(2)[1:]} {match.group(3)}"
         for key in ("description", "notes", "name"):
             if workout.get(key):
@@ -837,6 +862,8 @@ def normalize_plan(response, *, context) -> dict:
     _limit_training_days(workouts, runner)
     _limit_long_run_share(workouts)
     _limit_week_minutes(workouts, runner)
+    for workout in workouts:
+        _fit_continuous_quality(workout)
     _fix_day_references(workouts)
 
     start_date = _field(response, "start_date") or context.get("week_start")
