@@ -10,3 +10,15 @@ trener_biegowy_ai_assets/_originals export-ignore
 trener_biegowy_ai_assets/00_mockups export-ignore
 trener_biegowy_ai_assets/source_sheets export-ignore
 trener_biegowy_ai_assets/_sheet_*.png export-ignore
+
+# Pliki deweloperskie i dokumentacja projektowa — nie trafiają do paczki ZIP wydania.
+.githooks export-ignore
+CLAUDE.md export-ignore
+DESIGN.md export-ignore
+PRODUCT.md export-ignore
+docs export-ignore
+tests export-ignore
+scripts/demo_server.py export-ignore
+scripts/generate_art.py export-ignore
+scripts/rescale_assets.py export-ignore
+scripts/release.py export-ignore

@@ -59,9 +59,11 @@ Jedna osoba na komputer; serwer nasłuchuje tylko na 127.0.0.1.
 - Limit tygodnia: `services/week_decision.py::week_cap` (zwykły tydzień, nie największy). Mocne dni nie stoją obok siebie: `services/plan.py::_space_hard_days`.
 - Komunikat napisany przez aplikację (`services/jobs.py::UserMessageError`) trafia do zadania i na ekran;
   wyjątek z biblioteki nigdy. Surowe błędy dostawców AI zostają w logu na tym komputerze, nigdy w interfejsie.
-- Nowa wersja: podbić `pyproject.toml` i `trainer/__init__.py`, commit „Release X.Y.Z", tag `vX.Y.Z`,
-  `git archive --format=zip --prefix=TrenerBiegowyAI/ -o dist/TrenerBiegowyAI-X.Y.Z.zip vX.Y.Z`,
-  `gh release create` z polskimi notatkami (zip jako asset — z niego korzysta `update.bat`).
+- Nowa wersja: użyj `.venv/bin/python scripts/release.py X.Y.Z --notes-file PLIK` (najpierw `--dry-run`;
+  skrypt sprawdza gałąź `main`, testy, prywatność, podbija `pyproject.toml` i `trainer/__init__.py`,
+  robi commit `Release X.Y.Z`, tag adnotowany `vX.Y.Z`, buduje i weryfikuje `dist/TrenerBiegowyAI-X.Y.Z.zip`
+  przez `git archive`, wypycha zmiany i publikuje wydanie z polskimi notatkami dla `update.bat`/`update.sh`).
+  Zasady tworzenia notatek: `.agents/skills/trener-release/SKILL.md`.
 - Aktualne prompty są wyłącznie w `ai/prompts/`; `docs/TRAINING_RULES.md` to opis dla ludzi i do promptu nie trafia.
 - Progi trenerskie (decyzje tygodnia, taper, przerwy, długi bieg) mają uzasadnienie w `docs/wiedza-trenerska.md`;
   przy zmianie liczby zaktualizuj też ten plik i, w razie potrzeby, sprawdź źródło w sieci.
